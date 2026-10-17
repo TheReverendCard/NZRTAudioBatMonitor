@@ -73,6 +73,24 @@ Reviewed the README, P6P plan, shared handoff and recent commits through 813e351
 
 Created [ESP32 commissioning issue #1](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/1) to track hardware inventory, reproducible firmware, verified ultrasonic capture, sustained SD recording and cross-platform dependencies.  This update changes documentation only; no firmware was built or tested.
 
-Next action: obtain the current ESP32 capture source, toolchain versions and exact board/microphone/wiring configuration.  Establish capture timing, signal response and continuity before integrating a model.  EMT2 results are separate evidence and must not be treated as validation of an ESP32 microphone board.
+Next action: obtain the current ESP32 capture source, toolchain versions and exact hardware/wiring configuration.  Establish capture timing, signal response and continuity before integrating a model.  EMT2 results are separate evidence and must not be treated as validation of an ESP32 microphone board.
 
 Requests for other contributors: coordinate session/event/health metadata and model preprocessing with this workstream, preserve source audio and label provenance, and flag choices that affect ESP32 memory, sustained processing or SD throughput in issue #1.
+
+
+## 2026-10-18:  XIAO + SPH0641 ultrasonic capture baseline validated
+
+Validated the microphone acquisition path described in [XIAO ESP32-S3 + SPH0641LU4H-1 ultrasonic capture baseline](XIAO_SPH0641_CAPTURE.md).
+
+Hardware: Seeed Studio XIAO ESP32-S3 with an SPH0641LU4H-1 breakout based on the open-source [meerstern/SPH0641LU](https://github.com/meerstern/SPH0641LU) KiCad design.  The assembled board uses a 100 nF decoupling capacitor, R1 = 0 ohm to pull SELECT low, and R2 unpopulated.  The upstream breakout project states an MIT licence and is credited in the dedicated capture document and README.
+
+Two independent tests used simultaneous EMT2 recordings as a reference:
+
+- ESP32 hardware PDM-to-PCM at 64 kHz PCM / 4.096 MHz mic clock reproduced the same approximately 25.7 kHz finger-rub feature as the EMT2, with zero XIAO packet gaps.
+- Ordinary I2S/MSB reception used BCLK = 3.072 MHz as a continuous one-bit sampler.  The measured raw stream was 3,068,723 bit/s versus 3,072,000 expected (-0.11%), with 49.997% one-density and zero packet gaps.  Native MSB-first unpacking reproduced the EMT2 approximately 25.7 kHz feature; alternate byte/bit orders did not.
+
+The earlier ESP32-S3 raw-PDM receive experiments produced a persistent approximately 72 kHz framing artefact and are not part of the current design.  The project now uses ordinary I2S/MSB reception for raw PDM acquisition.
+
+Current production direction: 3.072 MHz PDM -> native MSB-first unpacking -> CIC/FIR decimation -> 96 kHz PCM.  Keep 192 kHz as a diagnostic/reference mode until the 96 kHz pipeline is validated.  The 96 kHz target gives a 48 kHz Nyquist limit and is intended to retain the project-relevant pekapeka bands while reducing storage and processing cost.
+
+Next ESP32 actions are no longer basic microphone bring-up.  They are final 32:1 decimation/filter validation, sustained SD capture, outdoor noise/interference testing, power measurement and eventual on-device preprocessing/inference.
