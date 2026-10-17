@@ -6,11 +6,13 @@ The project will collect original ultrasonic recordings, compare detections with
 
 ## Current status
 
-**Planning and initial documentation.**  This repository does not yet contain an Android app, firmware or a validated bat classifier.
+**Capture prototypes validated; field recorder and classifier still in development.**
 
-Previous work outside this repository demonstrated Windows EMT2 capture at 256 kHz, mono, 16-bit PCM.  The user successfully tested a desktop prototype saving WAV, CSV and JSON files.  The EMT2 also works through the user's hub with its existing phone app.  Native capture in our own Android app remains unverified.
+Windows EMT2 capture has been verified at 256 kHz, mono, 16-bit PCM through WASAPI exclusive mode.
 
-The **Pixel 6 Pro is the first field deployment target**.  Desktop tools may support analysis, training and daily reference comparisons.
+On 2026-10-18 the ESP32 workstream also established a reproducible ultrasonic capture baseline using a Seeed Studio XIAO ESP32-S3 and SPH0641LU4H-1.  A 64 kHz hardware-PDM-to-PCM test and a separate 3.072 Mbit/s raw one-bit capture both reproduced the same controlled approximately 25.7 kHz ultrasonic feature recorded simultaneously by the EMT2.  The working full-band raw path uses ordinary I2S/MSB receive mode rather than the ESP32-S3 raw-PDM receive format.  See [XIAO ESP32-S3 + SPH0641LU4H-1 capture baseline](docs/XIAO_SPH0641_CAPTURE.md).
+
+The **Pixel 6 Pro remains the first field deployment target**.  Desktop tools support analysis, training and reference comparisons.  Native capture in our own Android app, sustained ESP32 SD recording and bat-classifier performance remain unverified.
 
 ## Planned field setup
 
@@ -60,10 +62,15 @@ Design towards streaming processing and compact, potentially quantised models fo
 ## Development notes
 
 - [Pixel 6 Pro implementation and field plan](docs/P6P_PLAN.md)
+- [XIAO ESP32-S3 + SPH0641LU4H-1 ultrasonic capture baseline](docs/XIAO_SPH0641_CAPTURE.md)
 - [Shared development log and cross-platform handoff](docs/HANDOFF.md)
 
 Use GitHub issues for actionable work and these documents for durable decisions.  Record what was tested, the hardware/software used, and what remains unverified.
 
+## Hardware acknowledgements
+
+The SPH0641LU4H-1 breakout used for the ESP32 prototype is based on the open-source [meerstern/SPH0641LU](https://github.com/meerstern/SPH0641LU) KiCad design.  The upstream project identifies the board design as MIT licensed.  Credit for that breakout design remains with meerstern and its contributors.
+
 ## Licence
 
-See the [GNU General Public License v3.0](LICENSE).  Third-party code, model weights and datasets may have separate terms that must be checked before incorporation.
+See the [GNU General Public License v3.0](LICENSE).  Third-party hardware designs, code, model weights and datasets may have separate terms that must be checked before incorporation.
