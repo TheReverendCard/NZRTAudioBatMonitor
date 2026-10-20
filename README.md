@@ -63,6 +63,8 @@ Design towards streaming processing and compact, potentially quantised models fo
 
 - [Pixel 6 Pro implementation and field plan](docs/P6P_PLAN.md)
 - [XIAO ESP32-S3 + SPH0641LU4H-1 ultrasonic capture baseline](docs/XIAO_SPH0641_CAPTURE.md)
+- [Recorder power-saving plan and next firmware candidate](docs/POWER_PLAN.md)
+- [Daytime sleep/wake testing without a power meter](docs/SLEEP_TEST.md)
 - [Shared development log and cross-platform handoff](docs/HANDOFF.md)
 
 Use GitHub issues for actionable work and these documents for durable decisions.  Record what was tested, the hardware/software used, and what remains unverified.
