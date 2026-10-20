@@ -27,9 +27,9 @@ Sleep does not physically disconnect the SD or microphone supply.  I2S is stoppe
 - Run the normal mode on the existing always-on USB supply, with Serial Monitor closed for sleep.
 - Check that morning logs finish with the existing summary and session-end records.  Once that shutdown is complete, normal daytime has no SD writes.  Disconnect power before removing the card; reinsert it before restoring power.  The next pre-night warm-up begins five minutes before the configured recording start, so the collection interval ends there rather than at sunset itself.
 - Check the next night's session header for RTC resume/cycle information, a recent NTP result/age and the full active CPU clock.  Confirm it started near the configured schedule and saved valid 96 kHz WAVs with the expected error counters.
-- If convenient, observe a noon sync and the evening wake with the computer clock as a reference.  Over several hours, compare retained-clock time with external time to assess RTC drift.  Do not assume deep sleep has zero drift.
+- If convenient, observe a due adaptive sync and the evening wake with the computer clock as a reference.  Over several hours, compare retained-clock time with external time to assess RTC drift.  Do not assume deep sleep has zero drift.
 
-A valid retained clock permits the night to proceed if that day's Wi-Fi sync fails.  Normal operation attempts noon sync at most three times, fifteen minutes apart, and once in the pre-night window.  If a timer wake cannot validate RTC time/state, it follows the fresh-NTP path.  A full power loss also requires a fresh time source.
+A valid retained clock permits the night to proceed if that day's Wi-Fi sync fails.  Normal operation syncs when its learned deadline is due, with failed attempts bounded to three per local day, fifteen minutes apart.  A deadline during capture is brought forward to the pre-night window.  If a timer wake cannot validate RTC time/state, it follows the fresh-NTP path.  A full power loss also requires a fresh time source.
 
 ## What we can infer without an energy meter
 
