@@ -105,3 +105,12 @@ Imported the existing v1.0.1 XIAO overnight pilot into `firmware/xiao_bat_overni
 Host C++ policy tests passed with `g++ -std=c++11 -Wall -Wextra -Werror`.  Added an Arduino ESP32 3.3.12 build check in GitHub Actions; its outcome must be checked before promotion.  No real board was flashed or measured in this work.  USB reconnection, safe collection indication, noon sync, sunset transition, sustained recording and actual Wh savings remain field acceptance gates.  Sleep and hardware power switching stay separate later requests because they affect timekeeping, power-bank compatibility and peripheral sequencing.
 
 Next action: review the candidate PR, check the Arduino build result, then perform a daylight bench test with current measurement before another overnight comparison.  This does not change the P6P implementation or cross-platform annotation policy.
+
+
+## 2026-10-20:  Prefer daytime deep sleep for the confirmed supply
+
+The owner confirmed always-on USB now and direct battery/solar later.  Power-bank automatic shutoff is no longer a reason to defer sleep.  PR #8 is revised to v1.0.3: scheduled daytime deep sleep, checksum-validated RTC checkpoint/time restoration, bounded noon NTP attempts, a pre-night wake/sync guard, inactive GPIO holds and a short sleep/audio self-test.  The 80 MHz daytime policy remains an optional fallback.  No board is flashed.
+
+Normal cold daytime boot no longer writes a startup WAV; that check is deferred to the pre-night warm-up.  Explicit self-test mode deliberately creates before/after WAVs.  SD is flushed/closed/unmounted at morning shutdown and remains untouched during normal daytime sleep/sync.  The mic and SD supplies are not physically switched by the present wiring.
+
+[The no-meter test guide](SLEEP_TEST.md) distinguishes functional proof from energy measurement.  RTC time normally survives deep sleep; power loss is different.  A hypothetical 20 s/0.5 W sync costs about 0.0028 Wh, so occasional reacquisition does not by itself outweigh hours of sleep.  Actual sleep current and power savings remain unmeasured.  Updated host tests and both Arduino build modes must pass before the revised candidate is offered for bench testing.

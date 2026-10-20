@@ -1,12 +1,13 @@
 /*
-XIAO bat overnight pilot v1.0.2 candidate
+XIAO bat overnight pilot v1.0.3 sleep candidate
 Target: Arduino ESP32 3.3.12, XIAO ESP32S3, OPI PSRAM, USB CDC On Boot.
 
 EDIT WIFI_SSID and WIFI_PASSWORD BELOW before uploading. Use a 2.4GHz network.
 Coordinates are approximate Maunu, not a surveyed property location.
 
-Startup: connect WiFi and obtain fresh NTP time; mount/check SD; record a
-10-second startup WAV; save; enter daytime idle or the overnight schedule.
+Cold boot: obtain NTP time. In daytime, leave SD unmounted and sleep.
+Before the next night, mount/check SD and save a10-second startup WAV.
+Timer wake: validate retained RTC time/state; skip a new boot recording.
 At night: monitor from sunset minus 20 minutes until sunrise. Save candidate
 ultrasonic events plus a fixed 10-second sample every 5 minutes (and at start).
 Triggered WAVs include up to 0.5s pretrigger, extend 3s after the last candidate,
@@ -19,24 +20,23 @@ LED (active-low user LED GPIO21, not the charge LED):
   one short flash / 2s: listening, awaiting event
   two short flashes / 2s: recording into RAM
   solid: SD work or microphone startup/calibration
-  three short flashes / 3s: DAYTIME SAFE, card unmounted
+  three short flashes before sleep: DAYTIME SAFE, card unmounted
+  LED off while daytime deep-sleeping; Serial Monitor holds normal mode awake
   four short flashes / 2s: WiFi/time sync in progress
   fast continuous flashing: fault (time, SD or capture); automatic retries
 
-DAYTIME COLLECTION: wait for the three-flash safe indication, disconnect power,
-remove SD, copy files, safely eject from computer, replace SD, reconnect power.
-WiFi must be reachable again after power loss. Never remove SD while solid or
-one/two flashes. Daytime safe performs no SD operations until the next session.
-No deep sleep. Safe daytime idle may reduce CPU frequency to80MHz.
-The boot-selected CPU frequency is restored before WiFi, SD or audio work.
-Connecting Serial Monitor keeps the CPU at its active frequency. Use a
-powerbank that stays on at low loads; measure before assuming longer runtime.
+DAYTIME COLLECTION: after scheduled sunrise shutdown, normal daytime has no
+SD writes. Disconnect power before removing SD; reinsert before reconnecting.
+A cold daytime boot syncs time but defers its SD/audio check to the pre-night
+warm-up. Explicit SLEEP_SELF_TEST mode is a bench test and DOES write test WAVs.
+The supply is assumed always-on USB now, direct battery/solar later.
 
-Clock: sync at boot, then daily from local noon while idle; failed daily syncs
-retry every15min until monitoring starts. If a daily sync fails, keep the running
-clock and log its last sync. After reset, require a NEW successful sync; no guessed
-calendar dates. UTC filenames/logs; NZ local time only for schedule/status.
-Radio is disabled before audio capture. No web interface or LoRa transmission.
+Clock: ESP32 RTC normally retains wall time through deep sleep. Validate a
+small retained checkpoint on timer wake; cold/brownout/untrusted wake needs
+fresh NTP. Wake for noon sync (up to3 attempts/day,15min apart) and5min before
+monitoring for one pre-night sync. Failure with valid retained time does not
+prevent recording. RTC drift is measured, not assumed zero. Radio is disabled
+before audio. No web interface or LoRa transmission.
 
 Files: /night_YYYYMMDDTHHMMSSZ_NNN/ or /startup_.../ with session.txt and WAVs.
 CSV-like key=value logs: schedule, reset cause, time-sync state, events, payload
@@ -73,7 +73,14 @@ constexpr uint32_t MAX_CLIP_SECONDS = 10;
 constexpr uint32_t POST_EVENT_SECONDS = 3;
 constexpr float TRIGGER_RMS_MULTIPLIER = 2.0f;
 constexpr float MIN_TRIGGER_RMS = 4.0f;
-constexpr bool ENABLE_DAYTIME_CPU_REDUCTION = true;
+// Normal field mode: sleep in daytime; attach Serial Monitor to hold awake.
+constexpr bool ENABLE_DAYTIME_SLEEP = true;
+constexpr uint32_t PRE_NIGHT_WAKE_SECONDS = 300;
+constexpr uint32_t MAX_NOON_SYNC_ATTEMPTS = 3;
+#ifndef SLEEP_SELF_TEST
+#define SLEEP_SELF_TEST 0 // 1 = explicit 3-cycle bench test, NOT a field recording mode
+#endif
+constexpr bool ENABLE_DAYTIME_CPU_REDUCTION = true; // fallback when sleep is disabled
 constexpr uint32_t DAYTIME_CPU_MHZ = 80;
 const char *NZ_TIMEZONE = "NZST-12NZDT,M9.5.0/2,M4.1.0/3";
 // ===============================================================
@@ -380,6 +387,9 @@ static bool enterRawSampler() {
 #include "esp_sntp.h"
 #include "esp32-hal-cpu.h"
 #include "CpuPowerPolicy.h"
+#include "SleepPolicy.h"
+#include "esp_sleep.h"
+#include "driver/gpio.h"
 #include "esp_system.h"
 
 constexpr int SD_CS=43, STATUS_LED=21;
@@ -421,6 +431,15 @@ int lastAttemptDate=-1;
 int lastReadError=0;
 CpuPowerPolicy cpuPower;
 bool powerFault=false;
+RTC_DATA_ATTR RecorderSleep::Checkpoint retainedSleep;
+bool resumedFromSleep=false,rtcResumeRejected=false;
+uint32_t sleepCycles=0,testStage=0;
+bool sleepTestCompleted=false;
+int noonSyncDate=-1;
+uint32_t noonSyncAttempts=0;
+time_t preNightSyncStart=0;
+int64_t lastSleepDurationSeconds=0;
+uint32_t lastSyncDurationMs=0;
 
 bool requestActiveCpu() {
   bool ok=cpuPower.requireActive([](){return getCpuFrequencyMhz();},
@@ -446,23 +465,27 @@ void pattern(unsigned pulses,unsigned period) {
 void showFault(){led(millis()%200<100);}
 void printStatus() {
   if(!Serial || micRunning)return;
-  Serial.println("\nXIAO overnight v1.0.2 candidate STATUS (credentials are not printed)");
+  Serial.println("\nXIAO overnight v1.0.3 sleep candidate STATUS (credentials are not printed)");
 #if defined(ARDUINO_USB_CDC_ON_BOOT)
   Serial.printf("USB_CDC_ON_BOOT=%d\n",ARDUINO_USB_CDC_ON_BOOT);
 #endif
   Serial.printf("CPU MHz=%u active=%u idle_target=%u daytime_reduction=%d transitions=%u transition_failures=%u power_fault=%d\n",
                 getCpuFrequencyMhz(),cpuPower.activeMHz(),cpuPower.idleMHz(),cpuPower.enabled(),cpuPower.attempts(),cpuPower.failures(),powerFault);
+  Serial.printf("SLEEP enabled=%d self_test=%d rtc_resume=%d cycles=%u last_sleep_seconds=%lld test_stage=%u test_complete=%d noon_attempts=%u last_sync_ms=%u\n",
+                ENABLE_DAYTIME_SLEEP,SLEEP_SELF_TEST,resumedFromSleep,(unsigned)sleepCycles,(long long)lastSleepDurationSeconds,(unsigned)testStage,sleepTestCompleted,(unsigned)noonSyncAttempts,(unsigned)lastSyncDurationMs);
   Serial.printf("PSRAM total=%u free=%u ring_allocated=%d clip_allocated=%d\n",(unsigned)ESP.getPsramSize(),(unsigned)ESP.getFreePsram(),ring!=nullptr,clip!=nullptr);
   bool missingName=!strcmp(WIFI_SSID,"YOUR_WIFI_NAME") || !strlen(WIFI_SSID);
   bool missingPassword=!strcmp(WIFI_PASSWORD,"YOUR_WIFI_PASSWORD");
   Serial.printf("SSID_needs_edit=%d PASSWORD_needs_edit=%d config_fault=%d\n",missingName,missingPassword,fatalConfig);
-  Serial.printf("Clock_synced_this_boot=%d last_sync_attempt_ok=%d failed_sync_attempts=%u WiFi_status=%d\n",clockKnown,lastSyncAttemptOK,(unsigned)failedSyncs,(int)WiFi.status());
+  Serial.printf("Clock_known=%d boot_time_source=%s rtc_resume_rejected=%d last_sync_attempt_ok=%d failed_sync_attempts=%u WiFi_status=%d\n",clockKnown,resumedFromSleep?"RTC_RESUME":"NTP_THIS_BOOT",rtcResumeRejected,lastSyncAttemptOK,(unsigned)failedSyncs,(int)WiFi.status());
   Serial.printf("Startup_test_done=%d SD_mounted=%d storage_fault=%d session_failed=%d\n",bootTestDone,sdMounted,storageFault,sessionFailed);
   if(fatalConfig) {
     if(missingName || missingPassword)Serial.println("CONFIG FAULT: replace WiFi placeholders in sketch and upload again.");
     if(!ring || !clip)Serial.println("CONFIG FAULT: PSRAM allocation failed. Select Tools > PSRAM > OPI PSRAM and upload again.");
     if(!missingName && !missingPassword && ring && clip)Serial.println("CONFIG FAULT: check latitude, longitude and maximum clip settings.");
   }
+  char localNow[40];time_t stamp=time(nullptr);struct tm tmNow;localtime_r(&stamp,&tmNow);strftime(localNow,sizeof(localNow),"%Y-%m-%d %H:%M:%S %Z",&tmNow);
+  Serial.printf("Clock_local=%s epoch=%lld\n",localNow,(long long)stamp);
   Serial.println("Send s for status while idle, synchronising or waiting after a fault.");
 }
 void serviceSerial() {
@@ -510,6 +533,7 @@ bool syncClock() {
   if(!requestActiveCpu()){lastSyncAttemptOK=false;failedSyncs++;lastAttemptBootUs=esp_timer_get_time();return false;}
   // Only while microphone stopped and SD unmounted. Never print credentials.
   lastAttemptBootUs=esp_timer_get_time();syncNotification.store(false);
+  uint32_t syncBegin=millis();
   WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(false);WiFi.begin(WIFI_SSID,WIFI_PASSWORD);
   uint32_t start=millis();
   while(WiFi.status()!=WL_CONNECTED && uint32_t(millis()-start)<20000){serviceSerial();pattern(4,2000);delay(50);}
@@ -527,6 +551,8 @@ bool syncClock() {
   else failedSyncs++;
   lastAttemptEpoch=clockKnown?now:0;
   if(clockKnown)lastAttemptDate=dateKey(now);
+  lastSyncDurationMs=millis()-syncBegin;
+  if(Serial)Serial.printf("NTP result=%s elapsed_ms=%u utc_epoch=%lld\n",lastSyncAttemptOK?"OK":"FAIL",(unsigned)lastSyncDurationMs,(long long)now);
   return lastSyncAttemptOK;
 }
 
@@ -669,8 +695,9 @@ bool openSession(const char *kind,time_t scheduleStart,time_t scheduleEnd) {
   clipped=maxProcessUs=overBudget=captureErrors=0;clipSequence=eventClips=periodicClips=0;
   gapNumber=0;gapStartUs=gapEndUs=gapTotalUs=0;totalSamples=0;sessionPeakPower=0;clipCount=0;
   anchorClock();
+  logLine("SLEEP rtc_resume=%d cycles=%u last_sleep_seconds=%lld self_test=%d test_stage=%u last_ntp_ms=%u",resumedFromSleep,(unsigned)sleepCycles,(long long)lastSleepDurationSeconds,SLEEP_SELF_TEST,(unsigned)testStage,(unsigned)lastSyncDurationMs);
   logLine("POWER cpu_mhz=%u active_cpu_mhz=%u daytime_cpu_mhz=%u daytime_reduction=%d clock_switch_failures=%u",getCpuFrequencyMhz(),cpuPower.activeMHz(),cpuPower.idleMHz(),cpuPower.enabled(),cpuPower.failures());
-  logLine("XIAO bat overnight pilot v1.0.2 candidate kind=%s reset_reason=%s reset_code=%d boot_us=%llu",kind,resetReasonName(),(int)esp_reset_reason(),(unsigned long long)esp_timer_get_time());
+  logLine("XIAO bat overnight pilot v1.0.3 sleep candidate kind=%s reset_reason=%s reset_code=%d boot_us=%llu",kind,resetReasonName(),(int)esp_reset_reason(),(unsigned long long)esp_timer_get_time());
   logLine("AUDIO fs=96000 channels=1 bits=16 gain=8 cic3_decimation=16 fir_taps=127 fir_cutoff_hz=43000 sd_spi_hz=4000000");
   logLine("DETECTOR experimental_highpass_20k rms_multiplier=%.2f min_rms=%.2f window_samples=512 windows_required=1",TRIGGER_RMS_MULTIPLIER,MIN_TRIGGER_RMS);
   logLine("RECORD pretrigger_samples=%u post_event_seconds=%u max_seconds=%u periodic_seconds=%u periodic_clip_seconds=%u",(unsigned)(PRE),(unsigned)(POST_EVENT_SECONDS),(unsigned)(MAX_CLIP_SECONDS),(unsigned)(PERIODIC_SECONDS),(unsigned)(PERIODIC_CLIP_SECONDS));
@@ -836,11 +863,129 @@ void printSchedule(time_t a,time_t b) {
   char x[40],y[40];localText(a,x,sizeof(x));localText(b,y,sizeof(y));
   Serial.printf("Scheduled listening: %s until %s\n",x,y);
 }
+
+// Hold only the existing digital outputs. No assumed switched peripheral rail.
+const gpio_num_t SLEEP_HELD_PINS[]={GPIO_NUM_3,GPIO_NUM_7,GPIO_NUM_9,GPIO_NUM_21,GPIO_NUM_41,GPIO_NUM_43};
+void releaseSleepPins() {
+  for(gpio_num_t pin:SLEEP_HELD_PINS) {
+    pinMode((int)pin,OUTPUT);
+    digitalWrite((int)pin,(pin==GPIO_NUM_21 || pin==GPIO_NUM_41 || pin==GPIO_NUM_43)?HIGH:LOW);
+  }
+  gpio_deep_sleep_hold_dis();
+  for(gpio_num_t pin:SLEEP_HELD_PINS)gpio_hold_dis(pin);
+}
+void restoreSleepState() {
+  time_t now=time(nullptr);
+  bool timer=esp_reset_reason()==ESP_RST_DEEPSLEEP && esp_sleep_get_wakeup_cause()==ESP_SLEEP_WAKEUP_TIMER;
+  if(!RecorderSleep::valid(retainedSleep,now,timer,SLEEP_SELF_TEST)) {
+    rtcResumeRejected=timer;
+    retainedSleep=RecorderSleep::Checkpoint{};
+    return; // Cold reset/untrusted time follows the normal NTP path.
+  }
+  resumedFromSleep=true;clockKnown=true;
+  bootTestDone=retainedSleep.bootTestDone;
+  lastSyncEpoch=(time_t)retainedSleep.lastSyncEpoch;
+  lastAttemptEpoch=(time_t)retainedSleep.lastAttemptEpoch;
+  lastAttemptDate=retainedSleep.lastAttemptDate;
+  lastSyncAttemptOK=retainedSleep.lastSyncOK;
+  failedSyncs=retainedSleep.failedSyncs;
+  noonSyncDate=retainedSleep.noonDate;noonSyncAttempts=retainedSleep.noonAttempts;
+  preNightSyncStart=(time_t)retainedSleep.preSyncStart;
+  sleepCycles=retainedSleep.cycles;testStage=retainedSleep.testStage;
+  sleepTestCompleted=retainedSleep.testCompleted;
+  lastSleepDurationSeconds=(int64_t)now-retainedSleep.sleepEpoch;
+  // Boot-relative microsecond anchors cannot be carried through deep sleep.
+  lastSyncBootUs=lastAttemptBootUs=0;anchorClock();
+}
+bool sleepUntil(time_t wake,bool forceForTest) {
+  time_t now=time(nullptr);
+  if(wake<=now+2 || wake-now>6*3600 || !clockKnown || fatalConfig || sessionFailed || storageFault || powerFault)return false;
+  if(Serial && !forceForTest)return false;
+  // Never enter sleep with an open recording or log. Morning closeSession()
+  // flushes/closes the log and SD before this path can be reached.
+  if(micRunning || sdMounted || logFile)return false;
+  stopMic();esp_sntp_stop();WiFi.disconnect(true,false);WiFi.mode(WIFI_OFF);
+  SPI.end();
+  retainedSleep=RecorderSleep::Checkpoint{};
+  retainedSleep.sleepEpoch=now;retainedSleep.wakeEpoch=wake;
+  retainedSleep.lastSyncEpoch=lastSyncEpoch;retainedSleep.lastAttemptEpoch=lastAttemptEpoch;
+  retainedSleep.lastAttemptDate=lastAttemptDate;retainedSleep.lastSyncOK=lastSyncAttemptOK;
+  retainedSleep.bootTestDone=bootTestDone;retainedSleep.failedSyncs=failedSyncs;
+  retainedSleep.noonDate=noonSyncDate;retainedSleep.noonAttempts=noonSyncAttempts;
+  retainedSleep.preSyncStart=preNightSyncStart;retainedSleep.cycles=sleepCycles+1;
+  retainedSleep.testStage=testStage;retainedSleep.testCompleted=sleepTestCompleted;
+  retainedSleep.testMode=SLEEP_SELF_TEST;
+  RecorderSleep::seal(retainedSleep);
+  if(Serial) {
+    Serial.printf("SLEEP_ENTER utc_epoch=%lld wake_epoch=%lld seconds=%lld cycle=%u sd_unmounted=1 mic_stopped=1 radio_off=1\n",
+                  (long long)now,(long long)wake,(long long)(wake-now),(unsigned)retainedSleep.cycles);
+    Serial.flush();
+  }
+  // Brief safe indication only; no continuously powered status LED in sleep.
+  for(unsigned i=0;i<3;i++){led(true);delay(70);led(false);delay(130);}
+  for(gpio_num_t pin:SLEEP_HELD_PINS) {
+    pinMode((int)pin,OUTPUT);
+    digitalWrite((int)pin,(pin==GPIO_NUM_21 || pin==GPIO_NUM_41 || pin==GPIO_NUM_43)?HIGH:LOW);
+    gpio_hold_en(pin);
+  }
+  gpio_deep_sleep_hold_en();
+  time_t remaining=wake-time(nullptr);
+  esp_err_t err=remaining>1?esp_sleep_enable_timer_wakeup((uint64_t)remaining*1000000ULL):ESP_ERR_INVALID_ARG;
+  if(err!=ESP_OK) {
+    releaseSleepPins();SPI.begin(7,8,9,SD_CS);retainedSleep.magic=0;
+    if(Serial)Serial.printf("SLEEP_FAULT timer_error=%d\n",(int)err);
+    return false;
+  }
+  esp_deep_sleep_start();
+  return false; // ESP32 timer wake re-enters setup(), not this function.
+}
+void maybeSleepDaytime(time_t now,time_t start) {
+  if(!ENABLE_DAYTIME_SLEEP || Serial)return;
+  struct tm local;localtime_r(&now,&local);
+  time_t noon=0,retry=0;
+  if(local.tm_hour<12) {
+    local.tm_hour=12;local.tm_min=local.tm_sec=0;local.tm_isdst=-1;noon=mktime(&local);
+  } else if(noonSyncDate!=dateKey(now) || noonSyncAttempts<MAX_NOON_SYNC_ATTEMPTS) {
+    if(noonSyncDate!=dateKey(now) || noonSyncAttempts==0)retry=now; // due task: stay awake
+    else if(!lastSyncAttemptOK)retry=lastAttemptEpoch+900;
+  }
+  time_t wake=(time_t)RecorderSleep::wakeAt(now,start,noon,retry,PRE_NIGHT_WAKE_SECONDS);
+  if(wake)sleepUntil(wake,false);
+}
+void runSleepSelfTest(time_t start,time_t end) {
+  // Explicit bench-only mode: two test WAVs with three 30-second sleeps between.
+  // USB data can disconnect in sleep. Test result is also retained in the final SD log.
+  static uint32_t awakeSince=millis();
+  if(!testStage) {
+    if(!bootTestDone)return;
+    testStage=1;
+  }
+  if(sleepCycles<3) {
+    if(Serial) {
+      static bool announced=false;
+      if(!announced){Serial.printf("SELF_TEST awake cycle=%u rtc_resume=%d utc_epoch=%lld; sleeping in10s\n",(unsigned)sleepCycles,resumedFromSleep,(long long)time(nullptr));announced=true;}
+    }
+    pattern(3,3000);
+    if(uint32_t(millis()-awakeSince)>=10000)sleepUntil(time(nullptr)+30,true);
+    return;
+  }
+  if(!sleepTestCompleted) {
+    bool ok=openSession("sleep_check",start,end);
+    if(ok){ok=enterAudible();stopMic();if(ok)ok=startupRecording();}
+    if(ok)logLine("SELF_TEST PASS cycles=%u rtc_resume=%d time_retained=1 post_sleep_wav=1",(unsigned)sleepCycles,resumedFromSleep);
+    else logLine("SELF_TEST FAIL cycles=%u post_sleep_wav=0",(unsigned)sleepCycles);
+    closeSession(ok?"sleep_self_test_pass":"sleep_self_test_fail");
+    sleepTestCompleted=true;sessionFailed=!ok;
+  }
+  if(sessionFailed)showFault();else pattern(3,3000);
+}
 void setup() {
+  releaseSleepPins();
   cpuPower.begin(getCpuFrequencyMhz(),DAYTIME_CPU_MHZ,ENABLE_DAYTIME_CPU_REDUCTION);
   Serial.begin(115200);pinMode(STATUS_LED,OUTPUT);led(false);
   pinMode(41,OUTPUT);digitalWrite(41,HIGH);pinMode(SD_CS,OUTPUT);digitalWrite(SD_CS,HIGH);
   SPI.begin(7,8,9,SD_CS);setenv("TZ",NZ_TIMEZONE,1);tzset();
+  restoreSleepState();
   WiFi.persistent(false);WiFi.mode(WIFI_OFF);
   ring=(int16_t*)heap_caps_malloc(PRE*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
   clip=(int16_t*)heap_caps_malloc(CLIP*2,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
@@ -858,7 +1003,7 @@ void loop() {
   }
   time_t now=time(nullptr),start=0,end=0;
   if(!nightWindow(now,start,end)){if(Serial)Serial.println("FAULT: solar schedule calculation");timedWait(30000,true);return;}
-  if(!bootTestDone) {
+  if(!bootTestDone && (SLEEP_SELF_TEST || now>=start-(time_t)PRE_NIGHT_WAKE_SECONDS)) {
     printSchedule(start,end);
     bool ok=openSession("startup",start,end);
     if(ok) {
@@ -871,6 +1016,7 @@ void loop() {
     bootTestDone=true;
     now=time(nullptr);if(!nightWindow(now,start,end)){timedWait(30000,true);return;}
   }
+  if(SLEEP_SELF_TEST){runSleepSelfTest(start,end);return;}
   if(now>=start && now<end) {
     bool ok=openSession("night",start,end);
     if(ok)ok=monitorNight(end);
@@ -879,15 +1025,24 @@ void loop() {
     if(sessionFailed){if(Serial)Serial.println("NIGHT FAULT: restarting session in30s; inspect logs.");timedWait(30000,true);}
     return;
   }
-  // Daytime: SD is unmounted and untouched. WiFi alone may run at noon.
+  // Normal daytime never mounts/writes SD; cold boot's audio test is deferred.
   struct tm local;localtime_r(&now,&local);
-  bool newDay=dateKey(now)!=lastAttemptDate;
-  bool retryFailed=!lastSyncAttemptOK && uint64_t(esp_timer_get_time()-lastAttemptBootUs)>=900ULL*1000000;
-  if(local.tm_hour>=12 && (newDay || retryFailed)) {
-    syncClock(); // Running clock remains usable if this daily attempt fails.
-    now=time(nullptr);if(nightWindow(now,start,end))printSchedule(start,end);
+  if(local.tm_hour>=12) {
+    if(noonSyncDate!=dateKey(now)){noonSyncDate=dateKey(now);noonSyncAttempts=0;}
+    bool retryDue=noonSyncAttempts==0 || (!lastSyncAttemptOK && now-lastAttemptEpoch>=900);
+    if(noonSyncAttempts<MAX_NOON_SYNC_ATTEMPTS && retryDue) {
+      noonSyncAttempts++;syncClock();
+      now=time(nullptr);if(!nightWindow(now,start,end)){timedWait(30000,true);return;}
+    }
   }
+  if(now>=start-(time_t)PRE_NIGHT_WAKE_SECONDS && preNightSyncStart!=start) {
+    preNightSyncStart=start;syncClock();
+    now=time(nullptr);if(!nightWindow(now,start,end)){timedWait(30000,true);return;}
+  }
+  // Re-enter the schedule immediately if an NTP step crossed the start time.
+  if(now>=start && now<end)return;
   if(sessionFailed || powerFault)showFault();else pattern(3,3000);
+  maybeSleepDaytime(now,start);
   updateDaytimeCpu();
   delay(50);
 }

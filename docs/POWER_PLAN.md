@@ -7,52 +7,45 @@
 | Priority | Feature request | Expected benefit and constraint |
 | --- | --- | --- |
 | P1 | [Measure the complete 24-hour energy budget #2](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/2) | Establish Wh/day and peak current before selecting the battery or claiming savings. |
-| P1, selected next | [Reduce daytime idle CPU frequency #3](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/3) | Small firmware change; reduces CPU activity cost during daylight while retaining the existing collection and USB workflow.  Savings need measurement. |
-| P2 | [Scheduled daytime sleep #4](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/4) | Likely greater daytime saving; requires reliable wake-up, RTC/time trust, collection indication and power-bank compatibility. |
+| Fallback | [Reduce daytime idle CPU frequency #3](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/3) | Optional fallback when sleep is disabled.  Scheduled sleep is now the preferred candidate for the always-on supply and eventual battery/solar design. |
+| P1, selected next | [Scheduled daytime sleep #4](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/4) | Likely greater daytime saving; requires reliable wake-up, RTC/time trust, collection indication and power-bank compatibility. |
 | P2 | [Peripheral standby audit and power switching #5](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/5) | Addresses SD, mic, regulator and LED loads that CPU changes alone cannot remove.  Hardware-dependent. |
 | P3 | [Night DSP and active-clock benchmarking #6](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/6) | Targets continuous overnight energy without losing pretrigger or introducing unrecorded listening gaps. |
 | P3 | [Battery health and energy-aware telemetry #7](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/7) | Supports safe unattended battery/solar operation and measured reserve planning. |
 
 Wi-Fi is already disabled before capture and used only for clock synchronisation.  No new radio saving is claimed for doing that again.  Reducing event file counts is not assumed to remove the continuous microphone and DSP cost.  Do not add intermittent listening or remove audit samples to manufacture a lower power figure.
 
-## Selected v1.0.2 candidate
+## Selected v1.0.3 candidate: daytime deep sleep
 
-The candidate in `firmware/xiao_bat_overnight` imports the existing project v1.0.1 overnight sketch and adds a small, configurable daytime CPU policy.  The source is prepared for the next firmware update; it is not deployed and has no measured power or real-board validation yet.
+The supply is confirmed always-on USB, with direct battery/solar intended later.  Power-bank shutoff is not a deployment constraint for this candidate.  The previous clock-reduction-only approach is superseded by scheduled deep sleep; 80 MHz idle remains a fallback when sleep is explicitly disabled.
 
-After the startup test, outside the night recording window, the CPU may reduce to 80 MHz only when:
+Normal mode now stops microphone/I2S and SPI, keeps SD unmounted, turns Wi-Fi off, holds microphone clock/SPI outputs in inactive states, and deep-sleeps with the LED off.  The normal daytime collection interval performs no SD writes, including after a cold daytime boot; the first audio/SD startup check is deferred to the pre-night warm-up.  The explicit bench self-test is an intentional exception.
 
-- The clock is known and no configuration, session, storage or CPU-restoration fault is active.
-- I2S/microphone capture is stopped, SD is unmounted, no log is open and the radio is off.
-- Serial Monitor is disconnected.
+A small checksum-protected RTC-memory checkpoint carries the clock's provenance, boot-test state, last sync information and sleep/test counters.  Only a valid timer wake accepts it.  Wall time normally continues through sleep using the ESP32 RTC.  Cold/power-loss or invalid-checkpoint wake follows the fresh-NTP path.  New boot-relative timing anchors are established after wake.
 
-The boot-selected active frequency is restored and checked before every Wi-Fi/NTP attempt and SD/session start.  Restoration failure defers that work and produces a fault indication.  The policy reads back the resulting clock and records switch attempts/failures.  It does not keep switching the clock every loop when the requested state is already active.  Serial Monitor connection requests the active clock, so take power measurements without a serial connection.
+The unit wakes for noon sync and five minutes before the configured recording start, with a maximum six-hour sleep chunk.  Noon sync retries are bounded to three attempts fifteen minutes apart; there is one pre-night sync attempt.  A failed sync does not discard valid retained time or block the night.  RTC drift and wake margin need functional field checking.
 
-The implementation deliberately does not enter sleep, reduce the night clock, change the 3.072 MHz PDM clock, 96 kHz PCM, DSP/filter, event thresholds, clip lengths, pretrigger or five-minute periodic samples.  It leaves the three-flash daytime collection indication and existing power-off-before-removing-SD instructions intact.  80 MHz is not deep sleep; powered peripherals, CPU-independent loads and conversion losses remain.
+The SD module and microphone remain electrically powered because no switched supply has been established.  This firmware shuts down their activity/interfaces.  Hardware power switching remains issue #5.
 
-Settings:
+Key settings:
 
 ```cpp
-constexpr bool ENABLE_DAYTIME_CPU_REDUCTION = true;
-constexpr uint32_t DAYTIME_CPU_MHZ = 80;
+constexpr bool ENABLE_DAYTIME_SLEEP = true;
+constexpr uint32_t PRE_NIGHT_WAKE_SECONDS = 300;
+#define SLEEP_SELF_TEST 0
 ```
 
-Set the enable flag to false for an A/B comparison or to disable this feature without changing the capture configuration.  Keep the running v1.0.1 recorder as the reference until compilation and real-board checks pass.  Do not update a recorder in the middle of a field night.
+An open Serial Monitor holds normal operation awake for inspection.  The separate short self-test intentionally sleeps despite a connected monitor, records before/after WAVs and reports the retained state and clock path.  See [SLEEP_TEST.md](SLEEP_TEST.md) for a roughly three-minute functional test and a full day/night check that do not require a power meter.
 
-## Verification before promotion
+The continuous night capture loop, microphone/PCM rates, filter, trigger, pretrigger and audit sampling are unchanged.  The original morning close/flush/unmount sequence is completed before entering sleep.  GPIO holds are released and the hardware is reinitialised on wake.
 
-The host C++ policy test exercises a normal idle/active cycle, repeated idle updates, USB/unsafe-state restoration, 160 MHz boot-frequency restoration, disabled reduction, no-op 80 MHz configuration, invalid sub-80 MHz idle settings, refused switches and mismatched readback.  It does not simulate the ESP32 peripheral drivers or establish USB/timekeeping correctness.
+## Verification and remaining measurement
 
-The added CI workflow builds the whole sketch using Arduino ESP32 3.3.12, XIAO ESP32S3, OPI PSRAM, hardware CDC/JTAG, CDC enabled, 240 MHz and 8 MB flash.  A passing compile is required; it does not replace hardware tests.  If using a different USB mode, compile and test that mode separately.
+Host tests cover daytime wake planning, due/retry tasks, the pre-night guard, bounded sleep length, cold-wake rejection, invalid RTC time, checksum corruption, field/test-mode changes and deferred startup-test state.  CPU-clock fallback tests remain.  CI compiles both normal and short self-test modes with Arduino ESP32 3.3.12, OPI PSRAM, hardware CDC/JTAG and USB CDC enabled.
 
-On the actual board, verify:
+No real device has been flashed or measured here.  Successful functional tests can establish sleep/wake, retained time, file integrity and resumed recording without a current meter.  They cannot quantify complete-system Wh/day.  The measurement issue stays open, but it does not block beginning functional sleep tests.
 
-1. Boot/NTP and the startup WAV; inspect audio, hashes and existing error counters.
-2. Daytime disconnected from USB data: safe indication, reduced CPU state and lower measured current.  Status after USB connection should report the restored active frequency and nonzero transition count.
-3. Noon NTP success/failure, repeat retries, USB reconnect and clock restoration before SD remount.
-4. Day-to-night transition at the configured schedule, then a complete night.  Confirm the full active CPU clock in the session POWER line, sample continuity, no new capture errors and valid 96 kHz WAVs.
-5. Compare at least a full night plus daylight with reduction disabled/enabled, reporting Wh and supply details.  Reject the candidate if the power bank shuts off or capture/USB reliability changes.
-
-No battery life or saving percentage is established until that measurement is complete.
+The earlier 5–10 Wh/day planning range is not revised into a lower claimed figure yet.  A hypothetical 20-second sync at 0.5 W costs only 0.0028 Wh; even four 35-second attempts at 1 W cost about 0.039 Wh/day, versus the previously assumed 1.2–3 Wh awake daytime budget.  Actual savings depend on the peripherals and regulator that remain powered.
 
 ## Sources and credits
 
