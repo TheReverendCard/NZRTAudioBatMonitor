@@ -42,3 +42,9 @@ For comparison, the earlier assumed awake daytime load of 0.1–0.25 W over twel
 ESP32's default RTC/system-time mechanism normally retains wall time through deep sleep.  Power-on reset loses it.  Clock drift, especially with the internal RC source and temperature changes, is the practical issue to test; reacquiring Wi-Fi after every ordinary timer wake is not required by the design.
 
 Sources:  [ESP32-S3 system time](https://docs.espressif.com/projects/esp-idf/en/v5.2/esp32s3/api-reference/system/system_time.html), [sleep and RTC-memory retention](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32s3/api-reference/system/sleep_modes.html).
+
+## USB meter comparison
+
+Use the same supply, cable and meter for each comparison, with only the recorder downstream.  Disconnect Serial Monitor for normal daytime sleep.  Reset accumulated Wh if the meter supports it; otherwise photograph its starting and ending Wh and timer readings.  Compare a full 24-hour baseline with a full 24-hour sleep-enabled run under similar recording conditions.  Daily energy is the difference in Wh; average watts are Wh divided by elapsed hours.  A brief instantaneous current reading does not establish daily energy, and inexpensive meters may round sleeping current to zero.  Record a separate 15-minute daytime comparison and note WiFi sync duration from the log.
+
+For adaptive sync, collect CLOCK log entries across several days.  Confirm cold power-up always syncs, timer wakes retain the interval, and low measured drift extends the interval beyond a day.  Deadlines during a recording night are brought forward to the pre-night guard.  Compare correction_seconds against the five-second target.  Large new drift must shorten the next interval.  These checks require the physical board; host tests cannot establish actual RTC drift.

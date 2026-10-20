@@ -114,3 +114,5 @@ The owner confirmed always-on USB now and direct battery/solar later.  Power-ban
 Normal cold daytime boot no longer writes a startup WAV; that check is deferred to the pre-night warm-up.  Explicit self-test mode deliberately creates before/after WAVs.  SD is flushed/closed/unmounted at morning shutdown and remains untouched during normal daytime sleep/sync.  The mic and SD supplies are not physically switched by the present wiring.
 
 [The no-meter test guide](SLEEP_TEST.md) distinguishes functional proof from energy measurement.  RTC time normally survives deep sleep; power loss is different.  A hypothetical 20 s/0.5 W sync costs about 0.0028 Wh, so occasional reacquisition does not by itself outweigh hours of sleep.  Actual sleep current and power savings remain unmeasured.  Updated host tests and both Arduino build modes must pass before the revised candidate is offered for bench testing.
+
+Adaptive clock sync added to the daytime-sleep candidate: daily initial observation, conservative measured drift scheduling up to seven days, RTC retention, fresh NTP after cold reset.  See POWER_PLAN.md.  Board drift/current testing remains pending.

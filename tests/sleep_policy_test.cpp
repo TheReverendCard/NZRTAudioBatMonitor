@@ -11,6 +11,8 @@ int main() {
   assert(!valid(c,t+30,false,false)); // Cold/brownout wake requires fresh NTP.
   assert(!valid(c,0,true,false)); // A lost wall clock is rejected.
   assert(!valid(c,t+30,true,true)); // Changing test/field mode cannot resume old state.
+  c.syncInterval=172800;c.driftPpb=1234;seal(c);assert(valid(c,t+30,true,false));
+  c.driftPpb++;assert(!valid(c,t+30,true,false));c.driftPpb--;seal(c);
   c.cycles=4;assert(!valid(c,t+30,true,false)); // Corrupt/inconsistent checkpoint.
   c.cycles=3;seal(c);assert(valid(c,t+30,true,false));
   c.bootTestDone=0;seal(c);assert(valid(c,t+30,true,false)); // Cold daytime boot may defer SD test.

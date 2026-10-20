@@ -33,7 +33,7 @@ The supply is assumed always-on USB now, direct battery/solar later.
 
 Clock: ESP32 RTC normally retains wall time through deep sleep. Validate a
 small retained checkpoint on timer wake; cold/brownout/untrusted wake needs
-fresh NTP. Wake for noon sync (up to3 attempts/day,15min apart) and5min before
+fresh NTP. Wake for adaptive sync (up to3 failed attempts/day,15min apart) and5min before
 monitoring for one pre-night sync. Failure with valid retained time does not
 prevent recording. RTC drift is measured, not assumed zero. Radio is disabled
 before audio. No web interface or LoRa transmission.
@@ -388,6 +388,7 @@ static bool enterRawSampler() {
 #include "esp32-hal-cpu.h"
 #include "CpuPowerPolicy.h"
 #include "SleepPolicy.h"
+#include "ClockPolicy.h"
 #include "esp_sleep.h"
 #include "driver/gpio.h"
 #include "esp_system.h"
@@ -440,6 +441,11 @@ uint32_t noonSyncAttempts=0;
 time_t preNightSyncStart=0;
 int64_t lastSleepDurationSeconds=0;
 uint32_t lastSyncDurationMs=0;
+uint32_t syncIntervalSeconds=RecorderClock::DAY,worstDriftPpb=0;
+int64_t syncOldWallUs=0,syncMonoUs=0;
+double syncCorrectionSeconds=0;
+// Callback data is published by syncNotification's release/acquire ordering.
+
 
 bool requestActiveCpu() {
   bool ok=cpuPower.requireActive([](){return getCpuFrequencyMhz();},
@@ -528,11 +534,20 @@ const char *resetReasonName() {
     default:return "OTHER";
   }
 }
-void timeAvailable(struct timeval *){syncNotification.store(true);}
+void timeAvailable(struct timeval *tv){
+  if(syncNotification.load())return;
+  int64_t expected=syncOldWallUs+(esp_timer_get_time()-syncMonoUs);
+  syncCorrectionSeconds=(int64_t(tv->tv_sec)*1000000+tv->tv_usec-expected)/1e6;
+  syncNotification.store(true);
+}
 bool syncClock() {
   if(!requestActiveCpu()){lastSyncAttemptOK=false;failedSyncs++;lastAttemptBootUs=esp_timer_get_time();return false;}
   // Only while microphone stopped and SD unmounted. Never print credentials.
   lastAttemptBootUs=esp_timer_get_time();syncNotification.store(false);
+  struct timeval before;gettimeofday(&before,nullptr);
+  syncMonoUs=esp_timer_get_time();
+  syncOldWallUs=int64_t(before.tv_sec)*1000000+before.tv_usec;
+  bool hadClock=clockKnown;
   uint32_t syncBegin=millis();
   WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(false);WiFi.begin(WIFI_SSID,WIFI_PASSWORD);
   uint32_t start=millis();
@@ -547,7 +562,11 @@ bool syncClock() {
   WiFi.disconnect(true,false);WiFi.mode(WIFI_OFF);delay(100);
   time_t now=time(nullptr);
   lastSyncAttemptOK=syncNotification.load() && now>1704067200;
-  if(lastSyncAttemptOK){clockKnown=true;lastSyncEpoch=now;lastSyncBootUs=esp_timer_get_time();anchorClock();}
+  if(lastSyncAttemptOK){
+    if(hadClock)syncIntervalSeconds=RecorderClock::interval(now-lastSyncEpoch,syncCorrectionSeconds,worstDriftPpb,syncIntervalSeconds);
+    if(Serial)Serial.printf("CLOCK correction_seconds=%.6f measured=%d interval_seconds=%u worst_drift_ppb=%u next_sync_epoch=%lld\n",
+      syncCorrectionSeconds,hadClock,(unsigned)syncIntervalSeconds,(unsigned)worstDriftPpb,(long long)(now+syncIntervalSeconds));
+    clockKnown=true;lastSyncEpoch=now;lastSyncBootUs=esp_timer_get_time();anchorClock();}
   else failedSyncs++;
   lastAttemptEpoch=clockKnown?now:0;
   if(clockKnown)lastAttemptDate=dateKey(now);
@@ -678,6 +697,7 @@ void put32(uint8_t *p,uint32_t x){for(int i=0;i<4;i++)p[i]=x>>(8*i);}
 bool enoughSpace(){return SD.totalBytes()>SD.usedBytes()+MIN_FREE_BYTES;}
 void logSyncState() {
   char stamp[32],attempt[32];utcText(lastSyncEpoch,stamp,sizeof(stamp));utcText(lastAttemptEpoch,attempt,sizeof(attempt));
+  logLine("CLOCK interval_seconds=%u worst_drift_ppb=%u next_sync_epoch=%lld",(unsigned)syncIntervalSeconds,(unsigned)worstDriftPpb,(long long)(lastSyncEpoch+syncIntervalSeconds));
   logLine("TIME last_sync_utc=%s last_sync_boot_us=%llu age_seconds=%lld last_attempt_utc=%s last_attempt_status=%s failed_attempts=%u",stamp,(unsigned long long)lastSyncBootUs,(long long)(time(nullptr)-lastSyncEpoch),attempt,lastSyncAttemptOK?"OK":"FAIL",(unsigned)(failedSyncs));
   logLine("TIME_MAP utc_minus_boot_us=%lld sample_timestamp_uncertainty_includes_dma_us=%u",(long long)utcMinusBootUs,(unsigned)(DMA_US));
 }
@@ -885,6 +905,7 @@ void restoreSleepState() {
   resumedFromSleep=true;clockKnown=true;
   bootTestDone=retainedSleep.bootTestDone;
   lastSyncEpoch=(time_t)retainedSleep.lastSyncEpoch;
+  syncIntervalSeconds=retainedSleep.syncInterval;worstDriftPpb=retainedSleep.driftPpb;
   lastAttemptEpoch=(time_t)retainedSleep.lastAttemptEpoch;
   lastAttemptDate=retainedSleep.lastAttemptDate;
   lastSyncAttemptOK=retainedSleep.lastSyncOK;
@@ -908,6 +929,7 @@ bool sleepUntil(time_t wake,bool forceForTest) {
   SPI.end();
   retainedSleep=RecorderSleep::Checkpoint{};
   retainedSleep.sleepEpoch=now;retainedSleep.wakeEpoch=wake;
+  retainedSleep.syncInterval=syncIntervalSeconds;retainedSleep.driftPpb=worstDriftPpb;
   retainedSleep.lastSyncEpoch=lastSyncEpoch;retainedSleep.lastAttemptEpoch=lastAttemptEpoch;
   retainedSleep.lastAttemptDate=lastAttemptDate;retainedSleep.lastSyncOK=lastSyncAttemptOK;
   retainedSleep.bootTestDone=bootTestDone;retainedSleep.failedSyncs=failedSyncs;
@@ -941,15 +963,9 @@ bool sleepUntil(time_t wake,bool forceForTest) {
 }
 void maybeSleepDaytime(time_t now,time_t start) {
   if(!ENABLE_DAYTIME_SLEEP || Serial)return;
-  struct tm local;localtime_r(&now,&local);
-  time_t noon=0,retry=0;
-  if(local.tm_hour<12) {
-    local.tm_hour=12;local.tm_min=local.tm_sec=0;local.tm_isdst=-1;noon=mktime(&local);
-  } else if(noonSyncDate!=dateKey(now) || noonSyncAttempts<MAX_NOON_SYNC_ATTEMPTS) {
-    if(noonSyncDate!=dateKey(now) || noonSyncAttempts==0)retry=now; // due task: stay awake
-    else if(!lastSyncAttemptOK)retry=lastAttemptEpoch+900;
-  }
-  time_t wake=(time_t)RecorderSleep::wakeAt(now,start,noon,retry,PRE_NIGHT_WAKE_SECONDS);
+  time_t due=(time_t)RecorderClock::attemptAt(now,lastSyncEpoch+syncIntervalSeconds,
+    lastAttemptEpoch,lastSyncAttemptOK,noonSyncAttempts,noonSyncDate==dateKey(now));
+  time_t wake=(time_t)RecorderSleep::wakeAt(now,start,due,0,PRE_NIGHT_WAKE_SECONDS);
   if(wake)sleepUntil(wake,false);
 }
 void runSleepSelfTest(time_t start,time_t end) {
@@ -1026,17 +1042,15 @@ void loop() {
     return;
   }
   // Normal daytime never mounts/writes SD; cold boot's audio test is deferred.
-  struct tm local;localtime_r(&now,&local);
-  if(local.tm_hour>=12) {
-    if(noonSyncDate!=dateKey(now)){noonSyncDate=dateKey(now);noonSyncAttempts=0;}
-    bool retryDue=noonSyncAttempts==0 || (!lastSyncAttemptOK && now-lastAttemptEpoch>=900);
-    if(noonSyncAttempts<MAX_NOON_SYNC_ATTEMPTS && retryDue) {
-      noonSyncAttempts++;syncClock();
-      now=time(nullptr);if(!nightWindow(now,start,end)){timedWait(30000,true);return;}
-    }
-  }
-  if(now>=start-(time_t)PRE_NIGHT_WAKE_SECONDS && preNightSyncStart!=start) {
-    preNightSyncStart=start;syncClock();
+  if(noonSyncDate!=dateKey(now)){noonSyncDate=dateKey(now);noonSyncAttempts=0;}
+  time_t due=(time_t)RecorderClock::attemptAt(now,lastSyncEpoch+syncIntervalSeconds,
+    lastAttemptEpoch,lastSyncAttemptOK,noonSyncAttempts,true);
+  // Bring a deadline falling during the coming capture forward to the guard.
+  bool beforeNight=now>=start-(time_t)PRE_NIGHT_WAKE_SECONDS &&
+    preNightSyncStart!=start && lastSyncEpoch+syncIntervalSeconds<=end;
+  if(now>=due || (beforeNight && lastSyncAttemptOK)) {
+    if(beforeNight)preNightSyncStart=start;
+    noonSyncAttempts++;syncClock();
     now=time(nullptr);if(!nightWindow(now,start,end)){timedWait(30000,true);return;}
   }
   // Re-enter the schedule immediately if an NTP step crossed the start time.

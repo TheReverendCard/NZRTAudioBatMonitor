@@ -23,7 +23,7 @@ Normal mode now stops microphone/I2S and SPI, keeps SD unmounted, turns Wi-Fi of
 
 A small checksum-protected RTC-memory checkpoint carries the clock's provenance, boot-test state, last sync information and sleep/test counters.  Only a valid timer wake accepts it.  Wall time normally continues through sleep using the ESP32 RTC.  Cold/power-loss or invalid-checkpoint wake follows the fresh-NTP path.  New boot-relative timing anchors are established after wake.
 
-The unit wakes for noon sync and five minutes before the configured recording start, with a maximum six-hour sleep chunk.  Noon sync retries are bounded to three attempts fifteen minutes apart; there is one pre-night sync attempt.  A failed sync does not discard valid retained time or block the night.  RTC drift and wake margin need functional field checking.
+The unit wakes for an adaptive sync deadline and five minutes before the configured recording start, with a maximum six-hour sleep chunk.  Sync retries are bounded to three failed attempts per local day, fifteen minutes apart.  A failed sync does not discard valid retained time or block the night.  RTC drift and wake margin need functional field checking.
 
 The SD module and microphone remain electrically powered because no switched supply has been established.  This firmware shuts down their activity/interfaces.  Hardware power switching remains issue #5.
 
@@ -55,3 +55,9 @@ The earlier 5–10 Wh/day planning range is not revised into a lower claimed fig
 - [USB Serial/JTAG sleep limitations](https://docs.espressif.com/projects/esp-idf/en/v5.1.5/esp32s3/api-guides/usb-serial-jtag-console.html); exact behaviour depends on the selected USB mode.
 
 Microphone breakout credits remain with [meerstern/SPH0641LU](https://github.com/meerstern/SPH0641LU).  The imported sketch retains its existing capture/DSP references, including [AkiyukiOkayasu/pico-PDM](https://github.com/AkiyukiOkayasu/pico-PDM) and the Adafruit microSD BFF design reference.  The new CPU policy is an independent project implementation, not copied from those designs.
+
+### Adaptive WiFi time sync
+
+A cold or power restart always requires fresh NTP.  A valid timer wake retains the learned drift and next sync interval in the checksum-protected RTC checkpoint.  Start with a daily observation.  At each successful sync compare NTP with the pre-correction clock extrapolated using the awake monotonic timer.  The interval uses twice the worst observed absolute drift rate, a 0.25-second measurement allowance and a four-second drift budget toward the five-second target.  Intervals grow at most twofold per observation, range from 15 minutes to seven days, and shrink immediately when drift increases.  Observations shorter than one hour do not train the model.  This is an estimated target, not a guarantee against changing temperature or NTP error.
+
+Sync when due in daytime; if due during the next recording night, attempt it in the five-minute pre-night guard.  Do not interrupt capture for WiFi.  Failed syncs preserve the last successful deadline and retained time, retry fifteen minutes apart, and stop after three attempts in a local day.  A failed cold-start sync retains the existing 30-second retry behavior.  Serial CLOCK messages report correction, interval, worst rate and next deadline.  No daytime SD writes or flash writes are added.

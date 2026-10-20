@@ -20,6 +20,8 @@ jobs:
           /tmp/cpu-policy-test
           g++ -std=c++11 -Wall -Wextra -Werror tests/sleep_policy_test.cpp -o /tmp/sleep-policy-test
           /tmp/sleep-policy-test
+          g++ -std=c++11 -Wall -Wextra -Werror tests/clock_policy_test.cpp -o /tmp/clock-policy-test
+          /tmp/clock-policy-test
       - uses: arduino/setup-arduino-cli@v2
         with:
           version: '1.3.1'
