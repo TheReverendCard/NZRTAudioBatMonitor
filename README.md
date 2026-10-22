@@ -59,6 +59,10 @@ Distinguish machine labels, professional review and uncertainty.  Separate train
 
 Design towards streaming processing and compact, potentially quantised models for ESP32-S3.  Benchmark the complete capture, preprocessing, inference and storage workload.  Model file size alone does not establish suitability.
 
+## Optional dual-mode bird and bat monitoring
+
+A proposed second audio stream could identify birds while keeping the validated ultrasonic bat capture pipeline independent.  Options include testing a small bird model on the existing ESP32-S3, an ESP32-P4 or dedicated-NPU companion, a Linux gateway, and delayed/cloud identification.  **This is exploratory only, with no dual-mode firmware validated.**  See [dual-mode bird and bat monitoring options](docs/DUAL_MODE_BIRD_BAT_OPTIONS.md) for the comparison, integration constraints, NZ species scope and acceptance tests.
+
 ## Development notes
 
 - [Pixel 6 Pro implementation and field plan](docs/P6P_PLAN.md)
