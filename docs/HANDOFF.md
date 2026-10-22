@@ -94,3 +94,14 @@ The earlier ESP32-S3 raw-PDM receive experiments produced a persistent approxima
 Current production direction: 3.072 MHz PDM -> native MSB-first unpacking -> CIC/FIR decimation -> 96 kHz PCM.  Keep 192 kHz as a diagnostic/reference mode until the 96 kHz pipeline is validated.  The 96 kHz target gives a 48 kHz Nyquist limit and is intended to retain the project-relevant pekapeka bands while reducing storage and processing cost.
 
 Next ESP32 actions are no longer basic microphone bring-up.  They are final 32:1 decimation/filter validation, sustained SD capture, outdoor noise/interference testing, power measurement and eventual on-device preprocessing/inference.
+
+
+## 2026-10-22:  Optional bird + bat dual-mode feasibility documented
+
+Added [dual-mode bird and bat monitoring options](DUAL_MODE_BIRD_BAT_OPTIONS.md) as a **proposal**, not an approved hardware redesign or completed experiment.  Reviewed BirdWeather PUC/Bat Edition (remote identification), Terra Station (Linux-class local BirdNET), ESP32-S3 BirdNET-Tiny Forge, ESP32-P4, K230D neural accelerator, STM32N6 reference model and Linux gateway options.
+
+**Current recommendation:**  Protect the validated XIAO ESP32-S3 + SPH0641LU4H-1 ultrasonic raw-I2S acquisition path.  Test ordinary-audio capture and a compact bird model on the S3 first.  If simultaneous acquisition, inference and SD writes cannot meet continuity and energy targets, investigate a companion ESP32-P4 or dedicated NPU rather than replacing the bat path prematurely.
+
+New implementation dependencies:  independent audible microphone and capture buffers, model-specific input sample rate/normalisation, per-path timestamps and dropout counters, shared evidence schema and energy budget.  The 1,007-class global BirdNET-Tiny model is **demonstrated on STM32N6**, not established to run on S3/P4.  The supported BirdNET-Tiny Forge ESP32-S3-Korvo-2 V3.0 board is not the current XIAO.  Bird species list targets are evaluation scopes, not proven hardware limits.
+
+**No bird microphone, model or dual-mode firmware was tested in this documentation update.**  Before committing to hardware, benchmark separate bird inference, then 24-hour simultaneous bird + bat capture and SD retention, plus per-model accuracy and Wh/day.  Any changes to sample format, I2S/DMA allocation, buffering or event schema should be coordinated with the phone and ultrasonic workstreams.
