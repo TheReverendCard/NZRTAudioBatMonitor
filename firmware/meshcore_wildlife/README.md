@@ -147,3 +147,31 @@ The journal incorrectly dates RX/TX events `1/3/2026 U` with time `00:xx` despit
 On pinned upstream MeshCore, serial CLI supports `clock` (inspect on-board UTC time) and `time <current_unix_epoch_seconds>` (set a newer absolute time). This currently requires an external correct epoch value and time synchronization does not automatically persist a wall-clock across full USB power removal. Future field builds should explicitly tag unsynchronized time, record monotonic uptime on each packet, or accept initial time from phone USB serial. Until then, use phone timestamps when copying serial logs and correlate journal records by relative uptime.
 
 For reliable network telemetry, **next proof is end-to-end receipt by another controlled MeshCore node**, plus a bench-verified acoustics test, and only then periodic sensor-originated MeshCore reports.
+
+## NZ-only 18–45 kHz activity monitor (prototype)
+
+**New experimental code, not yet acoustically field-verified on the MeshCore/IDF4 build.** The two user's 24 October 2026 ten-second recordings independently verified STD-I2S/MSB raw microphone data, including rub transients around 18–45 kHz and complete serial stream delivery. High-frequency PDM noise **above 60 kHz is explicitly out of scope at this stage**. The existing logger passes raw packed 3.072 MHz PDM from CLK GPIO1 / DATA GPIO2 (WS GPIO4 unwired) to the new `WildlifeDetector.cpp` module.
+
+The DSP algorithm reconstructs 16-bit little-endian I2S words **MSB first**, applies a 97-tap Kaiser lowpass at 65 kHz and 16:1 decimation to 192 kHz samples, then second-order highpass at 18 kHz and second-order lowpass at 45 kHz. For every 20 ms of band-limited PCM it calculates an uncalibrated RMS, spends ~3 s building an adaptive baseline, and flags >1.8× background bursts, grouped with a 200-ms gap. These are **candidate ultrasonic activity bouts, not bat calls, bat species labels, or confirmed detections**. Thresholds are experimental and will be calibrated against overnight SD/AR4 monitoring.
+
+In a *separate host-native test* using the raw PDM captured by the standalone **Arduino-ESP32 3.3.12** test, the exact DSP generated:
+- First quiet-then-finger-rub recording: 2 completed candidate bouts, starting after the 5 s mark; no candidates in the initial quiet 5 s.
+- Second recording (mic moved near doorway): 5 completed candidate bouts, all during the finger-rub half; no candidates in the initial quiet 5 s.
+
+**Do not interpret these off-device simulations as hardware throughput or MeshCore coexistence validation.** Under radio load, the DSP may overrun its ~5.33 ms CPU budget per 2,048-byte PDM block. New telemetry `worstDSP` and `dspOver`, along with existing `legacy_rx_q_ovf`, make that visible. If over-budget counts or queue overflows grow, abort tests and optimize/tune sampling before running overnight.
+
+When flashed to the XIAO/Wio test node, open a serial terminal at **115200**. The pinned upstream MeshCore CLI continues to work:
+
+```text
+nzrt status
+stats-packets
+stats-radio
+neighbors
+log
+```
+
+`nzrt status` prints `NZRT BAND status 18-45kHz ... candidates=... max_ratio=... unverified=1`. A finalized burst prints `NZRT CANDIDATE seq=... from_ms=... to_ms=... peak=...x`, and batched entries are appended to MeshCore's existing SPIFFS `/packet_log` for retrieval through `log` even after USB disconnection. Reports include relative detector elapsed ms **not a synced wall-clock**; the RTC issue remains open. Log growth is unbounded on this development build, so don't deploy long-term without a bounded log rotation policy. `log erase` deletes it; export first.
+
+Quick smoke test: power/antenna properly connected; allow >3 s quiet after boot for baseline calibration; rub fingers near mic without touching wires for several seconds; run `nzrt status`; inspect `NZRT CANDIDATE` entries; after 60 s compare DSP and DMA overflow statistics with the earlier field logger baseline. Repeat while real MeshCore packets are received or transmitted. If no candidates appear, don't claim recording failed: review background `rms`, `max_ratio`, clock/wiring, then cross-check the standalone known-good acoustic WAV build. **This build still does not save WAV files, transmit sensor-originated MeshCore reports, or upload via Wi-Fi**; those are next-stage features after acoustic + CPU coexistence validation.
+
+The transit gateway and sign firmware are unaffected. The legacy field logger ZIP remains the rollback option, and the standalone acoustic WAV sketch is a separate, non-MeshCore implementation.
