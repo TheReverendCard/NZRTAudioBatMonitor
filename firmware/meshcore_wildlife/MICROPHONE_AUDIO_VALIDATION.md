@@ -39,3 +39,19 @@ Start with capturing the **raw PDM bytes**, a complete byte count, timestamps, c
 **Pass/fail evidence:** compared with quiet periods, finger-rub should cause a visible time-localized broadband rise (historical example ~25.7 kHz against EMT2, but not guaranteed exact for any attempt). A spectrogram should lack a fixed 72 kHz line, pervasive clock aliases, severe clipping or obvious mode transition artifacts. Check DMA queue overruns, missing chunks, actual sample count/duration, DC bias, spectral energy by band, and compare LoRa-off/RX/TX cases. A near-50% aggregate PDM density or successful WAV header is **not** by itself evidence of working ultrasound. If clean capture fails, isolate clock/edge/order/analog RF before adding bat classification.
 
 **Only after clean WAVs:** port the existing SD candidate trigger to a reusable module, transmit small sequence-numbered events over MeshCore, upload occasional WAVs over Wi-Fi, and compare LoRa gateway reception with Wi-Fi/local log from the **same night**. No full WAV over MeshCore LoRa.
+
+## Acoustic baseline result: 24 October 2026, 11:42 NZDT
+
+User flashed the stand-alone 3.072 MHz I2S-STD sampler (GPIO1 CLK/GPIO2 DATA/GPIO4 unwired WS), then recorded **10.000 s / 3,840,000 bytes of PDM**, USB COM8, 1,879 packets, **zero missing sequences and zero invalid headers**, PDM ones density **49.9955%**. The first attempted capture with zero bytes was invalid because firmware had failed to flash; it is **not** a microphone failure.
+
+Using the recording package's host-side dual decoding (3.072 Mbit/s PDM; 16:1 decimation to 192 kHz WAV; relative power, not calibrated SPL), its report showed:
+
+| Band | MSB: rub over quiet | LSB: rub over quiet |
+|---|---:|---:|
+| 18–45 kHz | **+8.49 dB** | +0.02 dB |
+| 45–80 kHz | +0.30 dB | +0.07 dB |
+| 70–74 kHz | +0.11 dB | +0.12 dB |
+
+Independent spectrogram of the **uploaded MSB WAV** confirms an actual time-localized series of broadband bursts in ~10–50 kHz, beginning at the user's ~5-second finger-rubbing mark. **LSB decoding shows no comparable event**, so MSB-first bit ordering is strongly supported by this test. An elevated high-frequency noise continuum dominates >~60 kHz in the normalized MSB output; there are persistent narrow-band features around 23–24 kHz and ~46–47 kHz, visible even during the quiet part. The earlier fixed 72 kHz raw-PDM artefact is **not clearly reproduced as a distinct narrow line**, but response at 70–74 kHz is negligible (+0.11 dB), so **do not assert that full 18–90 kHz ultrasonic fidelity has passed**. `msb` and `lsb` WAV files are independently scaled for listening; compare response **within** each decode, not absolute cross-file amplitude.
+
+**Disposition:** data transport **PASS**, acoustic presence in ~18–45 kHz **PASS for this finger-rub bench test**, uncalibrated high-frequency audio / noise-floor performance **NOT YET PASS**. Next: preserve this known-good STD/MSB acquisition and host decoder; repeat a 10-second quiet/rub baseline for repeatability; optionally compare to the Echo Meter Touch 2 or a reproducible frequency source; then port the verified I2S bit order and filtered detector to the pinned MeshCore/ESP-IDF4 sampler. During the first MeshCore comparison, record paired quiet/rub segments with RF idle and controlled TX, ensuring DMA queue overflows do not grow. Keep wav/raw files local and avoid uploading private recordings into public repo.
