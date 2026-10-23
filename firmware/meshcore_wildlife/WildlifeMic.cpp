@@ -36,6 +36,8 @@ struct Stats {
   uint32_t readErrors = 0;
   uint32_t rxQueueOverflows = 0;
   uint32_t maxReadUs = 0;
+  uint32_t maxProcessUs = 0;
+  uint32_t processOverBudget = 0;
 };
 Stats stats;
 bool started = false;
@@ -49,12 +51,14 @@ void readerTask(void*) {
     uint32_t elapsed = static_cast<uint32_t>(esp_timer_get_time() - before);
 
     uint32_t ones = 0;
+    int64_t processBefore = esp_timer_get_time();
     if (status == ESP_OK) {
       WildlifeDetector::consume(reinterpret_cast<const uint8_t*>(raw), n);
       for (size_t i = 0; i < n / sizeof(uint32_t); ++i) {
         ones += static_cast<uint32_t>(__builtin_popcount(raw[i]));
       }
     }
+    uint32_t processingUs = static_cast<uint32_t>(esp_timer_get_time()-processBefore);
     uint32_t overflowDelta = 0;
     i2s_event_t event;
     while (eventQueue && xQueueReceive(eventQueue, &event, 0) == pdTRUE) {
@@ -69,6 +73,8 @@ void readerTask(void*) {
     else if (n != sizeof(raw)) ++stats.shortReads;
     else ++stats.fullReads;
     if (elapsed > stats.maxReadUs) stats.maxReadUs = elapsed;
+    if (processingUs > stats.maxProcessUs) stats.maxProcessUs = processingUs;
+    if (n && processingUs > (n*1000000UL/384000UL)) ++stats.processOverBudget;
     portEXIT_CRITICAL(&statsLock);
 
     if (status != ESP_OK) vTaskDelay(pdMS_TO_TICKS(2));
@@ -178,14 +184,16 @@ void printHealthIfDue() {
       ? (100.0 * static_cast<double>(snap.ones) / (8.0 * static_cast<double>(snap.bytes))) : 0.0;
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT MIC t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus\n",
+  Serial.printf("NZRT MIC t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu\n",
                 static_cast<unsigned long>(now/1000),
                 static_cast<unsigned long>(bps), density,
                 static_cast<unsigned long>(snap.fullReads),
                 static_cast<unsigned long>(snap.shortReads),
                 static_cast<unsigned long>(snap.readErrors),
                 static_cast<unsigned long>(snap.rxQueueOverflows),
-                static_cast<unsigned long>(snap.maxReadUs));
+                static_cast<unsigned long>(snap.maxReadUs),
+                static_cast<unsigned long>(snap.maxProcessUs),
+                static_cast<unsigned long>(snap.processOverBudget));
 
   Serial.printf("NZRT BAND 18-45kHz windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx (NOT BAT ID)\n",
     static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
