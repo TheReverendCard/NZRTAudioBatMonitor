@@ -32,7 +32,7 @@ This is a short NZ RF test on a configuration already used by the owner's gatewa
 ## Minimal procedure
 
 1. Save the working v0.1 sketch for rollback. Make sure transit gateway **remains running** with its single existing COM port; do not start another gateway instance or open Serial Monitor on the USB sender.
-2. Compile/flash the **new v0.2 sketch** from the experimental branch only to the *spare wildlife microphone XIAO*, not to the bus sign or its USB LoRa sender.
+2. Download the complete **`xiao_wildlife_lora_bringup` sketch folder**, containing both `xiao_wildlife_lora_bringup.ino` **and `WildlifeTypes.h`**, from the experimental branch. Compile/flash only to the *spare wildlife microphone XIAO*, not to the bus sign or its USB LoRa sender. The header is required for Arduino's generated function declarations.
 3. Watch for both `MIC started` and `LoRa READY: 915.0MHz ... SF9 CR4/7`. Check the usual 384,000 bytes/s raw PDM rate, ~50% one-density and stable DMA overflow/read counters.
 4. Leave the board passive initially. If an ordinary OTD packet passes, the wildlife serial log should show `LORA RX_OK kind=OTD2` or `OTDL1` with RSSI and SNR. No timetable ACK from this wildlife firmware.
 5. At a quiet moment, with antennas attached, type `p` into **the wildlife Serial Monitor**, once only. Wildlife prints `LORA TX_OK: NZRT1|PING|...`. Check the **already-running gateway terminal** for a `<- radio:` line containing the same NZRT1 PING packet. This establishes physical over-the-air reception; `TX_OK` alone is not enough.
