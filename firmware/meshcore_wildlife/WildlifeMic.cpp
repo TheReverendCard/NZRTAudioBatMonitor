@@ -168,7 +168,7 @@ void printHealthIfDue() {
     File journal = SPIFFS.open("/packet_log", FILE_APPEND);
     if (journal) {
       journal.printf(
-          "NZRT FIELD uptime=%lus mic_bps=%lu density=%.3f%% blocks=%lu short=%lu read_err=%lu dma_q_ovf=%lu\\n",
+          "NZRT FIELD uptime=%lus mic_bps=%lu density=%.3f%% blocks=%lu short=%lu read_err=%lu dma_q_ovf=%lu\n",
           static_cast<unsigned long>(now / 1000UL),
           static_cast<unsigned long>(bps), density,
           static_cast<unsigned long>(snap.fullReads),
