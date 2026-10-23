@@ -1,5 +1,7 @@
 # Experimental wildlife LoRa + microphone bring-up (v0.1)
 
+**MeshCore is the network requirement for issue #9.**  This v0.1 sketch is a **raw RadioLib hardware bench fixture, NOT MeshCore-compatible**.  It cannot participate in a mesh or forward other nodes' packets.  Its TX starts **disabled**; use a known matching raw receiver and an appropriate legal RF profile for deliberate testing.  See [MeshCore sensor + repeater integration path](MESHCORE_PLAN.md) for the proposed upstream-based firmware.
+
 **Separate development branch for issue #9.**  This is **not** a replacement for the validated overnight SD recorder or draft PR #8.  It is the first hardware/firmware test for a steady-power, Wi-Fi-available (later), initially SD-free 24-hour wildlife sensor.
 
 ## What it does and does not do
@@ -7,7 +9,7 @@
 - Configures the SPH0641LU4H-1 on **CLK=XIAO D0/GPIO1** and **DATA=XIAO D1/GPIO2**.  SELECT remains tied to ground by the breakout's populated R1; no wire from SEL to D2.
 - Uses the **previously documented ordinary-I2S/MSB raw PDM strategy**:  2.048 MHz startup clock, then 3.072 MHz ultrasonic clock.  The dummy I2S WS signal uses GPIO5/D4 **internally only**, with **no wire**.
 - Reads continuous raw samples in a high-priority FreeRTOS task and reports raw byte rate, PDM one-density, DMA queue overruns, short reads, read errors and maximum blocking read time.
-- Brings up the **Wio-SX1262 via the XIAO B2B connector**.  Sends a test health packet over **raw point-to-point LoRa every 30 seconds**, with a manual TX on/off toggle so microphone stats can be compared before/during radio activity.
+- Brings up the **Wio-SX1262 via the XIAO B2B connector**.  Can send a test health packet over **raw point-to-point LoRa every 30 seconds**, only **after** explicitly enabling TX by pressing `t` in the serial console.  The first bench test should leave TX off while capturing the microphone baseline.
 - **No** WAV files, SD card, Wi-Fi, classifications or bat/bird/rodent detections in v0.1.  PDM one-density near 50% and raw capture throughput are diagnostic checks, **not evidence of correctly captured ultrasonic signals**.  The next milestone is real-audio/FFT evaluation and LoRa receiver confirmation.
 
 ## Connections
@@ -28,7 +30,7 @@ The acoustic opening is on the breakout PCB's underside.  Keep it unobstructed a
 2. Open `xiao_wildlife_lora_bringup.ino` in Arduino IDE.  Select **XIAO ESP32S3**, **OPI PSRAM**, 240 MHz CPU, 8 MB flash; enable USB CDC On Boot and use the existing hardware CDC/JTAG USB mode.  Do **not** change the operating, sleep, radio or SD firmware in other branches.
 3. The test radio defaults to **917.0 MHz, BW 125 kHz, SF7, CR 4/5, sync word 0x12, TX 10 dBm and a 1.8 V TCXO**.  Choose a lawful NZ frequency and matching receiver settings before transmitting.  The frequency is for this standalone bench protocol only; it may not match an existing transit-display LoRa receiver.
 4. With the SX1262 antenna attached, upload to the spare assembled unit.  Open the **115200 baud Serial Monitor** and reset if the beginning of the diagnostic log was missed.  If the port does not appear, confirm Arduino USB CDC settings and the USB cable.  Use BOOT recovery if necessary.
-5. Observe `MIC started...`, `LoRa READY...` and `HEALTH...`.  After 30 seconds expect `LORA TX_OK...` (radio accepted a packet; **not proof of reception**).  Type `t` + Enter to toggle TX off/on, `s` + Enter for an immediate health snapshot.  A separate raw-LoRa receiver configured identically is needed to confirm over-the-air delivery.
+5. Observe `MIC started...`, `LoRa READY...` and `HEALTH...`. **No TX occurs by default.** With a matched antenna and configured legal test network, type `t` + Enter to **opt in** to raw P2P packets every 30 s.  `LORA TX_OK` means the radio accepted a packet, **not** proof of reception or MeshCore compatibility.  Press `t` again to turn raw TX back off.  Type `s` for an immediate health snapshot.  A separate raw-LoRa receiver configured identically is needed to confirm over-the-air delivery.
 
 Typical healthy raw data rate is around **384,000 bytes/s**, with PDM bit density near **50%**.  Neither number alone establishes mic polarity, true acoustic response, bat sensitivity, or absence of all gaps.  `DMAovf`, `readerr` and `short` should remain at zero.  A `HEALTH` line samples lifetime counters; `bps` uses the preceding reporting interval.  A failed radio init should not prevent separate microphone health reporting.
 
@@ -50,6 +52,6 @@ Fields:  protocol, `H` (health, **not detection**), sequence, uptime seconds, to
 
 ## Why this design is separate
 
-This intentionally uses **no deep sleep**, **no SD**, and no Wi-Fi yet.  It is designed to clarify assembly and LoRa/microphone coexistence before TinyML training, band separation, Wi-Fi clips or off-grid power design.  Future fixes should be shared with other repository workstreams only after testing, review and an explicit decision.
+This intentionally uses **no deep sleep**, **no SD**, and no Wi-Fi yet.  It is designed to clarify assembly and LoRa/microphone coexistence before TinyML training, band separation, Wi-Fi clips or off-grid power design. **MeshCore support will require integrating genuine MeshCore routing/identity/protocol code, not repurposing this simple radio packet.** The preferred later wildlife firmware will integrate the native MeshCore stack in a custom sensor-plus-repeater build, tested with a 3-node chain. See [MESHCORE_PLAN.md](MESHCORE_PLAN.md). Future fixes should be shared with other repository workstreams only after testing, review and an explicit decision.
 
 References:  [XIAO capture baseline](../../docs/XIAO_SPH0641_CAPTURE.md), [dual-mode options](../../docs/DUAL_MODE_BIRD_BAT_OPTIONS.md), [issue #9](https://github.com/TheReverendCard/NZRTAudioBatMonitor/issues/9), [Wio-SX1262 hardware](https://wiki.seeedstudio.com/wio_sx1262_with_xiao_esp32s3_kit/), [RadioLib](https://github.com/jgromes/RadioLib).
