@@ -18,15 +18,33 @@ This starts the phase following the successful independent [raw-LoRa OTD v0.2 ex
 
 ## Reproducible source and build
 
-Install **Git**, **Python 3** and **PlatformIO Core** (or the VS Code PlatformIO extension). On Windows PowerShell:
+Install **Git**, **Python 3**, and **PlatformIO Core**. On Windows PowerShell use the Python launcher to avoid requiring `pio.exe` in `PATH`:
 
 ```powershell
+py -m pip install --user platformio==6.1.18
+py -m platformio --version
 git clone --branch repeater-v1.18.0 --depth 1 https://github.com/meshcore-dev/MeshCore.git MeshCore-1.18
 git clone --branch exp/meshcore-wildlife-repeater https://github.com/TheReverendCard/NZRTAudioBatMonitor.git NZRTAudioBatMonitor-meshcore
 py NZRTAudioBatMonitor-meshcore\firmware\meshcore_wildlife\prepare_upstream.py --upstream MeshCore-1.18 --check
 py NZRTAudioBatMonitor-meshcore\firmware\meshcore_wildlife\prepare_upstream.py --upstream MeshCore-1.18
-pio run -d MeshCore-1.18 -e NZRT_Xiao_S3_WIO_wildlife_repeater
+py -m platformio run -d MeshCore-1.18 -e NZRT_Xiao_S3_WIO_wildlife_repeater
 ```
+
+**If `CHECK PASSED` and `PREPARED` already printed:** the overlay succeeded. If PowerShell subsequently reported `pio : The term 'pio' is not recognized`, **do not re-clone or rerun the one-time overlay**. Simply run:
+
+```powershell
+py -m pip install --user platformio==6.1.18
+py -m platformio --version
+py -m platformio run -d MeshCore-1.18 -e NZRT_Xiao_S3_WIO_wildlife_repeater
+```
+
+An alternative is the PlatformIO extension inside VS Code, using its own integrated PlatformIO Terminal; an ordinary system PowerShell window will not automatically recognize that environment. The [GitHub Actions reference build](https://github.com/TheReverendCard/NZRTAudioBatMonitor/actions/runs/40012052759) **passed** all steps including compilation of upstream MeshCore + the experimental microphone overlay. It does **not** validate actual mic sampling or packet forwarding on hardware.
+
+**Before flashing to a public MeshCore network:** the generated `MeshCore-1.18/variants/xiao_s3_wio/platformio.ini` currently sets the development repeater's `ADMIN_PASSWORD` to the common placeholder `BENCH_ONLY_CHANGE_ME`. Replace it in the actual `[env:Xiao_S3_WIO_repeater]` block with a **unique, unshared local password (up to 15 single-byte characters)**, then rebuild. Do not commit this credential, place it in an issue/PR, or deploy the placeholder. Never paste private keys or passwords into public logs.
+
+The current NZ community **Narrow** preset uses 917.375 MHz / SF7 / BW62.5 / CR5 with **2-byte path hashes**. The experimental build sets the radio parameters; verify and configure the repeater's path hash mode (`1` for 2-byte hashes; upstream default may be one byte) before treating it as an interoperable community relay. Using the MeshCore serial CLI on the test unit, `set radio.hash_mode 1` is the expected upstream setting (and it is persistent), but verify the response on hardware. A repeater's appearance on an online map is not proof that it is currently on air; last-seen status and actual decoded packets matter.
+
+For a controlled first hardware test, keep the node in serial observation mode and avoid spontaneous advertisements or unnecessary forwarding on a shared network. A trustworthy **A → B → C** forwarding test still requires a genuine source and destination, not just a map pin. The existing transit gateway does not speak MeshCore, so do not expect it to decode these packets.
 
 The script refuses to touch an unexpected upstream revision, overwrite existing `platformio.local.ini`, or apply a patch when a source anchor changed. It changes only the **separate local MeshCore checkout**. It never changes your running transit sign/gateway, the established overnight recorder, or the already-tested raw LoRa sketch.
 
