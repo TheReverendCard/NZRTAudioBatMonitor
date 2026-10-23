@@ -27,6 +27,15 @@ constexpr uint32_t REPORT_MS = 60000;
 portMUX_TYPE statsLock = portMUX_INITIALIZER_UNLOCKED;
 QueueHandle_t eventQueue = nullptr;
 TaskHandle_t captureTask = nullptr;
+TaskHandle_t dspTaskHandle = nullptr;
+QueueHandle_t dspQueue = nullptr;
+constexpr UBaseType_t DSP_QUEUE_BLOCKS = 8;
+struct RawBlock {
+  uint32_t seq;
+  uint32_t n;
+  uint32_t words[BUFFER_BYTES / sizeof(uint32_t)];
+};
+
 
 struct Stats {
   uint64_t bytes = 0;
@@ -38,46 +47,85 @@ struct Stats {
   uint32_t maxReadUs = 0;
   uint32_t maxProcessUs = 0;
   uint32_t processOverBudget = 0;
+  uint32_t dspQueueDrops = 0;
+  uint32_t dspStreamResets = 0;
+  uint32_t dspBlocksProcessed = 0;
+  uint32_t maxQueueDepth = 0;
+
 };
 Stats stats;
 bool started = false;
 
+// The capture reader is high-priority and must never perform FIR/PCM work.
+// A bounded queue decouples radio/USB servicing from slower audio analysis.
 void readerTask(void*) {
-  uint32_t raw[BUFFER_BYTES / sizeof(uint32_t)];
+  RawBlock pkt = {};
+  uint32_t seq = 0;
   for (;;) {
     size_t n = 0;
     int64_t before = esp_timer_get_time();
-    esp_err_t status = i2s_read(PORT, raw, sizeof(raw), &n, pdMS_TO_TICKS(1000));
+    esp_err_t status = i2s_read(PORT, pkt.words, sizeof(pkt.words), &n,
+                                pdMS_TO_TICKS(1000));
     uint32_t elapsed = static_cast<uint32_t>(esp_timer_get_time() - before);
-
     uint32_t ones = 0;
-    int64_t processBefore = esp_timer_get_time();
-    if (status == ESP_OK) {
-      WildlifeDetector::consume(reinterpret_cast<const uint8_t*>(raw), n);
-      for (size_t i = 0; i < n / sizeof(uint32_t); ++i) {
-        ones += static_cast<uint32_t>(__builtin_popcount(raw[i]));
-      }
+    if(status == ESP_OK) {
+      for(size_t i=0; i<n/sizeof(uint32_t); ++i)
+        ones += static_cast<uint32_t>(__builtin_popcount(pkt.words[i]));
+      pkt.seq = ++seq;
+      pkt.n = static_cast<uint32_t>(n);
     }
-    uint32_t processingUs = static_cast<uint32_t>(esp_timer_get_time()-processBefore);
-    uint32_t overflowDelta = 0;
+    uint32_t queueDrop=0, queueDepth=0;
+    if(status == ESP_OK && n) {
+      // Non-blocking. Prefer dropping an analysis block to missing I2S DMA.
+      if(!dspQueue || xQueueSend(dspQueue, &pkt, 0) != pdPASS)
+        ++queueDrop;
+      else
+        queueDepth = static_cast<uint32_t>(uxQueueMessagesWaiting(dspQueue));
+    }
+    uint32_t overflowDelta=0;
     i2s_event_t event;
-    while (eventQueue && xQueueReceive(eventQueue, &event, 0) == pdTRUE) {
-      if (event.type == I2S_EVENT_RX_Q_OVF) ++overflowDelta;
-    }
-
+    while(eventQueue && xQueueReceive(eventQueue, &event, 0) == pdTRUE)
+      if(event.type == I2S_EVENT_RX_Q_OVF) ++overflowDelta;
     portENTER_CRITICAL(&statsLock);
     stats.bytes += n;
     stats.ones += ones;
     stats.rxQueueOverflows += overflowDelta;
-    if (status != ESP_OK) ++stats.readErrors;
-    else if (n != sizeof(raw)) ++stats.shortReads;
+    stats.dspQueueDrops += queueDrop;
+    if (queueDepth > stats.maxQueueDepth) stats.maxQueueDepth=queueDepth;
+    if(status != ESP_OK) ++stats.readErrors;
+    else if(n!=sizeof(pkt.words)) ++stats.shortReads;
     else ++stats.fullReads;
-    if (elapsed > stats.maxReadUs) stats.maxReadUs = elapsed;
-    if (processingUs > stats.maxProcessUs) stats.maxProcessUs = processingUs;
-    if (n && processingUs > (n*1000000UL/384000UL)) ++stats.processOverBudget;
+    if(elapsed > stats.maxReadUs) stats.maxReadUs=elapsed;
     portEXIT_CRITICAL(&statsLock);
-
-    if (status != ESP_OK) vTaskDelay(pdMS_TO_TICKS(2));
+    if(status != ESP_OK) vTaskDelay(pdMS_TO_TICKS(2));
+  }
+}
+void dspTask(void*) {
+  RawBlock pkt;
+  uint32_t prevSeq=0, processed=0;
+  for(;;) {
+    if(xQueueReceive(dspQueue,&pkt,pdMS_TO_TICKS(1000)) != pdTRUE) {
+      vTaskDelay(1);
+      continue;
+    }
+    // Detect gaps in the PDM byte stream and re-establish the noise baseline.
+    if(prevSeq && pkt.seq!=prevSeq+1) {
+      WildlifeDetector::reset();
+      portENTER_CRITICAL(&statsLock);
+      ++stats.dspStreamResets;
+      portEXIT_CRITICAL(&statsLock);
+    }
+    prevSeq=pkt.seq;
+    int64_t before=esp_timer_get_time();
+    WildlifeDetector::consume(reinterpret_cast<const uint8_t*>(pkt.words),pkt.n);
+    uint32_t elapsed=static_cast<uint32_t>(esp_timer_get_time()-before);
+    portENTER_CRITICAL(&statsLock);
+    if(elapsed>stats.maxProcessUs)stats.maxProcessUs=elapsed;
+    if(pkt.n && elapsed>(pkt.n*1000000UL/384000UL))++stats.processOverBudget;
+    ++stats.dspBlocksProcessed;
+    portEXIT_CRITICAL(&statsLock);
+    // Give IDLE0 / low-priority Wi-Fi housekeeping guaranteed CPU time.
+    if((++processed & 3U)==0) vTaskDelay(1);
   }
 }
 }  // namespace
@@ -129,15 +177,32 @@ bool begin() {
     return false;
   }
   WildlifeDetector::reset();
-  BaseType_t ok = xTaskCreatePinnedToCore(readerTask, "wildlife_mic", 6144,
+  dspQueue = xQueueCreate(DSP_QUEUE_BLOCKS, sizeof(RawBlock));
+  if(!dspQueue) {
+    Serial.println("NZRT MIC failed allocating bounded DSP queue");
+    i2s_driver_uninstall(PORT);
+    return false;
+  }
+  BaseType_t ok = xTaskCreatePinnedToCore(dspTask, "wildlife_dsp", 8192,
+                                           nullptr, 1, &dspTaskHandle, 0);
+  if(ok != pdPASS) {
+    Serial.println("NZRT MIC failed creating low-priority DSP worker");
+    vQueueDelete(dspQueue);dspQueue=nullptr;
+    i2s_driver_uninstall(PORT);
+    return false;
+  }
+  ok = xTaskCreatePinnedToCore(readerTask, "wildlife_mic", 6144,
                                            nullptr, 18, &captureTask, 1);
   if (ok != pdPASS) {
     Serial.println("NZRT MIC task allocation failed");
+    vTaskDelete(dspTaskHandle);dspTaskHandle=nullptr;
+    vQueueDelete(dspQueue);dspQueue=nullptr;
     i2s_driver_uninstall(PORT);
     return false;
   }
   started = true;
   Serial.println("NZRT MIC experimental legacy I2S: CLK GPIO1 DATA GPIO2 WS GPIO4 (unwired), target BCLK 3.072MHz");
+  Serial.println("NZRT DSP bounded queue, worker core0 priority1, reader core1 priority18");
   return true;
 }
 
@@ -184,7 +249,7 @@ void printHealthIfDue() {
       ? (100.0 * static_cast<double>(snap.ones) / (8.0 * static_cast<double>(snap.bytes))) : 0.0;
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT MIC t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu\n",
+  Serial.printf("NZRT MIC t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu dsp_drop=%lu dsp_gap=%lu dsp_done=%lu dsp_qmax=%lu\n",
                 static_cast<unsigned long>(now/1000),
                 static_cast<unsigned long>(bps), density,
                 static_cast<unsigned long>(snap.fullReads),
@@ -193,7 +258,11 @@ void printHealthIfDue() {
                 static_cast<unsigned long>(snap.rxQueueOverflows),
                 static_cast<unsigned long>(snap.maxReadUs),
                 static_cast<unsigned long>(snap.maxProcessUs),
-                static_cast<unsigned long>(snap.processOverBudget));
+                static_cast<unsigned long>(snap.processOverBudget),
+                static_cast<unsigned long>(snap.dspQueueDrops),
+                static_cast<unsigned long>(snap.dspStreamResets),
+                static_cast<unsigned long>(snap.dspBlocksProcessed),
+                static_cast<unsigned long>(snap.maxQueueDepth));
 
   Serial.printf("NZRT BAND 18-45kHz windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx (NOT BAT ID)\n",
     static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
