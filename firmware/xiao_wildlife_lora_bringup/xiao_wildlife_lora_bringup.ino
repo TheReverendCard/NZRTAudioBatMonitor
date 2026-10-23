@@ -242,6 +242,74 @@ static void initRadio() {
                 (double)LORA_FREQUENCY_MHZ);
 }
 
+
+static void serviceRadioRx() {
+  if (!radioReady || !receivedRadioIrq) return;
+  noInterrupts();
+  receivedRadioIrq = false;
+  interrupts();
+  String packet;
+  int16_t result = radio.readData(packet);
+  if (result == RADIOLIB_ERR_NONE) {
+    ++rxOk;
+    String type = "OTHER";
+    if (packet.startsWith("OTD2|")) type = "OTD2";
+    else if (packet.startsWith("OTD1|")) type = "OTD1";
+    else if (packet.startsWith("OTDL1|")) type = "OTDL1";
+    else if (packet.startsWith("OTD3|")) type = "OTD3";
+    else if (packet.startsWith("NZRT1|")) type = "NZRT1";
+    Serial.printf("LORA RX_OK kind=%s len=%u RSSI=%.1f SNR=%.1f rx=%lu\n",
+                  type.c_str(), (unsigned)packet.length(),
+                  radio.getRSSI(), radio.getSNR(), (unsigned long)rxOk);
+    // No OTD ACK, schedule update, or protocol interaction.
+  } else {
+    ++rxBad;
+    Serial.printf("LORA RX_ERROR=%d count=%lu\n",(int)result,(unsigned long)rxBad);
+  }
+  digitalWrite(LORA_RF_SW, HIGH);
+  result = radio.startReceive();
+  if (result != RADIOLIB_ERR_NONE) {
+    Serial.printf("LORA RX_RESTART_ERROR=%d\n", (int)result);
+    radioReady = false;
+  }
+}
+
+static void transmitRaw(const char *payload) {
+  if (!radioReady) {
+    Serial.println("LORA not ready: no TX");
+    return;
+  }
+  radio.clearPacketReceivedAction();
+  receivedRadioIrq = false;
+  int16_t status = radio.standby();
+  if (status != RADIOLIB_ERR_NONE)
+    Serial.printf("LORA standby returned %d\n", (int)status);
+  digitalWrite(LORA_RF_SW, LOW);
+  delayMicroseconds(100);
+  status = radio.transmit(payload);
+  digitalWrite(LORA_RF_SW, HIGH);
+  if (status == RADIOLIB_ERR_NONE) {
+    ++txOk;
+    Serial.printf("LORA TX_OK: %s\n", payload);
+  } else {
+    ++txFailed;
+    Serial.printf("LORA TX_ERROR=%d: %s\n", (int)status, payload);
+  }
+  radio.setPacketReceivedAction(onRadioReceive);
+  status = radio.startReceive();
+  if (status != RADIOLIB_ERR_NONE) {
+    Serial.printf("LORA RX_RESTART_ERROR=%d\n", (int)status);
+    radioReady = false;
+  }
+}
+
+static void sendPing() {
+  char payload[72];
+  snprintf(payload,sizeof(payload),"NZRT1|PING|WILDLIFE|%lu|%lu",
+           (unsigned long)++pingSeq, (unsigned long)(millis()/1000UL));
+  transmitRaw(payload);
+}
+
 static void sendHealth(const CaptureStats& s) {
   if (!radioReady || !txEnabled) return;
   char payload[112];
@@ -255,25 +323,14 @@ static void sendHealth(const CaptureStats& s) {
            pct_x100,
            (unsigned long)dmaOverflows,
            (unsigned long)s.readErrors);
-  // RF_SW is active-HIGH for receive and LOW for transmit on the Wio-SX1262.
-  digitalWrite(LORA_RF_SW, LOW);
-  delayMicroseconds(100);
-  int16_t rc = radio.transmit(payload);
-  digitalWrite(LORA_RF_SW, HIGH);
-  if (rc == RADIOLIB_ERR_NONE) {
-    ++txOk;
-    Serial.printf("LORA TX_OK: %s\n", payload);
-  } else {
-    ++txFailed;
-    Serial.printf("LORA TX_ERROR=%d: %s\n", (int)rc, payload);
-  }
+  transmitRaw(payload);
 }
 
 void setup() {
   Serial.begin(115200);
   delay(1400);
   Serial.println();
-  Serial.println("NZRT wildlife v0.1 - MIC D0/D1 + SX1262 LoRa / no SD");
+  Serial.println("NZRT wildlife v0.2 - OTD v0.8.4a RX + MIC D0/D1; no SD");
   Serial.println("BENCH-ONLY raw LoRa, NOT MeshCore interoperable. TX disabled by default.");
   Serial.println("Attach SX1262 antenna; terminal 't'=opt-in raw TX, 's'=status.");
   Serial.println("Expected raw throughput ~384000 bytes/s and PDM one-density ~50%.");
@@ -311,6 +368,7 @@ void loop() {
     }
   }
 
+  serviceRadioRx();
   uint32_t now = millis();
   if ((uint32_t)(now - lastStatusMs) >= STATUS_PERIOD_MS) {
     uint32_t elapsed = now - lastStatusMs;
