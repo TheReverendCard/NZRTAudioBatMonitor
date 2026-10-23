@@ -23,7 +23,9 @@ static const float taps[97] = {
 };
 // two cascaded 2nd-order Butterworth filters at 192 kHz: HP18k then LP45k
 struct Biquad {
- float b0,b1,b2,a1,a2,z1=0,z2=0;
+ float b0,b1,b2,a1,a2,z1,z2;
+ Biquad(float b0_,float b1_,float b2_,float a1_,float a2_)
+   : b0(b0_),b1(b1_),b2(b2_),a1(a1_),a2(a2_),z1(0),z2(0) {}
  float step(float x) { float y=b0*x+z1; z1=b1*x-a1*y+z2; z2=b2*x-a2*y; return y; }
 };
 Biquad hp={0.65745519149f,-1.31491038298f,0.65745519149f,-1.19391336772f,0.43590739824f};
