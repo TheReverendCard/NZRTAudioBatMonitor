@@ -1,16 +1,27 @@
 name: Wildlife LoRa mic bench compile
+
+# This experimental branch has an open PR. Running on both push and PR
+# previously produced duplicate jobs and duplicate failure notifications.
+# Compile source changes once per PR; documentation-only commits are ignored.
 on:
   pull_request:
     paths:
-      - 'firmware/xiao_wildlife_lora_bringup/**'
-      - '.github/workflows/wildlife-lora-bench.yml'
-  push:
-    paths:
-      - 'firmware/xiao_wildlife_lora_bringup/**'
+      - 'firmware/xiao_wildlife_lora_bringup/**/*.ino'
+      - 'firmware/xiao_wildlife_lora_bringup/**/*.h'
+      - 'firmware/xiao_wildlife_lora_bringup/**/*.hpp'
+      - 'firmware/xiao_wildlife_lora_bringup/**/*.cpp'
       - '.github/workflows/wildlife-lora-bench.yml'
   workflow_dispatch:
+
+# If another commit arrives while CI is still running, test only the newest
+# revision of that same PR. Separate PRs must not cancel each other's runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
+
 jobs:
   arduino:
     runs-on: ubuntu-latest
