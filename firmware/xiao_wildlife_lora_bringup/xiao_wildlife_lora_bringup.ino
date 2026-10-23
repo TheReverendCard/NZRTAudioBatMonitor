@@ -14,6 +14,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <RadioLib.h>
+#include "WildlifeTypes.h"
 #include "driver/i2s_std.h"
 #include "driver/i2s_common.h"
 #include "esp_err.h"
@@ -57,15 +58,6 @@ static uint32_t rxOk = 0, rxBad = 0, pingSeq = 0;
 static volatile bool receivedRadioIrq = false;
 static void IRAM_ATTR onRadioReceive() { receivedRadioIrq = true; }
 
-struct CaptureStats {
-  uint64_t bytes = 0;
-  uint64_t oneBits = 0;
-  uint32_t goodBlocks = 0;
-  uint32_t shortReads = 0;
-  uint32_t readErrors = 0;
-  uint32_t worstReadUs = 0;
-  int lastReadError = 0;
-};
 static CaptureStats counters;
 
 static bool IRAM_ATTR onDmaOverflow(i2s_chan_handle_t, i2s_event_data_t*, void*) {
