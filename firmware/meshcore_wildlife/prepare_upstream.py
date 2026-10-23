@@ -63,7 +63,7 @@ def prepare(src: Path, check: bool = False) -> None:
     variant_path = src / "variants/xiao_s3_wio/platformio.ini"
     variant = variant_path.read_text()
     begin = variant.index("[env:Xiao_S3_WIO_repeater]")
-    end = variant.index("[env:Xiao_S3_WIO_repeater_bridge_espnow]", begin)
+    end = variant.index("; [env:Xiao_S3_WIO_repeater_bridge_rs232]", begin)
     section = variant[begin:end]
     section = replace_one(section, "  -D ADMIN_PASSWORD='\"password\"'",
                           "  -D ADMIN_PASSWORD='\"BENCH_ONLY_CHANGE_ME\"'",
