@@ -1,6 +1,7 @@
 /*
   NZRT Wildlife Node - v0.1 hardware bring-up
-  Experimental branch only: LoRa + mic, no SD / no classifiers / no Wi-Fi yet.
+  Experimental branch only: raw LoRa + mic, no SD / no classifiers / no Wi-Fi yet.
+  This is NOT MeshCore! Do not flash as a working mesh sensor/repeater.
   Mic: CLK=D0/GPIO1, DATA=D1/GPIO2, SEL strapped to GND by the breakout.
   Wio-SX1262: B2B connector, SPI GPIO7/8/9, NSS41, IRQ39, RST42, BUSY40, RF_SW38.
 
@@ -45,7 +46,8 @@ static TaskHandle_t audioTaskHandle = nullptr;
 static portMUX_TYPE statsLock = portMUX_INITIALIZER_UNLOCKED;
 static volatile uint32_t dmaOverflows = 0;
 static bool radioReady = false;
-static bool txEnabled = true;
+// Opt-in raw bench TX. This is NOT MeshCore protocol and will not mesh.
+static bool txEnabled = false;
 static uint32_t txSequence = 0;
 static uint32_t txOk = 0;
 static uint32_t txFailed = 0;
@@ -262,7 +264,8 @@ void setup() {
   delay(1400);
   Serial.println();
   Serial.println("NZRT wildlife v0.1 - MIC D0/D1 + SX1262 LoRa / no SD");
-  Serial.println("Attach SX1262 antenna; terminal 't'=toggle LoRa TX, 's'=status.");
+  Serial.println("BENCH-ONLY raw LoRa, NOT MeshCore interoperable. TX disabled by default.");
+  Serial.println("Attach SX1262 antenna; terminal 't'=opt-in raw TX, 's'=status.");
   Serial.println("Expected raw throughput ~384000 bytes/s and PDM one-density ~50%.");
 
   bool micReady = startMicrophone();
