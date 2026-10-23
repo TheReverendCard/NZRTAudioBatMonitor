@@ -58,14 +58,17 @@ def prepare(src: Path, check: bool = False) -> None:
     config = replace_one(config, "  -D ENABLE_ADVERT_ON_BOOT=1",
                          "  -D ENABLE_ADVERT_ON_BOOT=0", "quiet bootstrap")
 
-    # Limit credential change to the pinned Xiao S3 WIO repeater block.
-    begin = config.index("[env:Xiao_S3_WIO_repeater]")
-    end = config.index("[env:Xiao_S3_WIO_repeater_bridge_espnow]", begin)
-    section = config[begin:end]
+    # Board variant environments are in variants/xiao_s3_wio/platformio.ini,
+    # not the root platformio.ini. Scope this to the exact repeater section.
+    variant_path = src / "variants/xiao_s3_wio/platformio.ini"
+    variant = variant_path.read_text()
+    begin = variant.index("[env:Xiao_S3_WIO_repeater]")
+    end = variant.index("[env:Xiao_S3_WIO_repeater_bridge_espnow]", begin)
+    section = variant[begin:end]
     section = replace_one(section, "  -D ADMIN_PASSWORD='\"password\"'",
                           "  -D ADMIN_PASSWORD='\"BENCH_ONLY_CHANGE_ME\"'",
                           "bench-only credential")
-    config = config[:begin] + section + config[end:]
+    variant = variant[:begin] + section + variant[end:]
 
     local = """; NZRT transient development target; NOT a public/production build.
 [env:NZRT_Xiao_S3_WIO_wildlife_repeater]
@@ -87,6 +90,7 @@ build_src_filter =
         return
     main_path.write_text(main)
     ini_path.write_text(config)
+    variant_path.write_text(variant)
     (src / "platformio.local.ini").write_text(local)
     dest = src / "nzrt"
     dest.mkdir()
