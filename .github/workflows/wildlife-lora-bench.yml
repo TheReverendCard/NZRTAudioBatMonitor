@@ -1,0 +1,36 @@
+name: Wildlife LoRa mic bench compile
+on:
+  pull_request:
+    paths:
+      - 'firmware/xiao_wildlife_lora_bringup/**'
+      - '.github/workflows/wildlife-lora-bench.yml'
+  push:
+    paths:
+      - 'firmware/xiao_wildlife_lora_bringup/**'
+      - '.github/workflows/wildlife-lora-bench.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  arduino:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.3.1'
+      - name: Install pinned ESP32 board core
+        run: |
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+      - name: Install RadioLib 7.1.2
+        run: |
+          arduino-cli lib update-index
+          arduino-cli lib install 'RadioLib@7.1.2'
+      - name: Compile experimental wildlife mic + LoRa sketch
+        run: >-
+          arduino-cli compile
+          --fqbn 'esp32:esp32:XIAO_ESP32S3:PSRAM=opi,USBMode=hwcdc,CDCOnBoot=default,CPUFreq=240,FlashSize=8M,PartitionScheme=default_8MB'
+          --warnings default
+          firmware/xiao_wildlife_lora_bringup
