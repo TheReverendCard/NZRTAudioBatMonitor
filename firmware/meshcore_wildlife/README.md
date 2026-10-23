@@ -95,3 +95,13 @@ neighbors
 ```
 
 Expected stored NZ Narrow radio setting if not overridden by persisted preferences: **917.375, 62.5, 7, 5**. If path hash mode is `0`, issue `set path.hash.mode 1` and check again (mode `1` gives two-byte hashes for *outgoing* packet paths). Do **not** use the incorrect `set radio.hash_mode 1` spelling. Leave device listening for at least 15-30 minutes before interpreting `-none-`; neighbours are mostly learned from advertisements, so packet counters are better for understanding basic reception. Avoid transmitting deliberate `advert` or `discover.neighbors` until administrative password and radio-profile/airtime constraints are verified.
+
+### Extended 23-minute capture and passive reception test
+
+At runtime `t=480` through `1380s`, 60-second PDM health output held precisely at **384,000 B/s**, one-density **50.000%**, `short=0`, `errors=0` and `legacy_rx_q_ovf=5` (unchanged since first report). Maximum observed read latency increased only slightly to **5,320 us**. This establishes sustained mic-driver coexistence with the live MeshCore event loop, not spectral recording fidelity.
+
+MeshCore `stats-packets` counted **`recv=0`** twice during this interval; locally generated sends advanced **3 to 4** (`direct_tx`, no flood TX). `neighbors` remained `-none-`. This is **not yet a successful MeshCore over-the-air receive or forwarding test**. Four sends do not imply four successful links. `set path.hash.mode 1` returned `OK`; this selects 2-byte hashes **for the repeater's own adverts only**, per [MeshCore FAQ](https://docs.meshcore.io/faq/).
+
+The [community New Zealand Narrow radio preset](https://docs.meshcore.io/radio_presets/) (917.375 MHz, SF7, BW62.5, CR5, 2-byte adverts) matches the intended overlay, but nearby map pins may not represent live nodes. A *historical, deprecated* New Zealand profile also used 917.375 MHz but SF11 and BW250. Verify what settings the local repeaters currently use rather than switching presets on the strength of map data alone.
+
+**Next read-only serial commands:** `get radio`, `get path.hash.mode`, `get repeat`, `get advert.interval`, `get flood.advert.interval`, `stats-packets`, `stats-radio`. Check these before an optional **single** `discover.neighbors` request, and only with the unique administrator password configured. The terminal sequences `ESC[3~` and `ESC[C` are keyboard Delete/arrow control codes, not LoRa or I2S errors; avoid using those keys in the simple serial monitor.
