@@ -38,3 +38,43 @@ jobs:
           python firmware/meshcore_wildlife/prepare_upstream.py --upstream MeshCore-upstream
       - name: Build actual MeshCore repeater with experimental mic
         run: pio run -d MeshCore-upstream -e NZRT_Xiao_S3_WIO_wildlife_repeater
+      - name: Package complete prepared PlatformIO project as ZIP
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil, zipfile
+          source=Path("MeshCore-upstream")
+          package=Path("distribution/NZRT-MeshCore-Wildlife-FieldLogger")
+          package.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copytree(source, package,
+                          ignore=shutil.ignore_patterns(".git",".pio",".vscode","__pycache__"))
+          (package/"FIELD_TEST_FIRST.txt").write_text(
+              "NZRT MESHCORE WILDLIFE FIELD LOGGING PROTOTYPE\n"
+              "Native MeshCore v1.18.0 repeater + experimental PDM reader.\n"
+              "Prepared source project: open folder in PlatformIO.\n"
+              "IMPORTANT: Before RF use, change BENCH_ONLY_CHANGE_ME to your own\n"
+              "unique private admin password in variants/xiao_s3_wio/platformio.ini,\n"
+              "under [env:Xiao_S3_WIO_repeater], then REBUILD and UPLOAD.\n"
+              "If credentials were stored on the device already, the serial\n"
+              "'password' command changes persisted credentials. Never paste\n"
+              "passwords or private keys into public bug reports.\n"
+              "Build: py -m platformio run -e NZRT_Xiao_S3_WIO_wildlife_repeater\n"
+              "Flash: py -m platformio run -e NZRT_Xiao_S3_WIO_wildlife_repeater -t upload\n"
+              "After a power-bank walk, connect to USB serial (115200) and\n"
+              "send 'log' to dump saved packet and periodic NZRT health history.\n"
+              "DO NOT issue 'log erase' until you have captured the records.\n",
+              encoding="utf-8")
+          output=Path("distribution/NZRT-MeshCore-Wildlife-FieldLogger.zip")
+          with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+              for path in sorted(package.rglob("*")):
+                  if path.is_file():
+                      z.write(path, path.relative_to(package.parent))
+          print(f"Package ZIP: {output} {output.stat().st_size} bytes")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NZRT-MeshCore-FieldLogger-Prepared-Project
+          path: distribution/NZRT-MeshCore-Wildlife-FieldLogger.zip
+          if-no-files-found: error
+          retention-days: 30
