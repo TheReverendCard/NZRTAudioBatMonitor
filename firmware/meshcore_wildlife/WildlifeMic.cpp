@@ -10,6 +10,7 @@
  * GPIO4/D3 is used as unwired WS, avoiding MeshCore I2C D4/D5.
  */
 #include "WildlifeMic.h"
+#include <SPIFFS.h>  // same flash filesystem used by upstream MeshCore repeater
 #include <driver/i2s.h>
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
@@ -156,5 +157,28 @@ void printHealthIfDue() {
                 static_cast<unsigned long>(snap.readErrors),
                 static_cast<unsigned long>(snap.rxQueueOverflows),
                 static_cast<unsigned long>(snap.maxReadUs));
+
+  // Field-test journal: use MeshCore's existing /packet_log so the stock
+  // 'log' command also returns mic/uptime evidence after power cycles.
+  // One heartbeat at ~60s, then every 5m; avoid a flash write every sample.
+  // The upstream repeater mounts SPIFFS before WildlifeMic::begin().
+  static uint32_t lastJournalMs = 0;
+  if (lastJournalMs == 0 || now - lastJournalMs >= 300000UL) {
+    lastJournalMs = now;
+    File journal = SPIFFS.open("/packet_log", FILE_APPEND);
+    if (journal) {
+      journal.printf(
+          "NZRT FIELD uptime=%lus mic_bps=%lu density=%.3f%% blocks=%lu short=%lu read_err=%lu dma_q_ovf=%lu\\n",
+          static_cast<unsigned long>(now / 1000UL),
+          static_cast<unsigned long>(bps), density,
+          static_cast<unsigned long>(snap.fullReads),
+          static_cast<unsigned long>(snap.shortReads),
+          static_cast<unsigned long>(snap.readErrors),
+          static_cast<unsigned long>(snap.rxQueueOverflows));
+      journal.close();
+    } else {
+      Serial.println("NZRT FIELD flash journal open failed");
+    }
+  }
 }
 } // namespace WildlifeMic
