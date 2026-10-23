@@ -55,3 +55,22 @@ Using the recording package's host-side dual decoding (3.072 Mbit/s PDM; 16:1 de
 Independent spectrogram of the **uploaded MSB WAV** confirms an actual time-localized series of broadband bursts in ~10–50 kHz, beginning at the user's ~5-second finger-rubbing mark. **LSB decoding shows no comparable event**, so MSB-first bit ordering is strongly supported by this test. An elevated high-frequency noise continuum dominates >~60 kHz in the normalized MSB output; there are persistent narrow-band features around 23–24 kHz and ~46–47 kHz, visible even during the quiet part. The earlier fixed 72 kHz raw-PDM artefact is **not clearly reproduced as a distinct narrow line**, but response at 70–74 kHz is negligible (+0.11 dB), so **do not assert that full 18–90 kHz ultrasonic fidelity has passed**. `msb` and `lsb` WAV files are independently scaled for listening; compare response **within** each decode, not absolute cross-file amplitude.
 
 **Disposition:** data transport **PASS**, acoustic presence in ~18–45 kHz **PASS for this finger-rub bench test**, uncalibrated high-frequency audio / noise-floor performance **NOT YET PASS**. Next: preserve this known-good STD/MSB acquisition and host decoder; repeat a 10-second quiet/rub baseline for repeatability; optionally compare to the Echo Meter Touch 2 or a reproducible frequency source; then port the verified I2S bit order and filtered detector to the pinned MeshCore/ESP-IDF4 sampler. During the first MeshCore comparison, record paired quiet/rub segments with RF idle and controlled TX, ensuring DMA queue overflows do not grow. Keep wav/raw files local and avoid uploading private recordings into public repo.
+
+
+### Quiet-band comparison: moved microphone roughly 1 m near/outside room (24 Oct 2026, 11:46 NZDT)
+
+Second user recording `20261024_114637_test1` also captured **3,840,000 PDM bytes / 10 seconds, 1,876 serial packets, zero missing sequences, zero invalid headers**. Compare with first `20261024_114218_test1` with 1,879 packets and zero gaps. Both used the MSB 192 kHz decode. To compare *absolute* pre-WAV-normalization level, divide WAV PCM by each report's `msb.normalization_gain` (first ~80.055, second ~89.990). Noise power below is from Welch PSD integrated over each band (quiet 0.3–4.7 seconds), then dB ratio of second versus first:
+
+| Band | Outside relative to inside |
+| --- | ---: |
+| 50 Hz–18 kHz | +3.12 dB |
+| 18–45 kHz | +1.19 dB |
+| 45–80 kHz | +0.20 dB |
+| 70–74 kHz | **+0.02 dB** |
+| 22–24 kHz | **−9.71 dB** |
+| 46–48 kHz | **+5.45 dB** |
+| 80–90 kHz | **−0.01 dB** |
+
+Strongest narrowband features **changed frequency**: first quiet section has peaks around 23.3–23.6 kHz; second has a strong feature around 27.3 kHz and an enhancement around 44–48 kHz. The very smooth rising high-frequency noise spectrum above ~55–60 kHz is *almost identical* across recordings, especially 70–74 and 80–90 kHz; this is **consistent with a stable microphone/PDM noise-shaping or decoding noise floor**, not good evidence of ambient room/laptop fan sound, although 1 m alone cannot distinguish conducted electrical interference from digital noise. Narrow peaks varying with position **may** be environmental or geometry-dependent EMI; user did not perform a controlled RF/charging/fan on-off experiment. Audible speech/other transient sounds complicate interpretation of below-18-kHz bands. Neither WAV is acoustically calibrated in SPL.
+
+**Disposition:** environmental position matters to some ultrasonics, but high-band noise is substantially **position-invariant**. Do not conclude the entire spectrum is environmental. Next priority: controlled repeat with equipment power/fan state and mic distance changed separately; compare to EMT2/reference microphone if possible; evaluate higher-frequency PDM decimation / filter shape before assuming 55–80-kHz bat sensitivity. Preserve the raw PDM and current valid capture configuration.
