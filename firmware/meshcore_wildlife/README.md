@@ -123,3 +123,27 @@ The current development branch now contains **field-log changes for a future rec
 A power bank powering the XIAO over USB-C is sufficient: **no computer, phone or microSD is needed with the revised image**. Attach the correct 900 MHz LoRa antenna before TX; avoid touching its radiating element while testing. Choose a sheltered but open/elevated location with clear view where possible. Start the board from the power bank, leave it **stationary for 10–20 minutes at each point** (MeshCore adverts/discovery may be infrequent); a continuous short walk may miss infrequent traffic. After the walk, attach to PC, use 115200-baud monitor, issue `log`, save the output and compare `stats-packets` for the new boot separately. Returning to USB power will reboot, but the revised firmware's packet journal survives as a flash file.
 
 If you prefer no flash/rebuild, the **already-running** old version can be carried with a phone or laptop functioning as a USB serial host that continuously powers the board and records/queries `stats-packets`. Logging activated by `log start` does **not** survive the power-bank reboot in that earlier image.
+
+## First verified flood forwarding and saved field log, 24 October 2026
+
+The outdoor hilltop test **verified physical reception and retransmission** of two upstream MeshCore flood packets, as well as a direct discovery reply. It also verified that the new flash-backed field logger can be read through the native `log` command while the PDM microphone reader is active. Representative journal pairs:
+
+```text
+RX, len=34 (type=0, route=F, payload_len=20) SNR=-7 RSSI=-95 score=43
+TX, len=36 (type=0, route=F, payload_len=20)
+RX, len=40 (type=11, route=D, payload_len=38) SNR=-9 RSSI=-97 score=0
+RX, len=34 (type=0, route=F, payload_len=20) SNR=-8 RSSI=-96 score=0
+TX, len=36 (type=0, route=F, payload_len=20)
+```
+
+The payload length remained 20 bytes; total packet length increased by two bytes as appropriate when adding this node's two-byte forwarding path hash. `stats-packets` showed `recv=3`, `flood_rx=2`, `direct_rx=1`, `flood_tx=2`, `sent=6` and `recv_errors=4`. This confirms the local transceiver transmitted two forwarded flood packets, **not that any downstream repeater received them**. A distinct nearby repeater was seen in `neighbors` with key prefix `D4916DEC`, last-received signal approximately -9 dB SNR.
+
+Microphone statistics at ~31 minutes remained **384,000 bytes/s, 50% raw PDM bit density, zero short reads and read errors, five initial DMA overflows with no later growth**. These counters do not establish ultrasonic signal fidelity, species recognition, or native MeshCore-originated wildlife telemetry.
+
+### RTC timestamp correction needed
+
+The journal incorrectly dates RX/TX events `1/3/2026 U` with time `00:xx` despite the host's dated October 24 2026 NZDT trial. It appears the MeshCore on-board RTC was **never synchronized**, so absolute journal timestamps are invalid, even though packet order and `NZRT FIELD uptime` counters are useful. Two `NZRT FIELD uptime=60s` entries indicate earlier entries were retained in SPIFFS across a restart.
+
+On pinned upstream MeshCore, serial CLI supports `clock` (inspect on-board UTC time) and `time <current_unix_epoch_seconds>` (set a newer absolute time). This currently requires an external correct epoch value and time synchronization does not automatically persist a wall-clock across full USB power removal. Future field builds should explicitly tag unsynchronized time, record monotonic uptime on each packet, or accept initial time from phone USB serial. Until then, use phone timestamps when copying serial logs and correlate journal records by relative uptime.
+
+For reliable network telemetry, **next proof is end-to-end receipt by another controlled MeshCore node**, plus a bench-verified acoustics test, and only then periodic sensor-originated MeshCore reports.
