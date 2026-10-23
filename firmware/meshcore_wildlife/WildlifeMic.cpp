@@ -10,6 +10,7 @@
  * GPIO4/D3 is used as unwired WS, avoiding MeshCore I2C D4/D5.
  */
 #include "WildlifeMic.h"
+#include "WildlifeDetector.h"
 #include <SPIFFS.h>  // same flash filesystem used by upstream MeshCore repeater
 #include <driver/i2s.h>
 #include <esp_timer.h>
@@ -49,6 +50,7 @@ void readerTask(void*) {
 
     uint32_t ones = 0;
     if (status == ESP_OK) {
+      WildlifeDetector::consume(reinterpret_cast<const uint8_t*>(raw), n);
       for (size_t i = 0; i < n / sizeof(uint32_t); ++i) {
         ones += static_cast<uint32_t>(__builtin_popcount(raw[i]));
       }
@@ -120,6 +122,7 @@ bool begin() {
     i2s_driver_uninstall(PORT);
     return false;
   }
+  WildlifeDetector::reset();
   BaseType_t ok = xTaskCreatePinnedToCore(readerTask, "wildlife_mic", 6144,
                                            nullptr, 18, &captureTask, 1);
   if (ok != pdPASS) {
@@ -134,6 +137,30 @@ bool begin() {
 
 void printHealthIfDue() {
   if (!started) return;
+  // Audio samples are processed only in the DMA task; flash writes occur here
+  // on the main loop, batched every ten seconds to minimise interference.
+  static WildlifeDetector::Event pending[64];
+  static size_t pendingN=0;
+  static uint32_t lastFlush=0;
+  WildlifeDetector::Event ev;
+  for(unsigned i=0; i<8 && WildlifeDetector::pop(ev);++i) {
+    Serial.printf("NZRT CANDIDATE seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx (UNVERIFIED)\n",
+       static_cast<unsigned long>(ev.seq),static_cast<unsigned long>(ev.start_ms),
+       static_cast<unsigned long>(ev.end_ms),ev.peak_ratio);
+    if(pendingN<64)pending[pendingN++]=ev;
+  }
+  uint32_t checkNow=millis();
+  if(pendingN && (pendingN==64 || checkNow-lastFlush>=10000UL)) {
+    File f=SPIFFS.open("/packet_log",FILE_APPEND);
+    if(f) {
+      for(size_t i=0;i<pendingN;++i)
+        f.printf("NZRT CANDIDATE seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx unverified=1\n",
+          static_cast<unsigned long>(pending[i].seq),static_cast<unsigned long>(pending[i].start_ms),
+          static_cast<unsigned long>(pending[i].end_ms),pending[i].peak_ratio);
+      f.close();pendingN=0;
+    }
+    lastFlush=checkNow;
+  }
   static uint32_t lastReport = 0;
   static uint64_t lastBytes = 0;
   uint32_t now = millis();
@@ -149,6 +176,8 @@ void printHealthIfDue() {
   lastBytes = snap.bytes;
   float density = snap.bytes
       ? (100.0 * static_cast<double>(snap.ones) / (8.0 * static_cast<double>(snap.bytes))) : 0.0;
+  WildlifeDetector::Snapshot ds;
+  WildlifeDetector::snapshot(ds);
   Serial.printf("NZRT MIC t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus\n",
                 static_cast<unsigned long>(now/1000),
                 static_cast<unsigned long>(bps), density,
@@ -158,6 +187,9 @@ void printHealthIfDue() {
                 static_cast<unsigned long>(snap.rxQueueOverflows),
                 static_cast<unsigned long>(snap.maxReadUs));
 
+  Serial.printf("NZRT BAND 18-45kHz windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx (NOT BAT ID)\n",
+    static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
+    ds.band_rms,ds.noise_rms,ds.peak_ratio);
   // Field-test journal: use MeshCore's existing /packet_log so the stock
   // 'log' command also returns mic/uptime evidence after power cycles.
   // One heartbeat at ~60s, then every 5m; avoid a flash write every sample.
@@ -175,10 +207,20 @@ void printHealthIfDue() {
           static_cast<unsigned long>(snap.shortReads),
           static_cast<unsigned long>(snap.readErrors),
           static_cast<unsigned long>(snap.rxQueueOverflows));
+      journal.printf("NZRT BAND uptime=%lus windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx unverified=1\n",
+         static_cast<unsigned long>(now/1000UL), static_cast<unsigned long>(ds.windows),
+         static_cast<unsigned long>(ds.candidates),ds.band_rms,ds.noise_rms,ds.peak_ratio);
       journal.close();
     } else {
       Serial.println("NZRT FIELD flash journal open failed");
     }
   }
+}
+void printStatus() {
+  WildlifeDetector::Snapshot ds;
+  WildlifeDetector::snapshot(ds);
+  Serial.printf("NZRT BAND status 18-45kHz windows=%lu candidates=%lu rms=%.7f background=%.7f max_ratio=%.2fx unverified=1\n",
+    static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
+    ds.band_rms,ds.noise_rms,ds.peak_ratio);
 }
 } // namespace WildlifeMic
