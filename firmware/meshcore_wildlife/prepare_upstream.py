@@ -58,6 +58,17 @@ def prepare(src: Path, check: bool = False) -> None:
     config = replace_one(config, "  -D ENABLE_ADVERT_ON_BOOT=1",
                          "  -D ENABLE_ADVERT_ON_BOOT=0", "quiet bootstrap")
 
+    # Enable upstream MeshCore's own flash-backed RX/TX packet journal
+    # from the first boot, even if powered by a standalone USB power bank.
+    # Upstream's interactive 'log start' flag is RAM-only and would be lost
+    # when unplugging from a computer. This overlay stays bench-only.
+    repeater_path = src / "examples/simple_repeater/MyMesh.cpp"
+    repeater = repeater_path.read_text()
+    repeater = replace_one(
+        repeater, "  _logging = false;",
+        "  _logging = true;  // NZRT field-test packet logging on every boot",
+        "field-test packet logger")
+
     # Board variant environments are in variants/xiao_s3_wio/platformio.ini,
     # not the root platformio.ini. Scope this to the exact repeater section.
     variant_path = src / "variants/xiao_s3_wio/platformio.ini"
@@ -89,6 +100,7 @@ build_src_filter =
         print(f"CHECK PASSED: pinned MeshCore SHA {head}; overlay anchors verified")
         return
     main_path.write_text(main)
+    repeater_path.write_text(repeater)
     ini_path.write_text(config)
     variant_path.write_text(variant)
     (src / "platformio.local.ini").write_text(local)
