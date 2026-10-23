@@ -45,6 +45,17 @@ def prepare(src: Path, check: bool = False) -> None:
   if (!WildlifeMic::begin())
     Serial.println("NZRT microphone start failed: MeshCore still running");""",
                        "repeater setup")
+
+    main = replace_one(
+        main,
+        "    the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!",
+        """    if (strcmp(command, "nzrt status") == 0) {
+      WildlifeMic::printStatus();
+    } else {
+      the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
+    }""",
+        "NZRT local serial status command")
+
     main = replace_one(main, "  board.loop();   // let the board feed its watchdog, run periodic housekeeping",
                        "  WildlifeMic::printHealthIfDue();\n  board.loop();   // let the board feed its watchdog, run periodic housekeeping",
                        "repeater loop")
@@ -95,6 +106,7 @@ build_unflags =
 build_src_filter =
   ${env:Xiao_S3_WIO_repeater.build_src_filter}
   +<../nzrt/WildlifeMic.cpp>
+  +<../nzrt/WildlifeDetector.cpp>
 """
     if check:
         print(f"CHECK PASSED: pinned MeshCore SHA {head}; overlay anchors verified")
@@ -108,6 +120,8 @@ build_src_filter =
     dest.mkdir()
     shutil.copyfile(overlay / "WildlifeMic.cpp", dest / "WildlifeMic.cpp")
     shutil.copyfile(overlay / "WildlifeMic.h", dest / "WildlifeMic.h")
+    shutil.copyfile(overlay / "WildlifeDetector.h", dest / "WildlifeDetector.h")
+    shutil.copyfile(overlay / "WildlifeDetector.cpp", dest / "WildlifeDetector.cpp")
     print(f"PREPARED: MeshCore {head}, target {ENV_NAME}")
     print("Experimental capture + upstream repeater, NOT native wildlife telemetry yet")
 
