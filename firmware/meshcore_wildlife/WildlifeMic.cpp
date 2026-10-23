@@ -97,6 +97,7 @@ bool begin() {
   pins.ws_io_num = DUMMY_WS;  // do not connect externally
   pins.data_out_num = I2S_PIN_NO_CHANGE;
   pins.data_in_num = DATA;
+  pins.mck_io_num = I2S_PIN_NO_CHANGE; // no clock output on BOOT GPIO0
   e = i2s_set_pin(PORT, &pins);
   if (e != ESP_OK) {
     Serial.printf("NZRT MIC pins failed=%d\n", static_cast<int>(e));
