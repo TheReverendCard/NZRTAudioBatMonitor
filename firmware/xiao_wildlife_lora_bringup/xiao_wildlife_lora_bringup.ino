@@ -31,10 +31,10 @@ static constexpr int LORA_BUSY = 40;
 static constexpr int LORA_RF_SW = 38;
 
 // Initial test settings only. Set these to match a separate receiving radio.
-static constexpr float LORA_FREQUENCY_MHZ = 917.0f;
+static constexpr float LORA_FREQUENCY_MHZ = 915.0f;
 static constexpr float LORA_BANDWIDTH_KHZ = 125.0f;
-static constexpr uint8_t LORA_SPREADING_FACTOR = 7;
-static constexpr uint8_t LORA_CODING_RATE = 5;   // 4/5
+static constexpr uint8_t LORA_SPREADING_FACTOR = 9;
+static constexpr uint8_t LORA_CODING_RATE = 7;   // 4/7: OTD 0.8.4a
 static constexpr int8_t LORA_TX_POWER_DBM = 10;
 static constexpr float LORA_TCXO_VOLTAGE = 1.8f;
 static constexpr uint32_t STATUS_PERIOD_MS = 5000;
@@ -51,6 +51,9 @@ static bool txEnabled = false;
 static uint32_t txSequence = 0;
 static uint32_t txOk = 0;
 static uint32_t txFailed = 0;
+static uint32_t rxOk = 0, rxBad = 0, pingSeq = 0;
+static volatile bool receivedRadioIrq = false;
+static void IRAM_ATTR onRadioReceive() { receivedRadioIrq = true; }
 
 struct CaptureStats {
   uint64_t bytes = 0;
@@ -227,8 +230,15 @@ static void initRadio() {
     return;
   }
   radio.setDio2AsRfSwitch(true);
+  radio.setPacketReceivedAction(onRadioReceive);
+  digitalWrite(LORA_RF_SW, HIGH);
+  int16_t rx = radio.startReceive();
+  if (rx != RADIOLIB_ERR_NONE) {
+    Serial.printf("LoRa RX start error=%d; mic continues\n", (int)rx);
+    return;
+  }
   radioReady = true;
-  Serial.printf("LoRa READY: %.1fMHz, BW125, SF7, CR4/5, 10dBm, TCXO1.8V\n",
+  Serial.printf("LoRa READY: %.1fMHz BW125 SF9 CR4/7 sync=0x12 10dBm TCXO1.8V\n",
                 (double)LORA_FREQUENCY_MHZ);
 }
 
