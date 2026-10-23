@@ -42,7 +42,7 @@ An alternative is the PlatformIO extension inside VS Code, using its own integra
 
 **Before flashing to a public MeshCore network:** the generated `MeshCore-1.18/variants/xiao_s3_wio/platformio.ini` currently sets the development repeater's `ADMIN_PASSWORD` to the common placeholder `BENCH_ONLY_CHANGE_ME`. Replace it in the actual `[env:Xiao_S3_WIO_repeater]` block with a **unique, unshared local password (up to 15 single-byte characters)**, then rebuild. Do not commit this credential, place it in an issue/PR, or deploy the placeholder. Never paste private keys or passwords into public logs.
 
-The current NZ community **Narrow** preset uses 917.375 MHz / SF7 / BW62.5 / CR5 with **2-byte path hashes**. The experimental build sets the radio parameters; verify and configure the repeater's path hash mode (`1` for 2-byte hashes; upstream default may be one byte) before treating it as an interoperable community relay. Using the MeshCore serial CLI on the test unit, `set radio.hash_mode 1` is the expected upstream setting (and it is persistent), but verify the response on hardware. A repeater's appearance on an online map is not proof that it is currently on air; last-seen status and actual decoded packets matter.
+The current NZ community **Narrow** preset uses 917.375 MHz / SF7 / BW62.5 / CR5 with **2-byte path hashes**. The experimental build sets the radio parameters; verify and configure the repeater's path hash mode (`1` for 2-byte hashes; upstream default may be one byte) before treating it as an interoperable community relay. The **verified** v1.18.0 MeshCore CLI uses `get path.hash.mode` to inspect this setting and `set path.hash.mode 1` to select two-byte hashes (mode + 1 is the number of bytes). The earlier `set radio.hash_mode 1` instruction was incorrect. Use `get radio` to inspect the stored effective radio profile. The settings are persistent; confirm responses on hardware. A repeater's appearance on an online map is not proof that it is currently on air; last-seen status and actual decoded packets matter.
 
 For a controlled first hardware test, keep the node in serial observation mode and avoid spontaneous advertisements or unnecessary forwarding on a shared network. A trustworthy **A → B → C** forwarding test still requires a genuine source and destination, not just a map pin. The existing transit gateway does not speak MeshCore, so do not expect it to decode these packets.
 
@@ -63,3 +63,35 @@ The script refuses to touch an unexpected upstream revision, overwrite existing 
 9. [ ] Bird/bat/rodent classification and bounded count summaries; optional Wi-Fi clips, with ring buffers, radio airtime and energy accounted for.
 
 **Known differences/risks:** upstream old I2S driver may not match the proven IDF5 PDM bit timing. Event queue overflows are not identical to the newer `on_recv_q_ovf` counter. Radio RF path may generate acoustic EMI; density near 50% doesn't validate actual ultrasonic capture. Continuous capture and all-hours radio listening require an external power plan. We will not merge this as production without on-device and multihop evidence.
+
+## First on-device serial test (24 October 2026)
+
+Windows firmware upload reported **SUCCESS**, wrote 1,144,368 bytes, flash hash verified. The attached USB serial monitor at COM8, 115200 baud showed:
+
+```text
+NZRT MIC t=60s bps=371814 density=49.999% blocks=10893 short=0 errors=0 legacy_rx_q_ovf=5 worstRead=5299us
+NZRT MIC t=120s bps=384000 density=50.000% blocks=22143 short=0 errors=0 legacy_rx_q_ovf=5 worstRead=5299us
+stats-radio
+  -> {"noise_floor":-108,"last_rssi":-113,"last_snr":4.00,"tx_air_secs":0,"rx_air_secs":0}
+stats-core
+  -> {"battery_mv":0,"uptime_secs":144,"errors":0,"queue_len":0}
+neighbors
+  -> -none-
+NZRT MIC t=180s bps=384000 density=50.000% blocks=33393 short=0 errors=0 legacy_rx_q_ovf=5 worstRead=5299us
+```
+
+**Assessment:** the legacy I2S microphone reader runs for at least three minutes with target 384,000 B/s, expected ~50% raw PDM density, zero short or failed reads and just five cumulative startup DMA queue-overflow events (no growth from 60 to 180 s). Native MeshCore CLI is responsive, core error count 0, radio has measured -108 dBm floor. `battery_mv=0` is unsurprising for an unwired/battery-adc-less USB bench. `neighbors -> -none-` and `rx_air_secs=0` at this early point do **not** establish that local MeshCore repeaters are absent or that any authenticated/valid MeshCore packets have been received; **over-air MesCore reception/forwarding remains unverified**. PDM density and bitrate alone are insufficient to establish ultrasonic accuracy or actual bitclock.
+
+### Next passive radio check
+
+These are **read-only** queries accepted by the pinned upstream MeshCore repeater CLI:
+
+```text
+get radio
+get path.hash.mode
+get tx
+stats-packets
+neighbors
+```
+
+Expected stored NZ Narrow radio setting if not overridden by persisted preferences: **917.375, 62.5, 7, 5**. If path hash mode is `0`, issue `set path.hash.mode 1` and check again (mode `1` gives two-byte hashes for *outgoing* packet paths). Do **not** use the incorrect `set radio.hash_mode 1` spelling. Leave device listening for at least 15-30 minutes before interpreting `-none-`; neighbours are mostly learned from advertisements, so packet counters are better for understanding basic reception. Avoid transmitting deliberate `advert` or `discover.neighbors` until administrative password and radio-profile/airtime constraints are verified.
