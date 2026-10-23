@@ -1,6 +1,8 @@
 /*
   NZRT Wildlife Node - v0.1 hardware bring-up
   Experimental branch only: raw LoRa + mic, no SD / no classifiers / no Wi-Fi yet.
+  v0.2 matches Open Transit Display v0.8.4a RF settings for passive RX
+  and an explicitly requested small NZRT1|PING packet. Never triggers OTD actions.
   This is NOT MeshCore! Do not flash as a working mesh sensor/repeater.
   Mic: CLK=D0/GPIO1, DATA=D1/GPIO2, SEL strapped to GND by the breakout.
   Wio-SX1262: B2B connector, SPI GPIO7/8/9, NSS41, IRQ39, RST42, BUSY40, RF_SW38.
@@ -332,7 +334,8 @@ void setup() {
   Serial.println();
   Serial.println("NZRT wildlife v0.2 - OTD v0.8.4a RX + MIC D0/D1; no SD");
   Serial.println("BENCH-ONLY raw LoRa, NOT MeshCore interoperable. TX disabled by default.");
-  Serial.println("Attach SX1262 antenna; terminal 't'=opt-in raw TX, 's'=status.");
+  Serial.println("Antenna attached: p=one gateway PING; t=toggle periodic raw TX; s=status.");
+  Serial.println("RX is passive. Do not open the transit gateway COM port.");
   Serial.println("Expected raw throughput ~384000 bytes/s and PDM one-density ~50%.");
 
   bool micReady = startMicrophone();
@@ -362,6 +365,8 @@ void loop() {
     if (key == 't' || key == 'T') {
       txEnabled = !txEnabled;
       Serial.printf("LoRa TX %s\n", txEnabled ? "ENABLED" : "DISABLED");
+    } else if (key == 'p' || key == 'P') {
+      sendPing();
     } else if (key == 's' || key == 'S') {
       CaptureStats s = snapshot();
       printHealth(s, 0, 0);
