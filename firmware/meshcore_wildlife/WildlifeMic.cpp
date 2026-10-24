@@ -30,7 +30,7 @@ QueueHandle_t eventQueue = nullptr;
 TaskHandle_t captureTask = nullptr;
 TaskHandle_t dspTaskHandle = nullptr;
 QueueHandle_t dspQueue = nullptr;
-// Default-off DSP isolates the USB serial and MeshCore uptime from DSP load.
+// USB-ISOLATE-1: default-off DSP isolates USB serial and MeshCore from DSP load.
 // On-device CLI: nzrt dsp on / nzrt dsp off (trial only).
 volatile bool dspEnabledRequest = false;
 constexpr UBaseType_t DSP_QUEUE_BLOCKS = 8;
