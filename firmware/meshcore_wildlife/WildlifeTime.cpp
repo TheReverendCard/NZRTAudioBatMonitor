@@ -3,6 +3,8 @@
 #include <Preferences.h>
 #include <SPIFFS.h>
 #include <time.h>
+#include <cstring>
+#include <cstdlib>
 #include <sys/time.h>
 #include <esp_sntp.h>
 
