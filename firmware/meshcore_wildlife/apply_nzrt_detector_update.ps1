@@ -72,7 +72,7 @@ try {
     return $Text.Replace($Old,$New)
   }
   if (-not $src.Contains('#include "WildlifeTime.h"')) {
-    $src = Replace-Once $src '#include "WildlifeMic.h"' ("#include "WildlifeMic.h"\n#include "WildlifeTime.h"".Replace("\n","`n")) "time header"
+    $src = Replace-Once $src '#include "WildlifeMic.h"' ('#include "WildlifeMic.h"' + "`n" + '#include "WildlifeTime.h"') "time header"
   }
   if (-not $src.Contains("WildlifeTime::begin(rtc_clock)")) {
     $src = Replace-Once $src 'Serial.println("NZRT microphone start failed: MeshCore still running");' ("Serial.println(" + '"NZRT microphone start failed: MeshCore still running"' + ");`n  WildlifeTime::begin(rtc_clock);") "time startup"
