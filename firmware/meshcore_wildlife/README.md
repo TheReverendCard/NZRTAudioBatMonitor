@@ -175,3 +175,24 @@ log
 Quick smoke test: power/antenna properly connected; allow >3 s quiet after boot for baseline calibration; rub fingers near mic without touching wires for several seconds; run `nzrt status`; inspect `NZRT CANDIDATE` entries; after 60 s compare DSP and DMA overflow statistics with the earlier field logger baseline. Repeat while real MeshCore packets are received or transmitted. If no candidates appear, don't claim recording failed: review background `rms`, `max_ratio`, clock/wiring, then cross-check the standalone known-good acoustic WAV build. **This build still does not save WAV files, transmit sensor-originated MeshCore reports, or upload via Wi-Fi**; those are next-stage features after acoustic + CPU coexistence validation.
 
 The transit gateway and sign firmware are unaffected. The legacy field logger ZIP remains the rollback option, and the standalone acoustic WAV sketch is a separate, non-MeshCore implementation.
+
+
+## USB disconnect/isolation build, 24 October 2026
+
+After successfully flashing the CIC/33-tap DSP revision, user still reported Windows pyserial `ClearCommError failed (PermissionError(13, 'The device does not recognize the command.', None, 22))`; a manual RESET yielded no ongoing serial output. **This proves neither a specific watchdog reset nor a bad microphone**. ESP32-S3 native USB Serial/JTAG can be lost or become unresponsive after a reset, peripheral/clock disruption or sleep; monitor DTR/RTS resets may also affect the CDC endpoint. In the previous DSP revision 48% of incoming audio blocks were still dropped because the original `delay[97]` file was present; the optimized file was flashed afterwards but not yet observed successfully at 60 s.
+
+To isolate the cause, temporary bench build **USB-ISOLATE-1** now:
+- Starts with **DSP disabled** (PDM capture and MeshCore relay still on).
+- Prints `NZRT DIAG build=USB-ISOLATE-1 reset_reason=<number> dsp=OFF` at boot.
+- Prints `NZRT ALIVE t=... dsp=OFF/ON reset_reason=...` every 10 s from the main loop.
+- Supports local serial commands `nzrt status`, `nzrt dsp on`, and `nzrt dsp off`.
+- Enables the 18–45 kHz detector only on explicit `nzrt dsp on`, allowing a clear baseline and comparison without further flashing. `nzrt dsp off` suspends analysis safely, and the worker resets its own queue/calibration when switching states. This is still experimental; SPIFFS history is from several boots and old observations must not be misread as live DSP activity.
+
+**Controlled test:**
+1. Confirm the new build string; wait for `NZRT ALIVE` (10/20/30 s) without sending commands. If CDC fails even with DSP OFF, investigate USB cable/port/Windows or MeshCore/power management/reboots **before DSP tuning**. Note elapsed seconds and reset reason; confirm whether COM8 disappears/reappears and whether COM5 is the other XIAO.
+2. With serial stable, send `nzrt status`; verify built-in MeshCore `stats-packets` still responds.
+3. Send `nzrt dsp on`, keep microphone quiet at least 3 s, then finger-rub for 5–10 s. Observe 60-s status `dsp_drop`, `dsp_gap`, `dsp_done`, `dspOver`, `NZRT BAND windows`, and whether `NZRT CANDIDATE` increases.
+4. If serial/USB becomes unstable **only after DSP is enabled**, this isolates CPU/task starvation or a DSP crash. If the app remains responsive but `dsp_drop` increases, the algorithm still needs further fixed-point/SIMD speedup. If USB fails with DSP off, do not infer DSP cause.
+5. Avoid overnight deployment until both USB, audio windows and LoRa are stable; do not `log erase` until you saved previous field logs.
+
+This build adds diagnostic controls only; it does not yet transmit wildlife event telemetry or upload WAV clips via Wi-Fi.
