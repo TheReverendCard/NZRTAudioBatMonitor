@@ -17,6 +17,10 @@ NetState net = NetState::UNCONFIGURED;
 String ssid;
 String password;
 uint32_t netStart = 0;
+uint32_t nextAttemptAt = 0;
+uint32_t attempts = 0;
+uint32_t lastAttemptUptime = 0;
+uint32_t lastSuccessUptime = 0;
 uint32_t checkAt = 0;
 uint32_t prevMeshEpoch = 0;
 uint32_t prevMeshMillis = 0;
@@ -29,6 +33,11 @@ mesh::RTCClock* rtcRef = nullptr;
 constexpr uint32_t MIN_REASONABLE_EPOCH = 1760000000UL; // October 2025
 constexpr uint32_t CONNECT_TIMEOUT_MS = 12000UL;
 constexpr uint32_t NTP_TIMEOUT_MS = 12000UL;
+constexpr uint32_t RESYNC_INTERVAL_MS = 24UL * 60UL * 60UL * 1000UL; // 24h after attempt ends
+constexpr uint32_t BOOT_FIRST_ATTEMPT_MS = 3000UL;
+bool timeDue(uint32_t now, uint32_t due) {
+  return static_cast<int32_t>(now - due) >= 0;
+}
 
 void sntpCallback(struct timeval*) {
   // No Serial, filesystem, RTC updates or allocations in the network callback.
@@ -36,28 +45,35 @@ void sntpCallback(struct timeval*) {
 }
 void recordSync(const char* source, uint32_t epoch, uint32_t up) {
   if(epoch < MIN_REASONABLE_EPOCH) return;
-  bool changed = !clockValid || strcmp(clockSource,source)!=0 ||
-                 abs(static_cast<int32_t>(epoch - epochAtSync -
-                   ((up - millisAtSync)/1000UL))) > 3;
   clockValid = true;
   epochAtSync = epoch;
   millisAtSync = up;
   clockSource = source;
-  if(!changed) return;
-  Serial.printf("NZRT TIME_SYNC source=%s utc=%lu uptime_ms=%lu\n",
-                source,(unsigned long)epoch,(unsigned long)up);
+  lastSuccessUptime = up;
+  // Log every successful refresh, even if the correction is <3 seconds.
+  // This makes the daily check observable and timestamps audit-friendly.
+  Serial.printf("NZRT TIME_SYNC source=%s utc=%lu uptime_ms=%lu attempt=%lu\n",
+                source,(unsigned long)epoch,(unsigned long)up,
+                (unsigned long)attempts);
   File f = SPIFFS.open("/packet_log",FILE_APPEND);
   if(f) {
-    f.printf("NZRT TIME_SYNC source=%s utc=%lu uptime_ms=%lu\n",
-             source,(unsigned long)epoch,(unsigned long)up);
+    f.printf("NZRT TIME_SYNC source=%s utc=%lu uptime_ms=%lu attempt=%lu\n",
+             source,(unsigned long)epoch,(unsigned long)up,
+             (unsigned long)attempts);
     f.close();
   }
 }
 void wifiOff() {
-  // Bluetooth and LoRa are unaffected; stop only the 2.4-GHz Wi-Fi radio.
+  // End the SNTP client too, to avoid unsupervised periodic network retries.
+  // configTime() will initialise it again on our next deliberate attempt.
+  if(net == NetState::WAIT_NTP) esp_sntp_stop();
+  sntpNotice = false;
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   net=NetState::FINISHED;
+  nextAttemptAt=millis()+RESYNC_INTERVAL_MS;
+  Serial.printf("NZRT TIME wifi=OFF next_attempt_in_s=%lu\n",
+                (unsigned long)(RESYNC_INTERVAL_MS/1000UL));
 }
 }
 void begin(mesh::RTCClock& meshClock) {
@@ -66,6 +82,11 @@ void begin(mesh::RTCClock& meshClock) {
   clockSource="UNSYNCED";
   prevMeshEpoch=meshClock.getCurrentTime();
   prevMeshMillis=millis();
+  attempts=0;
+  lastAttemptUptime=0;
+  lastSuccessUptime=0;
+  nextAttemptAt=millis()+BOOT_FIRST_ATTEMPT_MS;
+  sntpNotice=false;
   Preferences p;
   if(!p.begin("nzrt-time",true)) {
     Serial.println("NZRT TIME wifi=NVS_UNAVAILABLE; LoRa clock sync remains possible");
@@ -102,6 +123,8 @@ void tick(mesh::RTCClock& meshClock) {
 
   if(sntpNotice) {
     sntpNotice=false;
+    // Ignore late SNTP callbacks after Wi-Fi has already been stopped.
+    if(net != NetState::WAIT_NTP) return;
     time_t utc=time(nullptr);
     if(utc>=static_cast<time_t>(MIN_REASONABLE_EPOCH)) {
       meshClock.setCurrentTime(static_cast<uint32_t>(utc));
@@ -112,24 +135,34 @@ void tick(mesh::RTCClock& meshClock) {
         wifiOff();
     }
   }
-  if(net==NetState::UNCONFIGURED || net==NetState::FINISHED) return;
+  if(net==NetState::UNCONFIGURED) return;
+  if(net==NetState::FINISHED) {
+    // Single connection attempt every 24 hours, even after timeout.
+    // No Wi-Fi activity in between, and MeshCore LoRa remains available.
+    if(!timeDue(now,nextAttemptAt)) return;
+    net=NetState::PENDING;
+  }
   if(net==NetState::PENDING) {
     // Let the repeater and microphone finish initialisation first.
-    if(now<3000UL) return;
+    if(!timeDue(now,nextAttemptAt)) return;
+    ++attempts;
+    lastAttemptUptime=now;
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
     WiFi.begin(ssid.c_str(),password.c_str());
     netStart=now;
     net=NetState::CONNECTING;
-    Serial.println("NZRT TIME wifi=CONNECTING");
+    Serial.printf("NZRT TIME wifi=CONNECTING attempt=%lu\n",
+                  (unsigned long)attempts);
     return;
   }
   if(net==NetState::CONNECTING) {
     if(WiFi.status()==WL_CONNECTED) {
-      configTime(0,0,"pool.ntp.org","time.google.com");
-      sntp_set_time_sync_notification_cb(sntpCallback);
       netStart=now;
       net=NetState::WAIT_NTP;
+      sntpNotice=false;
+      sntp_set_time_sync_notification_cb(sntpCallback);
+      configTime(0,0,"pool.ntp.org","time.google.com");
       Serial.println("NZRT TIME wifi=CONNECTED ntp=WAITING");
     } else if(now-netStart>=CONNECT_TIMEOUT_MS) {
       Serial.println("NZRT TIME wifi=TIMEOUT fallback=MESHCORE_REMOTE");
@@ -155,10 +188,19 @@ void printStatus() {
         net==NetState::PENDING ? "PENDING" :
         net==NetState::CONNECTING ? "CONNECTING" :
         net==NetState::WAIT_NTP ? "WAIT_NTP" : "OFF";
-  Serial.printf("NZRT TIME status=%s source=%s utc=%lu sync_uptime_ms=%lu wifi=%s\n",
+  uint32_t now=millis();
+  uint32_t dueSeconds=0;
+  if(net==NetState::PENDING || net==NetState::FINISHED) {
+    dueSeconds=timeDue(now,nextAttemptAt) ? 0 :
+               ((nextAttemptAt-now)+999UL)/1000UL;
+  }
+  Serial.printf("NZRT TIME status=%s source=%s utc=%lu sync_uptime_ms=%lu wifi=%s attempts=%lu last_attempt_uptime_s=%lu last_sync_uptime_s=%lu next_wifi_attempt_in_s=%lu\n",
     clockValid?"SYNCED":"UNSYNCED",clockSource,
-    (unsigned long)epochForUptime(millis()),
-    (unsigned long)millisAtSync,wifiStatus);
+    (unsigned long)epochForUptime(now),
+    (unsigned long)millisAtSync,wifiStatus,(unsigned long)attempts,
+    (unsigned long)(lastAttemptUptime/1000UL),
+    (unsigned long)(lastSuccessUptime/1000UL),
+    (unsigned long)dueSeconds);
 }
 void configureWiFi(const char* args) {
   if(!args) {Serial.println("NZRT TIME ERROR: use nzrt wifi set SSID|PASSWORD");return;}
@@ -178,6 +220,11 @@ void configureWiFi(const char* args) {
   p.end();
   if(saved) {
     ssid=newSSID;password=newPass;
+    // Also permit provisioning without a reboot when previously unconfigured.
+    if(net==NetState::UNCONFIGURED) {
+      nextAttemptAt=millis()+BOOT_FIRST_ATTEMPT_MS;
+      net=NetState::PENDING;
+    }
     Serial.println("NZRT TIME Wi-Fi credentials stored locally (not in GitHub). Restart to sync.");
   } else Serial.println("NZRT TIME ERROR NVS_WRITE");
 }
