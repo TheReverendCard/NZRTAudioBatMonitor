@@ -157,7 +157,9 @@ build_src_filter =
     shutil.copyfile(overlay / "WildlifeDetector.h", dest / "WildlifeDetector.h")
     shutil.copyfile(overlay / "WildlifeDetector.cpp", dest / "WildlifeDetector.cpp")
     shutil.copyfile(overlay / "WildlifeTime.h", dest / "WildlifeTime.h")
-    shutil.copyfile(overlay / "WildlifeTime.cpp", dest / "WildlifeTime.cpp")\n    shutil.copyfile(overlay / "WildlifeDay.h", dest / "WildlifeDay.h")\n    shutil.copyfile(overlay / "WildlifeDay.cpp", dest / "WildlifeDay.cpp")
+    shutil.copyfile(overlay / "WildlifeTime.cpp", dest / "WildlifeTime.cpp")
+    shutil.copyfile(overlay / "WildlifeDay.h", dest / "WildlifeDay.h")
+    shutil.copyfile(overlay / "WildlifeDay.cpp", dest / "WildlifeDay.cpp")
     print(f"PREPARED: MeshCore {head}, target {ENV_NAME}")
     print("Experimental capture + upstream repeater, NOT native wildlife telemetry yet")
 
