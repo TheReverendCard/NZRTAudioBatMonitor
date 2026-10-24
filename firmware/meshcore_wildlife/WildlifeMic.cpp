@@ -125,7 +125,7 @@ void dspTask(void*) {
     if(!dspEnabledRequest) continue;
     // Detect gaps in the PDM byte stream and re-establish the noise baseline.
     if(prevSeq && pkt.seq!=prevSeq+1) {
-      WildlifeDetector::reset();
+      WildlifeDetector::onInputGap(pkt.seq-prevSeq-1);
       portENTER_CRITICAL(&statsLock);
       ++stats.dspStreamResets;
       portEXIT_CRITICAL(&statsLock);
