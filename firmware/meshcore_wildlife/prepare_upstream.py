@@ -35,7 +35,7 @@ def prepare(src: Path, check: bool = False) -> None:
     main_path = src / "examples/simple_repeater/main.cpp"
     main = main_path.read_text()
     main = replace_one(main, '#include "MyMesh.h"',
-                       '#include "MyMesh.h"\n#include "WildlifeMic.h"\n#include "WildlifeTime.h"',
+                       '#include "MyMesh.h"\n#include "WildlifeMic.h"\n#include "WildlifeTime.h"\n#include "WildlifeDay.h"',
                        "repeater includes")
     main = replace_one(main, "  the_mesh.begin(fs);",
                        """  the_mesh.begin(fs);
@@ -44,7 +44,7 @@ def prepare(src: Path, check: bool = False) -> None:
   the_mesh.getNodePrefs()->powersaving_enabled = false;
   if (!WildlifeMic::begin())
     Serial.println("NZRT microphone start failed: MeshCore still running");
-  WildlifeTime::begin(rtc_clock);""",
+  WildlifeTime::begin(rtc_clock);\n  WildlifeDay::begin();""",
                        "repeater setup")
 
     main = replace_one(
@@ -69,13 +69,21 @@ def prepare(src: Path, check: bool = False) -> None:
       WildlifeTime::configureWiFi(command + 14);
     } else if (strcmp(command, "nzrt wifi clear") == 0) {
       WildlifeTime::clearWiFi();
+    } else if (strcmp(command, "nzrt day") == 0) {
+      WildlifeDay::printStatus();
+    } else if (strcmp(command, "nzrt day test sleep") == 0) {
+      WildlifeDay::testSleep();
+    } else if (strcmp(command, "nzrt day test wake") == 0) {
+      WildlifeDay::testWake();
+    } else if (strcmp(command, "nzrt day auto") == 0) {
+      WildlifeDay::autoMode();
     } else {
       the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
     }""",
         "NZRT local serial status command")
 
     main = replace_one(main, "  rtc_clock.tick();",
-                       "  rtc_clock.tick();\n  WildlifeTime::tick(rtc_clock);",
+                       "  rtc_clock.tick();\n  WildlifeTime::tick(rtc_clock);\n  WildlifeDay::tick();",
                        "NTP and mesh clock tick")
     main = replace_one(main, "  board.loop();   // let the board feed its watchdog, run periodic housekeeping",
                        "  WildlifeMic::printHealthIfDue();\n  board.loop();   // let the board feed its watchdog, run periodic housekeeping",
@@ -128,7 +136,7 @@ build_src_filter =
   ${env:Xiao_S3_WIO_repeater.build_src_filter}
   +<../nzrt/WildlifeMic.cpp>
   +<../nzrt/WildlifeDetector.cpp>
-  +<../nzrt/WildlifeTime.cpp>
+  +<../nzrt/WildlifeTime.cpp>\n  +<../nzrt/WildlifeDay.cpp>
 """
     if check:
         print(f"CHECK PASSED: pinned MeshCore SHA {head}; overlay anchors verified")
@@ -145,7 +153,7 @@ build_src_filter =
     shutil.copyfile(overlay / "WildlifeDetector.h", dest / "WildlifeDetector.h")
     shutil.copyfile(overlay / "WildlifeDetector.cpp", dest / "WildlifeDetector.cpp")
     shutil.copyfile(overlay / "WildlifeTime.h", dest / "WildlifeTime.h")
-    shutil.copyfile(overlay / "WildlifeTime.cpp", dest / "WildlifeTime.cpp")
+    shutil.copyfile(overlay / "WildlifeTime.cpp", dest / "WildlifeTime.cpp")\n    shutil.copyfile(overlay / "WildlifeDay.h", dest / "WildlifeDay.h")\n    shutil.copyfile(overlay / "WildlifeDay.cpp", dest / "WildlifeDay.cpp")
     print(f"PREPARED: MeshCore {head}, target {ENV_NAME}")
     print("Experimental capture + upstream repeater, NOT native wildlife telemetry yet")
 
