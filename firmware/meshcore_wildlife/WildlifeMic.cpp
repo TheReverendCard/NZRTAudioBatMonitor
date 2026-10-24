@@ -219,7 +219,7 @@ bool begin() {
   started = true;
   Serial.println("NZRT MIC experimental legacy I2S: CLK GPIO1 DATA GPIO2 WS GPIO4 (unwired), target BCLK 3.072MHz");
   Serial.println("NZRT DSP bounded queue, worker core0 priority1, reader core1 priority18");
-  Serial.printf("NZRT DIAG build=USB-ISOLATE-1 reset_reason=%d dsp=OFF (enable via 'nzrt dsp on')\n", (int)esp_reset_reason());
+  Serial.printf("NZRT DIAG build=USB-ISOLATE-2 decimator=CIC16_FIR17 gap=SOFT reset_reason=%d dsp=OFF (enable via 'nzrt dsp on')\n", (int)esp_reset_reason());
   return true;
 }
 
@@ -322,7 +322,7 @@ void setDspEnabled(bool enable) {
 void printStatus() {
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT DIAG build=USB-ISOLATE-1 dsp=%s uptime=%lus reset_reason=%d\n", dspEnabledRequest?"ON":"OFF", (unsigned long)(millis()/1000), (int)esp_reset_reason());
+  Serial.printf("NZRT DIAG build=USB-ISOLATE-2 dsp=%s uptime=%lus reset_reason=%d\n", dspEnabledRequest?"ON":"OFF", (unsigned long)(millis()/1000), (int)esp_reset_reason());
   Serial.printf("NZRT BAND status 18-45kHz windows=%lu candidates=%lu rms=%.7f background=%.7f max_ratio=%.2fx unverified=1\n",
     static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
     ds.band_rms,ds.noise_rms,ds.peak_ratio);
