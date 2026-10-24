@@ -10,4 +10,5 @@ void printStatus();
 void testSleep(); // 90-second safe test override
 void testWake();  // 90-second safe test override
 void autoMode();
+void setScheduleEnabled(bool enabled);
 }
