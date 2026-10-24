@@ -34,7 +34,10 @@ QueueHandle_t dspQueue = nullptr;
 // Field pilot auto-starts DSP after MeshCore/microphone initialization.
 // The existing nzrt dsp on/off commands remain available for diagnostics.
 volatile bool dspEnabledRequest = false;
-constexpr const char* BUILD_ID = "NZRT-FIELD-PILOT-3";
+volatile bool captureEnabledRequest = true;
+volatile bool captureRunning = false;
+volatile bool dayStandby = false;
+constexpr const char* BUILD_ID = "NZRT-FIELD-PILOT-4";
 uint32_t sessionId = 0;
 uint32_t dspStartUptimeMs = 0;
 uint32_t dspRunNumber = 0;
@@ -72,6 +75,27 @@ void readerTask(void*) {
   RawBlock pkt = {};
   uint32_t seq = 0;
   for (;;) {
+    // Only the reader task owns I2S start/stop, so the scheduler cannot race
+    // an in-progress i2s_read() from another core. LoRa keeps running.
+    if(!captureEnabledRequest) {
+      if(captureRunning) {
+        esp_err_t rc=i2s_stop(PORT);
+        if(rc!=ESP_OK) Serial.printf("NZRT DAY I2S_STOP_FAILED error=%d\n",(int)rc);
+        else captureRunning=false;
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
+      continue;
+    }
+    if(!captureRunning) {
+      esp_err_t rc=i2s_start(PORT);
+      if(rc!=ESP_OK) {
+        Serial.printf("NZRT DAY I2S_START_FAILED error=%d retry=2s\n",(int)rc);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        continue;
+      }
+      captureRunning=true;
+      Serial.println("NZRT DAY I2S=RESTARTED");
+    }
     size_t n = 0;
     int64_t before = esp_timer_get_time();
     esp_err_t status = i2s_read(PORT, pkt.words, sizeof(pkt.words), &n,
@@ -199,6 +223,9 @@ bool begin() {
     return false;
   }
   dspEnabledRequest=false;
+  captureEnabledRequest=true;
+  captureRunning=true;
+  dayStandby=false;
   WildlifeDetector::reset();
   dspQueue = xQueueCreate(DSP_QUEUE_BLOCKS, sizeof(RawBlock));
   if(!dspQueue) {
@@ -290,9 +317,10 @@ void printHealthIfDue() {
   uint32_t now = millis();
   if(now-lastAlive >= 10000UL) {
     lastAlive=now;
-    Serial.printf("NZRT ALIVE session=%08lX t=%lus dsp=%s reset_reason=%d\n",
+    Serial.printf("NZRT ALIVE session=%08lX t=%lus dsp=%s capture=%s mode=%s reset_reason=%d\n",
       (unsigned long)sessionId, (unsigned long)(now/1000),
-      dspEnabledRequest?"ON":"OFF", (int)esp_reset_reason());
+      dspEnabledRequest?"ON":"OFF", captureRunning?"ON":"OFF",
+      dayStandby?"DAY_STANDBY":"MONITORING", (int)esp_reset_reason());
   }
   if (now - lastReport < REPORT_MS) return;
   uint32_t dt = now - lastReport;
@@ -308,8 +336,10 @@ void printHealthIfDue() {
       ? (100.0 * static_cast<double>(snap.ones) / (8.0 * static_cast<double>(snap.bytes))) : 0.0;
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT MIC session=%08lX t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu dsp_drop=%lu dsp_gap=%lu dsp_done=%lu dsp_qmax=%lu\n",
+  Serial.printf("NZRT MIC session=%08lX t=%lus mode=%s capture=%s bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu dsp_drop=%lu dsp_gap=%lu dsp_done=%lu dsp_qmax=%lu\n",
                 (unsigned long)sessionId,
+                dayStandby?"DAY_STANDBY":"MONITORING",
+                captureRunning?"ON":"OFF",
                 static_cast<unsigned long>(now/1000),
                 static_cast<unsigned long>(bps), density,
                 static_cast<unsigned long>(snap.fullReads),
@@ -337,8 +367,10 @@ void printHealthIfDue() {
     File journal = SPIFFS.open("/packet_log", FILE_APPEND);
     if (journal) {
       journal.printf(
-          "NZRT FIELD session=%08lX uptime=%lus mic_bps=%lu density=%.3f%% blocks=%lu short=%lu read_err=%lu dma_q_ovf=%lu dsp_drop=%lu dsp_gap=%lu dspOver=%lu\n",
+          "NZRT FIELD session=%08lX uptime=%lus mode=%s capture=%s mic_bps=%lu density=%.3f%% blocks=%lu short=%lu read_err=%lu dma_q_ovf=%lu dsp_drop=%lu dsp_gap=%lu dspOver=%lu\n",
           (unsigned long)sessionId, static_cast<unsigned long>(now / 1000UL),
+          dayStandby?"DAY_STANDBY":"MONITORING",
+          captureRunning?"ON":"OFF",
           static_cast<unsigned long>(bps), density,
           static_cast<unsigned long>(snap.fullReads),
           static_cast<unsigned long>(snap.shortReads),
@@ -358,6 +390,39 @@ void printHealthIfDue() {
     }
   }
 }
+void setDaytimeStandby(bool standby) {
+  if (!started || dayStandby==standby) return;
+  uint32_t at=millis();
+  if(standby) {
+    // DSP leaves all pending event records available to main-loop flushing.
+    dspEnabledRequest=false;
+    captureEnabledRequest=false; // reader will stop I2S after its current block
+    dayStandby=true;
+  } else {
+    // Reset the analysis time origin for the new nighttime segment.
+    // Each transition must have a fresh run number.
+    dspStartUptimeMs=at;
+    ++dspRunNumber;
+    captureEnabledRequest=true;
+    dspEnabledRequest=true;
+    dayStandby=false;
+  }
+  Serial.printf("NZRT DAY_MODE session=%08lX run=%lu state=%s uptime_ms=%lu utc=%lu time_source=%s capture_request=%s meshcore=ON\n",
+     (unsigned long)sessionId,(unsigned long)dspRunNumber,
+     standby?"STANDBY":"MONITORING",(unsigned long)at,
+     (unsigned long)WildlifeTime::epochForUptime(at),
+     WildlifeTime::source(),captureEnabledRequest?"ON":"OFF");
+  File marker=SPIFFS.open("/packet_log",FILE_APPEND);
+  if(marker) {
+    marker.printf("NZRT DAY_MODE session=%08lX run=%lu state=%s uptime_ms=%lu utc=%lu time_source=%s capture_request=%s meshcore=ON\n",
+      (unsigned long)sessionId,(unsigned long)dspRunNumber,
+      standby?"STANDBY":"MONITORING",(unsigned long)at,
+      (unsigned long)WildlifeTime::epochForUptime(at),
+      WildlifeTime::source(),captureEnabledRequest?"ON":"OFF");
+    marker.close();
+  }
+}
+bool daytimeStandby() {return dayStandby;}
 void setDspEnabled(bool enable) {
   bool wasEnabled=dspEnabledRequest;
   if(enable != wasEnabled) {
@@ -376,9 +441,10 @@ void setDspEnabled(bool enable) {
 void printStatus() {
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT DIAG build=%s session=%08lX run=%lu dsp=%s uptime=%lus dsp_start_uptime_ms=%lu reset_reason=%d utc=%lu time_source=%s\n",
+  Serial.printf("NZRT DIAG build=%s session=%08lX run=%lu dsp=%s capture=%s day_mode=%s uptime=%lus dsp_start_uptime_ms=%lu reset_reason=%d utc=%lu time_source=%s\n",
     BUILD_ID, (unsigned long)sessionId, (unsigned long)dspRunNumber,
-    dspEnabledRequest?"ON":"OFF", (unsigned long)(millis()/1000),
+    dspEnabledRequest?"ON":"OFF", captureRunning?"ON":"OFF",
+    dayStandby?"STANDBY":"MONITORING", (unsigned long)(millis()/1000),
     (unsigned long)dspStartUptimeMs, (int)esp_reset_reason(),
     (unsigned long)WildlifeTime::epochForUptime(millis()),WildlifeTime::source());
   Serial.printf("NZRT BAND status session=%08lX 18-45kHz windows=%lu candidates=%lu rms=%.7f background=%.7f max_ratio=%.2fx unverified=1\n",
