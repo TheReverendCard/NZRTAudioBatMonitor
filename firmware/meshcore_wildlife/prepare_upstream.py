@@ -77,6 +77,10 @@ def prepare(src: Path, check: bool = False) -> None:
       WildlifeDay::testWake();
     } else if (strcmp(command, "nzrt day auto") == 0) {
       WildlifeDay::autoMode();
+    } else if (strcmp(command, "nzrt day enable") == 0) {
+      WildlifeDay::setScheduleEnabled(true);
+    } else if (strcmp(command, "nzrt day disable") == 0) {
+      WildlifeDay::setScheduleEnabled(false);
     } else {
       the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
     }""",
