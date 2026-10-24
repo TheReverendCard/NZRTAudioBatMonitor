@@ -125,6 +125,10 @@ try {
       WildlifeDay::testWake();
     } else if (strcmp(command, "nzrt day auto") == 0) {
       WildlifeDay::autoMode();
+    } else if (strcmp(command, "nzrt day enable") == 0) {
+      WildlifeDay::setScheduleEnabled(true);
+    } else if (strcmp(command, "nzrt day disable") == 0) {
+      WildlifeDay::setScheduleEnabled(false);
     } else {
 '@
     $src = Replace-Once $src $oldDay $newDay "day CLI"
@@ -179,6 +183,7 @@ Write-Host "SUCCESS: new build should print 'NZRT SESSION', report 'NZRT-FIELD-P
 Write-Host "Test serial with: py -m serial.tools.miniterm $Port 115200 --eol CR"
 Write-Host "Use CLI: nzrt wifi set YOUR_SSID|YOUR_WIFI_PASSWORD  (stored in device NVS, not GitHub)"
 Write-Host "Then reboot once. For status: nzrt time ; nzrt day ; nzrt status ; log"
+Write-Host "BAT default: nzrt day enable ; ALWAYS ON: nzrt day disable (settings persist across reboot)"
 Write-Host "Day mode test: nzrt day test sleep ; nzrt day test wake ; nzrt day auto"
 Write-Host "NOTE: this stops microphone I2S/DSP by day. The ESP32 and MeshCore LoRa remain awake."
 Write-Host "No Wi-Fi configured? Start remains UNSYNCED; MeshCore's authenticated remote 'clock sync' is a fallback."
