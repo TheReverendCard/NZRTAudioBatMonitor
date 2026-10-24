@@ -94,6 +94,10 @@ void tick() {
   localYday=-1;
   bool shouldStandby=false;
   if(knownTime){
+    // Arduino-ESP32 configTime() used for NTP can reset the global timezone.
+    // Reapply NZ solar-site rules before converting UTC to local date/time.
+    setenv("TZ","NZST-12NZDT,M9.5.0/2,M4.1.0/3",1);
+    tzset();
     time_t u=static_cast<time_t>(utc);
     struct tm local={};
     if(localtime_r(&u,&local)){
