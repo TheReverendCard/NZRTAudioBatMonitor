@@ -3,7 +3,7 @@ param(
   [string]$Port = "COM8"
 )
 $ErrorActionPreference = "Stop"
-Write-Host "NZRT MeshCore acoustic test update - USB-ISOLATE-2"
+Write-Host "NZRT MeshCore field pilot update - NZRT-FIELD-PILOT-1"
 $localIni = Join-Path $Project "platformio.local.ini"
 $mainPath = Join-Path $Project "examples\simple_repeater\main.cpp"
 $variant = Join-Path $Project "variants\xiao_s3_wio\platformio.ini"
@@ -30,8 +30,8 @@ try {
   if (-not $detector.Contains("onInputGap") -or -not $detector.Contains("taps[17]")) {
     throw "Downloaded detector is not the expected CIC16/17-tap version"
   }
-  if (-not $mic.Contains("USB-ISOLATE-2")) {
-    throw "Downloaded microphone is not the expected USB isolation build"
+  if (-not $mic.Contains("NZRT-FIELD-PILOT-1") -or -not $mic.Contains("dspEnabledRequest = true;")) {
+    throw "Downloaded microphone does not auto-enable DSP or match FIELD-PILOT-1"
   }
   $src = [IO.File]::ReadAllText($mainPath).Replace("`r`n","`n")
   $old = @'
@@ -94,6 +94,6 @@ try {
 Write-Host "Compiling and uploading to $Port ..."
 & py -m platformio run -d $Project -e NZRT_Xiao_S3_WIO_wildlife_repeater -t upload --upload-port $Port
 if ($LASTEXITCODE -ne 0) {throw "PlatformIO failed (exit code $LASTEXITCODE). Firmware was not confirmed uploaded."}
-Write-Host "SUCCESS: new build should display 'USB-ISOLATE-2', then NZRT ALIVE every 10 seconds."
+Write-Host "SUCCESS: new build should print 'NZRT SESSION', report 'NZRT-FIELD-PILOT-1', and start DSP automatically."
 Write-Host "Test serial with: py -m serial.tools.miniterm $Port 115200 --eol CR"
-Write-Host "If serial is stable, use: nzrt status ; nzrt dsp on ; nzrt status"
+Write-Host "Test: unplug/replug board, note exact local power-on time; use nzrt status ; log"
