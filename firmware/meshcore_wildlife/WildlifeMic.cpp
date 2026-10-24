@@ -140,7 +140,8 @@ void dspTask(void*) {
     ++stats.dspBlocksProcessed;
     portEXIT_CRITICAL(&statsLock);
     // Give IDLE0 / low-priority Wi-Fi housekeeping guaranteed CPU time.
-    if((++processed & 3U)==0) vTaskDelay(1);
+    // Yield to core0 idle/Wi-Fi without consuming ~5% of DSP time.
+    if((++processed & 15U)==0) vTaskDelay(1);
   }
 }
 }  // namespace
