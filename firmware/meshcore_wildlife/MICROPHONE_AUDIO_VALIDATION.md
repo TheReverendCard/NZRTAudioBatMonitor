@@ -1,0 +1,86 @@
+# SPH0641LU4H-1 ultrasonic PDM capture: researched validation plan
+
+Reviewed 24 October 2026, before attempting PCM/WAV processing inside the pinned **MeshCore v1.18.0 / XIAO ESP32-S3 + Wio-SX1262** application. This is a **research/test plan**, not an implemented or acoustically verified firmware feature.
+
+## Lessons from the previous tests (do not repeat resolved failures)
+
+- Working independent **Arduino-ESP32 3.3.12** `xiao_sph0641_clean_path.ino`: ordinary **I2S STD, MSB, stereo 16-bit slots**, 96 kHz frame clock, generating **3.072 MHz BCLK** and 3.072 Mbit/s packed serial bits; dummy WS is an **unwired** ESP GPIO. Reconstruct the raw chronological bitstream and perform PDM-to-PCM decimation / anti-alias filtering on the host. A previously observed fixed ~72 kHz spectral artefact was associated with the **ESP32-S3 raw-PDM peripheral mode/slot packing**, not compelling evidence of microphone EMI. At ~25.695 kHz the finger-rub peak was previously cross-checked against an Echo Meter Touch 2 in the successful *independent* capture path; do not lose that baseline.
+- Earlier raw-PDM test variants had differing half-clock/slot packing semantics. Do not label unverified raw-PDM DMA words as real 192 kHz mono audio or infer an acoustic pass solely from 50% bit density.
+- Assembled breakout: **R1 = 0 ohms, SELECT to GND (left channel)**, R2 not populated. Prior meter reading ~0.1 ohm to ground and ~280 kOhm to 3.3V. **Do not wire SELECT to an external GPIO or to 3.3V.**
+- Prior clean sketch wiring: **CLK D2/GPIO3, DATA D3/GPIO4, unwired WS D4/GPIO5**.
+- **Current MeshCore field logger is physically/software configured differently:** **CLK D0/GPIO1, DATA D1/GPIO2, unwired WS D3/GPIO4** in `WildlifeMic.cpp`. These are alternative wire maps for *different builds*. Verify the real assembled wires against current firmware *before any test*. Changing GPIO definitions alone does not physically reroute the microphone.
+- The current ESP-IDF 4.4 legacy I2S coexistence probe starts with 64 kHz stereo 16-bit (2.048 MHz BCLK) then switches to 96 kHz stereo 16-bit (nominal 3.072 MHz BCLK), 2,048-byte DMA reads. It showed ~384,000 packed bytes/s for >30 minutes, 49.999–50.000% ones, no continuing DMA overflow and functional MeshCore RX/forwarding. **This proves data transport and coexistence only; it does not yet prove acoustic response or bitstream fidelity.**
+- Existing `xiao_bat_overnight.ino` SD pilot uses different pins (CLK GPIO3, DATA GPIO4, dummy WS GPIO5) and a 96 kHz PCM detector path with a ~43 kHz low-pass / 20 kHz high-pass. It supplies useful **candidate-detection algorithm concepts**, not confirmation that MeshCore I2S conversion has been validated.
+- Previous SD isolation sketches `xiao_sph0641_sd_isolation.ino` and `xiao_sd_activity_test.ino` distinguish acquiring into PSRAM *before* SD writes from writing to SD while capturing. These sketches were proposed, not confirmed hardware-pass. Do not assume storage and RF tasks will not interfere with audio without A/B tests.
+
+## Hardware/datasheet cross-checks
+
+1. **Knowles SPH0641LU4H-1** datasheet (rev B, 2015): 1.62–3.6 V supply, standard mode 1.024–2.475 MHz clock, ultrasonic mode **3.072–4.8 MHz**. **Never power up or wake directly into ultrasonic mode**. Establish 2.048 MHz standard mode for at least 100 ms first; avoid cycles that stop/restart the clock into ultrasonic without a standard-mode transition. Datasheet state diagram page 5: https://akizukidenshi.com/goodsaffix/SPH0641LU4H-1.PDF
+2. **SELECT grounded** asserts mic DATA on **falling** clock edge; data is latched on **rising** edge; opposite phase is high impedance. Verify clock polarity, data phase, and slot/word order against the previous proven sketch, and examine a quiet vs rub test to detect repeated alternating-bit/slot artefacts. Datasheet page 8.
+3. Datasheet recommends local **0.1 uF bypass capacitor** on VDD next to mic, preferably avoiding class-2 dielectric at this node; verify fitted breakout and mechanical sound port clear. Route CLK/DATA/ground short; keep mic physically away from Wi-Fi/LoRa antenna and active SPI wiring. Test any RF noise by toggling radio independently, not by random firmware changes.
+4. Original breakout source: https://github.com/meerstern/SPH0641LU . R1 pull-down / R2 pull-up options; bottom-facing acoustic port. Refer to this exact design for SEL and capacitor positioning.
+5. Espressif ESP32-S3 I2S current docs: https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html . On S3, I2S0 supports hardware PDM-to-PCM but typically for modest PCM sampling rates (16–48 kHz); for full-band bat WAV use the previously verified **STD/MSB raw serial sampling plus correctly filtered software PDM→PCM**. PDM raw RX has different slot/clock semantics and should not be silently swapped in.
+6. Legacy driver manual is distinct: https://docs.espressif.com/projects/esp-idf/en/v4.4.1/esp32s3/api-reference/peripherals/i2s.html . `i2s_set_clk(96000, 16 bits, stereo)` nominally yields 3.072 MHz BCLK; inspect actual timing/decoded signal, not only DMA byte rate.
+7. Independent project targeting the **exact mic**: https://github.com/kunsen-an/espidf_pdm_sph0641_mic_out , with recordings using older ESP-IDF PDM RX at 48/96 kHz. It targets **Lolin D32 / classic ESP32**, not ESP32-S3; use as corroboration of possible acoustic rates, **not a drop-in** replacement for the working S3 data path.
+8. Seeed XIAO ESP32-S3 pin mapping: https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/ . D0/GPIO1; D1/GPIO2; D2/GPIO3; D3/GPIO4; D4/GPIO5. Wio-SX1262 uses SPI GPIO7/8/9 and radio control lines via B2B GPIO38–42, thus not these current microphone pins: https://wiki.seeedstudio.com/get_started_with_esp32s3_meshcore/ .
+
+## Minimum first-wave test, no LoRa/wifi file-transfer complexity yet
+
+**Preserve the successful MeshCore field logger firmware/identity and its saved log.** Prefer a distinct test build on an available spare XIAO/Wio board if it can share the same physical mic/wiring. Verify source pins before compiling. Never modify the transit sign or gateway for this test.
+
+Capture at least **three independent ten-second segments**, each with 5 s hands-off quiet then 5 s **finger rubbing 2–10 cm from the acoustic port**, not rubbing the enclosure or wires:
+
+1. **USB, no radio transmission / Wi-Fi off:** clean reference. In a test harness use the same ordinary I2S STD/MSB stereo-16-bit, 96 kHz frame / 3.072 MHz BCLK, 100 ms standard-mode warm-up and raw packed PDM stream.
+2. **MeshCore RX/idle while sampling:** test radio coexistence.
+3. **MeshCore transmitting a single controlled test packet or Wi-Fi connected while sampling:** separately distinguish RF/CPU interference; avoid rapid transmission loops or busy shared/public-channel traffic.
+
+Start with capturing the **raw PDM bytes**, a complete byte count, timestamps, clock configuration, USB/file hash if useful, DMA overrun counts, and then decode using one *documented* chronological bit-order path. Generate WAVs **96 kHz/16-bit mono (32:1 decimation, anti-alias <48 kHz)** for the ~27/40 kHz NZ bat monitoring bands and **optional 192 kHz/16-bit mono (16:1)** diagnostic WAVs for a wider spectrum. The decimator MUST low-pass filter before downsampling and avoid treating 16-bit I2S slot words as 16-bit PCM. 10 seconds at 192 kHz PCM 16-bit mono is 3.84 MB uncompressed. An uncompressed 10 s 3.072 Mbit/s PDM dump also occupies 3.84 MB. Queue Wi-Fi transfer or USB dump after capture; avoid synchronous writes in capture DMA task.
+
+**Pass/fail evidence:** compared with quiet periods, finger-rub should cause a visible time-localized broadband rise (historical example ~25.7 kHz against EMT2, but not guaranteed exact for any attempt). A spectrogram should lack a fixed 72 kHz line, pervasive clock aliases, severe clipping or obvious mode transition artifacts. Check DMA queue overruns, missing chunks, actual sample count/duration, DC bias, spectral energy by band, and compare LoRa-off/RX/TX cases. A near-50% aggregate PDM density or successful WAV header is **not** by itself evidence of working ultrasound. If clean capture fails, isolate clock/edge/order/analog RF before adding bat classification.
+
+**Only after clean WAVs:** port the existing SD candidate trigger to a reusable module, transmit small sequence-numbered events over MeshCore, upload occasional WAVs over Wi-Fi, and compare LoRa gateway reception with Wi-Fi/local log from the **same night**. No full WAV over MeshCore LoRa.
+
+## Acoustic baseline result: 24 October 2026, 11:42 NZDT
+
+User flashed the stand-alone 3.072 MHz I2S-STD sampler (GPIO1 CLK/GPIO2 DATA/GPIO4 unwired WS), then recorded **10.000 s / 3,840,000 bytes of PDM**, USB COM8, 1,879 packets, **zero missing sequences and zero invalid headers**, PDM ones density **49.9955%**. The first attempted capture with zero bytes was invalid because firmware had failed to flash; it is **not** a microphone failure.
+
+Using the recording package's host-side dual decoding (3.072 Mbit/s PDM; 16:1 decimation to 192 kHz WAV; relative power, not calibrated SPL), its report showed:
+
+| Band | MSB: rub over quiet | LSB: rub over quiet |
+|---|---:|---:|
+| 18–45 kHz | **+8.49 dB** | +0.02 dB |
+| 45–80 kHz | +0.30 dB | +0.07 dB |
+| 70–74 kHz | +0.11 dB | +0.12 dB |
+
+Independent spectrogram of the **uploaded MSB WAV** confirms an actual time-localized series of broadband bursts in ~10–50 kHz, beginning at the user's ~5-second finger-rubbing mark. **LSB decoding shows no comparable event**, so MSB-first bit ordering is strongly supported by this test. An elevated high-frequency noise continuum dominates >~60 kHz in the normalized MSB output; there are persistent narrow-band features around 23–24 kHz and ~46–47 kHz, visible even during the quiet part. The earlier fixed 72 kHz raw-PDM artefact is **not clearly reproduced as a distinct narrow line**, but response at 70–74 kHz is negligible (+0.11 dB), so **do not assert that full 18–90 kHz ultrasonic fidelity has passed**. `msb` and `lsb` WAV files are independently scaled for listening; compare response **within** each decode, not absolute cross-file amplitude.
+
+**Disposition:** data transport **PASS**, acoustic presence in ~18–45 kHz **PASS for this finger-rub bench test**, uncalibrated high-frequency audio / noise-floor performance **NOT YET PASS**. Next: preserve this known-good STD/MSB acquisition and host decoder; repeat a 10-second quiet/rub baseline for repeatability; optionally compare to the Echo Meter Touch 2 or a reproducible frequency source; then port the verified I2S bit order and filtered detector to the pinned MeshCore/ESP-IDF4 sampler. During the first MeshCore comparison, record paired quiet/rub segments with RF idle and controlled TX, ensuring DMA queue overflows do not grow. Keep wav/raw files local and avoid uploading private recordings into public repo.
+
+
+### Quiet-band comparison: moved microphone roughly 1 m near/outside room (24 Oct 2026, 11:46 NZDT)
+
+Second user recording `20261024_114637_test1` also captured **3,840,000 PDM bytes / 10 seconds, 1,876 serial packets, zero missing sequences, zero invalid headers**. Compare with first `20261024_114218_test1` with 1,879 packets and zero gaps. Both used the MSB 192 kHz decode. To compare *absolute* pre-WAV-normalization level, divide WAV PCM by each report's `msb.normalization_gain` (first ~80.055, second ~89.990). Noise power below is from Welch PSD integrated over each band (quiet 0.3–4.7 seconds), then dB ratio of second versus first:
+
+| Band | Outside relative to inside |
+| --- | ---: |
+| 50 Hz–18 kHz | +3.12 dB |
+| 18–45 kHz | +1.19 dB |
+| 45–80 kHz | +0.20 dB |
+| 70–74 kHz | **+0.02 dB** |
+| 22–24 kHz | **−9.71 dB** |
+| 46–48 kHz | **+5.45 dB** |
+| 80–90 kHz | **−0.01 dB** |
+
+Strongest narrowband features **changed frequency**: first quiet section has peaks around 23.3–23.6 kHz; second has a strong feature around 27.3 kHz and an enhancement around 44–48 kHz. The very smooth rising high-frequency noise spectrum above ~55–60 kHz is *almost identical* across recordings, especially 70–74 and 80–90 kHz; this is **consistent with a stable microphone/PDM noise-shaping or decoding noise floor**, not good evidence of ambient room/laptop fan sound, although 1 m alone cannot distinguish conducted electrical interference from digital noise. Narrow peaks varying with position **may** be environmental or geometry-dependent EMI; user did not perform a controlled RF/charging/fan on-off experiment. Audible speech/other transient sounds complicate interpretation of below-18-kHz bands. Neither WAV is acoustically calibrated in SPL.
+
+**Disposition:** environmental position matters to some ultrasonics, but high-band noise is substantially **position-invariant**. Do not conclude the entire spectrum is environmental. Next priority: controlled repeat with equipment power/fan state and mic distance changed separately; compare to EMT2/reference microphone if possible; evaluate higher-frequency PDM decimation / filter shape before assuming 55–80-kHz bat sensitivity. Preserve the raw PDM and current valid capture configuration.
+
+## DSP starvation on hardware and ESP32-S3 SIMD option, 24 October 2026
+
+Hardware after queue-separation build, reporting 120–480 s: `mic_bps=384000`, `read_err=0`, `dma_q_ovf=5` unchanged, but at t=480 s `dsp_done=46673`, `dsp_drop=42990`, `dsp_gap=42981`, `dspOver=46673`, `worstDSP=14462us`, `dsp_qmax=8`, and `NZRT BAND windows=0`. This is severe, continued *analysis* lag, **not microphone DMA failure**: 2,048 bytes per input block / 384,000 bytes/s implies a 5.333-ms block budget; each processed block is flagged over-budget, ~48% of input blocks are dropped and the noise warm-up repeatedly resets on every gap. The flash `log` also contains old entries from other firmware boots and cannot establish which DSP implementation is presently running.
+
+**Firmware identification is necessary**: the slow original `WildlifeDetector.cpp` used `float delay[97]` and 97-tap FIR after PDM extraction; the newer source at commit `9a99299123d356b0cc67a376d926e60e1009f6f4` uses `cic_i1` and a 33-tap decimation FIR. The pasted metrics look very similar to the earlier slow version but this alone **does not prove** whether the optimised source was flashed. On Windows, check the actual project file with `Select-String -Path "$project\\nzrt\\WildlifeDetector.cpp" -SimpleMatch -Pattern "cic_i1","delay[97]"`. Future test binaries must emit a unique `NZRT DSP algorithm=<id> commit=<short-sha> optimized_build=<bool>` startup banner and record CPU clocks, queue depths, average and worst DSP cost, plus reset reasons. Distinguish stale binary from real algorithm bottlenecks.
+
+**ESP32-S3 PIE SIMD is a valid next-stage optimisation**: the dual-core LX7 has 128-bit processor instruction extensions (8/16/32-bit vector operations) and Espsressif's official `esp-dsp` has S3 assembly `dsps_fird_s16_aes3` (fixed-point FIR/decimation), `dsps_fird_f32_aes3` and FIR benchmarks. A vector FIR could replace the float scalar 33-tap FIR at the *reduced* 384 kHz intermediate rate after CIC. It cannot automatically vectorise this project's per-PDM-bit unpack/CIC loops; first compare CPU time for each stage, avoid unnecessary float conversions, consider an 8-bit PDM lookup and fixed-point CIC, then test aligned/padded FIR coefficients and fixed-point scaling against saved reference WAVs. Verify library revision compatibility with pinned MeshCore Arduino-ESP32 2.x / ESP-IDF 4.4 before committing. Hardware success requires sustained `dsp_drop=0` and `dsp_gap=0`, windows advancing, candidate response and MeshCore radio/serial coexistence.
+
+References: https://documentation.espressif.com/esp32-s3_technical_reference_manual_en.pdf ; https://docs.espressif.com/projects/esp-dsp/en/latest/esp32/esp-dsp-apis.html ; https://docs.espressif.com/projects/esp-dsp/en/latest/esp32/esp-dsp-benchmarks.html .
