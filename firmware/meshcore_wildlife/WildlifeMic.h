@@ -8,4 +8,6 @@ bool begin();
 void printHealthIfDue();
 void printStatus();
 void setDspEnabled(bool enable);
+void setDaytimeStandby(bool standby);
+bool daytimeStandby();
 }
