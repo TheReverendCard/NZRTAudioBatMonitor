@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """One-shot NZRT Wi-Fi setup over XIAO ESP32-S3 USB CDC (Python + pyserial).
 
-Usage: py nzrt_wifi_serial_setup.py [--port COM8]
+Usage: py nzrt_wifi_serial_setup.py [--port COM8] [--config private.ini]
 Requires 'pyserial'. Prompts for SSID and hidden password BEFORE opening serial.
-Credentials are never passed as command-line args, displayed, or written to disk.
+Credentials are never passed as command-line args or printed. Optionally read\nfrom a *user-created private INI* without adding them to PlatformIO build flags.\nPrompt mode doesn't save credentials on the PC.
 The device stores them in its own NVS; the device's USB transport is not encrypted.
 """
 import argparse
+import configparser
 import getpass
 import sys
 import time
@@ -46,11 +47,24 @@ def read_until(serial_port, success: bytes, error: bytes, seconds: float):
 def main():
     parser = argparse.ArgumentParser(description="Privately provision NZRT XIAO Wi-Fi over USB serial")
     parser.add_argument("--port", default="COM8", help="USB serial port (default: COM8)")
+    parser.add_argument("--config", help="Optional private INI containing [nzrt_wifi] ssid and password")
     args = parser.parse_args()
 
     print("Close Miniterm and other serial programs before proceeding.")
-    ssid = input("Wi-Fi network name (SSID): ")
-    password = getpass.getpass("Wi-Fi password (hidden): ")
+    if args.config:
+        cfg = configparser.ConfigParser(interpolation=None)
+        try:
+            loaded = cfg.read(args.config, encoding="utf-8-sig")
+            if not loaded or not cfg.has_section("nzrt_wifi"):
+                sys.exit("Config missing or missing [nzrt_wifi] section. No credentials sent.")
+            ssid = cfg.get("nzrt_wifi", "ssid", fallback="")
+            password = cfg.get("nzrt_wifi", "password", fallback="")
+        except (OSError, configparser.Error) as exc:
+            sys.exit(f"Cannot read private INI: {exc}")
+        print("Using private local INI. Password will not be printed.")
+    else:
+        ssid = input("Wi-Fi network name (SSID): ")
+        password = getpass.getpass("Wi-Fi password (hidden): ")
     ssid_bytes = ssid.encode("utf-8")
     pass_bytes = password.encode("utf-8")
     if not (1 <= len(ssid_bytes) <= 32):
