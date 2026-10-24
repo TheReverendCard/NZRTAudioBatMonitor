@@ -51,6 +51,10 @@ def prepare(src: Path, check: bool = False) -> None:
         "    the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!",
         """    if (strcmp(command, "nzrt status") == 0) {
       WildlifeMic::printStatus();
+    } else if (strcmp(command, "nzrt dsp on") == 0) {
+      WildlifeMic::setDspEnabled(true);
+    } else if (strcmp(command, "nzrt dsp off") == 0) {
+      WildlifeMic::setDspEnabled(false);
     } else {
       the_mesh.handleCommand(0, command, reply);  // NOTE: there is no sender_timestamp via serial!
     }""",
