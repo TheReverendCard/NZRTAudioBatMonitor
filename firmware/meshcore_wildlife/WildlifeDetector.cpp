@@ -4,21 +4,24 @@
 #include <freertos/portmacro.h>
 namespace WildlifeDetector {
 namespace {
-// CPU-lean 2-stage 3.072 MHz -> 192 kHz PDM decimator.
-// Stage 1: CIC3 R=8, modulo 32-bit integrators, gain 512, 384 kHz output.
-// Stage 2: 33-tap Kaiser lowpass (65 kHz at fs=384k), decimate by 2.
-// Retains 18-45 kHz acoustic response while reducing FIR work >5x.
-static const float taps[33] = {
-  -4.49425858938e-05f, -4.94961783277e-05f, 0.000393191743311f, 0.00110122407181f, 0.000428158466129f, -0.00291690083795f, -0.00586045075619f,
-  -0.00143326791258f, 0.0116467952073f, 0.0196855834061f, 0.00301663458811f, -0.0360121712238f, -0.0562920498306f, -0.00455951546125f,
-  0.127449590003f, 0.274182480888f, 0.338530272826f, 0.274182480888f, 0.127449590003f, -0.00455951546125f, -0.0562920498306f,
-  -0.0360121712238f, 0.00301663458811f, 0.0196855834061f, 0.0116467952073f, -0.00143326791258f, -0.00586045075619f, -0.00291690083795f,
-  0.000428158466129f, 0.00110122407181f, 0.000393191743311f, -4.94961783277e-05f, -4.49425858938e-05f
+// NZ band monitor fast decimator: 3.072 MHz PDM -> 192 kHz PCM.
+// First: third-order integer CIC, R=16, gain=4096.
+// Second: 17-tap Kaiser anti-alias cleanup FIR at 192 kHz (65 kHz cutoff).
+// NOTE: not species identification or a substitute for acoustic validation.
+static const float taps[17] = {
+ -0.000571507926978f, 0.00223070038605f, 0.00169296469416f,
+ -0.0182163567231f, 0.030484138165f, 0.00698446472915f,
+ -0.119975907361f, 0.25890005028f, 0.676942907513f,
+ 0.25890005028f, -0.119975907361f, 0.00698446472915f,
+ 0.030484138165f, -0.0182163567231f, 0.00169296469416f,
+ 0.00223070038605f, -0.000571507926978f
 };
 uint32_t cic_i1=0,cic_i2=0,cic_i3=0,cic_c1=0,cic_c2=0,cic_c3=0;
-uint8_t cic_phase=0,fir_phase=0;
-float fir_delay[33]={};
+uint8_t cic_phase=0;
+float fir_delay[17]={};
 uint8_t fir_head=0;
+uint32_t settleSamples=0;
+uint64_t rawTimeSamples=0;
 // two cascaded 2nd-order Butterworth filters at 192 kHz: HP18k then LP45k
 struct Biquad {
  float b0,b1,b2,a1,a2,z1,z2;
@@ -38,7 +41,7 @@ uint8_t eventHead=0,eventTail=0;
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 void finishWindow() {
  float rms=sqrtf(energy/3840.0f); energy=0; ++windows;
- uint32_t t=windows*20; float relative=0;
+ uint32_t t=static_cast<uint32_t>((rawTimeSamples*1000ULL)/192000ULL); float relative=0;
  if(windows<=150) noise+=(rms-noise)/(float)windows;
  else {
    relative=rms/(noise+1.e-12f);
@@ -64,39 +67,53 @@ void finishWindow() {
 void reset() {
  for(float &v:fir_delay)v=0;
  cic_i1=cic_i2=cic_i3=cic_c1=cic_c2=cic_c3=0;
- cic_phase=fir_phase=fir_head=0;
+ cic_phase=fir_head=0;
+ settleSamples=0;
+ rawTimeSamples=0;
  hp.z1=hp.z2=lp.z1=lp.z2=0;
  warm=samples=windows=events=0;
  energy=noise=lastRms=maxRatio=0; active=false;firstOn=lastOn=0;eventPeak=0;
  portENTER_CRITICAL(&mux);eventHead=eventTail=0;portEXIT_CRITICAL(&mux);
 }
+// A missing DMA block invalidates filter continuity, but must not reset
+// the background calibration every ~100ms or the detector never starts.
+void onInputGap(uint32_t missingBlocks) {
+ for(float &v:fir_delay)v=0;
+ cic_i1=cic_i2=cic_i3=cic_c1=cic_c2=cic_c3=0;
+ cic_phase=fir_head=0;
+ hp.z1=hp.z2=lp.z1=lp.z2=0;
+ energy=0; samples=0;
+ active=false;
+ settleSamples=960; // discard 5ms of filter reacquisition
+ rawTimeSamples+=static_cast<uint64_t>(missingBlocks)*1024ULL;
+}
 void consume(const uint8_t* raw,size_t n) {
- // Chronological little-endian 16-bit words, MSB-first; do not use raw
- // S3 PDM peripheral slot packing. Wrap CIC integrators deliberately.
+ // Chronological little-endian 16-bit I2S words, each unpacked MSB first.
+ // Integer CIC operations deliberately wrap modulo 32 bits.
  for(size_t i=0;i+1<n;i+=2) {
    uint16_t word=(uint16_t)raw[i]|((uint16_t)raw[i+1]<<8);
    for(int bit=15;bit>=0;--bit) {
-     uint32_t v=(word&(1U<<bit))?1U:UINT32_MAX; // +1 or -1 modulo-2^32
+     uint32_t v=(word&(1U<<bit))?1U:UINT32_MAX;
      cic_i1+=v;
      cic_i2+=cic_i1;
      cic_i3+=cic_i2;
-     if(++cic_phase!=8)continue;
+     if(++cic_phase!=16)continue;
      cic_phase=0;
      uint32_t t1=cic_i3-cic_c1; cic_c1=cic_i3;
      uint32_t t2=t1-cic_c2; cic_c2=t1;
      uint32_t t3=t2-cic_c3; cic_c3=t2;
-     float down=(float)((int32_t)t3)*(1.0f/512.0f);
+     float down=(float)((int32_t)t3)*(1.0f/4096.0f);
      fir_delay[fir_head]=down;
-     if(++fir_head==33)fir_head=0;
-     if(++fir_phase!=2)continue;
-     fir_phase=0;
+     if(++fir_head==17)fir_head=0;
      float pcm=0;uint8_t pos=fir_head;
-     for(uint8_t j=0;j<33;++j) {
+     for(uint8_t j=0;j<17;++j) {
        pcm+=taps[j]*fir_delay[pos];
-       if(++pos==33)pos=0;
+       if(++pos==17)pos=0;
      }
      float band=lp.step(hp.step(pcm));
+     ++rawTimeSamples;
      if(++warm<=9600)continue;
+     if(settleSamples) {--settleSamples;continue;}
      energy+=band*band;
      if(++samples==3840){samples=0;finishWindow();}
    }
