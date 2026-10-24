@@ -11,6 +11,7 @@
  */
 #include "WildlifeMic.h"
 #include "WildlifeDetector.h"
+#include "WildlifeTime.h"
 #include <SPIFFS.h>  // same flash filesystem used by upstream MeshCore repeater
 #include <driver/i2s.h>
 #include <esp_timer.h>
@@ -257,21 +258,28 @@ void printHealthIfDue() {
   static uint32_t lastFlush=0;
   WildlifeDetector::Event ev;
   for(unsigned i=0; i<8 && WildlifeDetector::pop(ev);++i) {
-    Serial.printf("NZRT CANDIDATE session=%08lX run=%lu seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx (UNVERIFIED)\n",
+    uint32_t startUtc=WildlifeTime::epochForUptime(dspStartUptimeMs+ev.start_ms);
+    uint32_t endUtc=WildlifeTime::epochForUptime(dspStartUptimeMs+ev.end_ms);
+    Serial.printf("NZRT CANDIDATE session=%08lX run=%lu seq=%lu from_ms=%lu to_ms=%lu utc_start=%lu utc_end=%lu time_source=%s peak=%.2fx (UNVERIFIED)\n",
        (unsigned long)sessionId, (unsigned long)dspRunNumber,
        static_cast<unsigned long>(ev.seq),static_cast<unsigned long>(ev.start_ms),
-       static_cast<unsigned long>(ev.end_ms),ev.peak_ratio);
+       static_cast<unsigned long>(ev.end_ms),(unsigned long)startUtc,
+       (unsigned long)endUtc,WildlifeTime::source(),ev.peak_ratio);
     if(pendingN<64)pending[pendingN++]=ev;
   }
   uint32_t checkNow=millis();
   if(pendingN && (pendingN==64 || checkNow-lastFlush>=10000UL)) {
     File f=SPIFFS.open("/packet_log",FILE_APPEND);
     if(f) {
-      for(size_t i=0;i<pendingN;++i)
-        f.printf("NZRT CANDIDATE session=%08lX run=%lu seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx unverified=1\n",
+      for(size_t i=0;i<pendingN;++i) {
+        uint32_t sUtc=WildlifeTime::epochForUptime(dspStartUptimeMs+pending[i].start_ms);
+        uint32_t eUtc=WildlifeTime::epochForUptime(dspStartUptimeMs+pending[i].end_ms);
+        f.printf("NZRT CANDIDATE session=%08lX run=%lu seq=%lu from_ms=%lu to_ms=%lu utc_start=%lu utc_end=%lu time_source=%s peak=%.2fx unverified=1\n",
           (unsigned long)sessionId, (unsigned long)dspRunNumber,
           static_cast<unsigned long>(pending[i].seq),static_cast<unsigned long>(pending[i].start_ms),
-          static_cast<unsigned long>(pending[i].end_ms),pending[i].peak_ratio);
+          static_cast<unsigned long>(pending[i].end_ms),(unsigned long)sUtc,
+          (unsigned long)eUtc,WildlifeTime::source(),pending[i].peak_ratio);
+      }
       f.close();pendingN=0;
     }
     lastFlush=checkNow;
@@ -339,8 +347,10 @@ void printHealthIfDue() {
           static_cast<unsigned long>(snap.dspQueueDrops),
           static_cast<unsigned long>(snap.dspStreamResets),
           static_cast<unsigned long>(snap.processOverBudget));
-      journal.printf("NZRT BAND session=%08lX uptime=%lus windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx unverified=1\n",
-         (unsigned long)sessionId, static_cast<unsigned long>(now/1000UL), static_cast<unsigned long>(ds.windows),
+      journal.printf("NZRT BAND session=%08lX uptime=%lus utc=%lu time_source=%s windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx unverified=1\n",
+         (unsigned long)sessionId, static_cast<unsigned long>(now/1000UL),
+         (unsigned long)WildlifeTime::epochForUptime(now),WildlifeTime::source(),
+         static_cast<unsigned long>(ds.windows),
          static_cast<unsigned long>(ds.candidates),ds.band_rms,ds.noise_rms,ds.peak_ratio);
       journal.close();
     } else {
@@ -366,10 +376,11 @@ void setDspEnabled(bool enable) {
 void printStatus() {
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT DIAG build=%s session=%08lX run=%lu dsp=%s uptime=%lus dsp_start_uptime_ms=%lu reset_reason=%d time=UNSYNCED\n",
+  Serial.printf("NZRT DIAG build=%s session=%08lX run=%lu dsp=%s uptime=%lus dsp_start_uptime_ms=%lu reset_reason=%d utc=%lu time_source=%s\n",
     BUILD_ID, (unsigned long)sessionId, (unsigned long)dspRunNumber,
     dspEnabledRequest?"ON":"OFF", (unsigned long)(millis()/1000),
-    (unsigned long)dspStartUptimeMs, (int)esp_reset_reason());
+    (unsigned long)dspStartUptimeMs, (int)esp_reset_reason(),
+    (unsigned long)WildlifeTime::epochForUptime(millis()),WildlifeTime::source());
   Serial.printf("NZRT BAND status session=%08lX 18-45kHz windows=%lu candidates=%lu rms=%.7f background=%.7f max_ratio=%.2fx unverified=1\n",
     (unsigned long)sessionId,
     static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
