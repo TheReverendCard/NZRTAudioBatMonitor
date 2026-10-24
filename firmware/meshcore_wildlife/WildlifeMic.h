@@ -7,4 +7,5 @@ namespace WildlifeMic {
 bool begin();
 void printHealthIfDue();
 void printStatus();
+void setDspEnabled(bool enable);
 }
