@@ -3,7 +3,7 @@ param(
   [string]$Port = "COM8"
 )
 $ErrorActionPreference = "Stop"
-Write-Host "NZRT MeshCore field pilot update - NZRT-FIELD-PILOT-1"
+Write-Host "NZRT MeshCore field pilot UTC clock update"
 $localIni = Join-Path $Project "platformio.local.ini"
 $mainPath = Join-Path $Project "examples\simple_repeater\main.cpp"
 $variant = Join-Path $Project "variants\xiao_s3_wio\platformio.ini"
@@ -14,12 +14,12 @@ foreach ($check in @($localIni, $mainPath, $variant)) {
 }
 # Do not edit/read/show ADMIN_PASSWORD. Preserve the configured .ini files.
 $root = "https://raw.githubusercontent.com/TheReverendCard/NZRTAudioBatMonitor/exp/meshcore-wildlife-repeater/firmware/meshcore_wildlife"
-$files = @("WildlifeMic.cpp","WildlifeMic.h","WildlifeDetector.cpp","WildlifeDetector.h")
+$files = @("WildlifeMic.cpp","WildlifeMic.h","WildlifeDetector.cpp","WildlifeDetector.h","WildlifeTime.cpp","WildlifeTime.h")
 $downloads = @{}
 try {
   foreach ($name in $files) {
     $target = Join-Path $Project "nzrt\$name"
-    if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {throw "Missing NZRT source $target"}
+    if ($name -notlike "WildlifeTime.*" -and -not (Test-Path -LiteralPath $target -PathType Leaf)) {throw "Missing NZRT source $target"}
     $temporary = "$target.download"
     Invoke-WebRequest -UseBasicParsing -Uri "$root/$name" -OutFile $temporary
     $downloads[$name] = $temporary
@@ -30,7 +30,7 @@ try {
   if (-not $detector.Contains("onInputGap") -or -not $detector.Contains("taps[17]")) {
     throw "Downloaded detector is not the expected CIC16/17-tap version"
   }
-  if (-not $mic.Contains("NZRT-FIELD-PILOT-1") -or -not $mic.Contains("dspEnabledRequest = true;")) {
+  if (-not $mic.Contains("NZRT-FIELD-PILOT-1") -or -not $mic.Contains("WildlifeTime::epochForUptime")) {
     throw "Downloaded microphone does not auto-enable DSP or match FIELD-PILOT-1"
   }
   $src = [IO.File]::ReadAllText($mainPath).Replace("`r`n","`n")
@@ -64,14 +64,61 @@ try {
     $updateMain = $false
   }
 
+
+  # Additional non-blocking time bridge, powered on only at startup.
+  # Input bytes after 'nzrt wifi set ' must NOT be echoed to the USB terminal.
+  function Replace-Once([string]$Text,[string]$Old,[string]$New,[string]$Label) {
+    if (-not $Text.Contains($Old)) {throw "Could not patch $Label in local project. No files replaced."}
+    return $Text.Replace($Old,$New)
+  }
+  if (-not $src.Contains('#include "WildlifeTime.h"')) {
+    $src = Replace-Once $src '#include "WildlifeMic.h"' ("#include "WildlifeMic.h"\n#include "WildlifeTime.h"".Replace("\n","`n")) "time header"
+  }
+  if (-not $src.Contains("WildlifeTime::begin(rtc_clock)")) {
+    $src = Replace-Once $src 'Serial.println("NZRT microphone start failed: MeshCore still running");' ("Serial.println(" + '"NZRT microphone start failed: MeshCore still running"' + ");`n  WildlifeTime::begin(rtc_clock);") "time startup"
+  }
+  if (-not $src.Contains("WildlifeTime::tick(rtc_clock)")) {
+    $src = Replace-Once $src "  rtc_clock.tick();" "  rtc_clock.tick();`n  WildlifeTime::tick(rtc_clock);" "time loop"
+  }
+  if (-not $src.Contains('strcmp(command, "nzrt time")')) {
+    $oldCommands=@'
+    } else if (strcmp(command, "nzrt dsp off") == 0) {
+      WildlifeMic::setDspEnabled(false);
+    } else {
+'@
+    $newCommands=@'
+    } else if (strcmp(command, "nzrt dsp off") == 0) {
+      WildlifeMic::setDspEnabled(false);
+    } else if (strcmp(command, "nzrt time") == 0) {
+      WildlifeTime::printStatus();
+    } else if (strncmp(command, "nzrt wifi set ", 14) == 0) {
+      WildlifeTime::configureWiFi(command + 14);
+    } else if (strcmp(command, "nzrt wifi clear") == 0) {
+      WildlifeTime::clearWiFi();
+    } else {
+'@
+    $src = Replace-Once $src $oldCommands $newCommands "local time CLI"
+  }
+  if (-not $src.Contains('strncmp(command, "nzrt wifi set ", 14) != 0')) {
+    $src = Replace-Once $src "      Serial.print(c);" '      if (strncmp(command, "nzrt wifi set ", 14) != 0) Serial.print(c);' "secret-free USB echo"
+  }
+  $localText = [IO.File]::ReadAllText($localIni)
+  if (-not $localText.Contains("+<../nzrt/WildlifeTime.cpp>")) {
+    $localText = Replace-Once $localText "+<../nzrt/WildlifeDetector.cpp>" "+<../nzrt/WildlifeDetector.cpp>`n  +<../nzrt/WildlifeTime.cpp>" "PlatformIO time source"
+  }
+  $updateMain = $true
+
   # Backup the exact currently installed source before modifying it.
   $backup = Join-Path $Project ("nzrt_backup_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
   New-Item -ItemType Directory -Path $backup -Force | Out-Null
   foreach ($name in $files) {
     $target = Join-Path $Project "nzrt\$name"
-    Copy-Item -LiteralPath $target -Destination (Join-Path $backup $name)
+    if (Test-Path -LiteralPath $target) {
+      Copy-Item -LiteralPath $target -Destination (Join-Path $backup $name)
+    }
   }
   Copy-Item -LiteralPath $mainPath -Destination (Join-Path $backup "main.cpp")
+  Copy-Item -LiteralPath $localIni -Destination (Join-Path $backup "platformio.local.ini")
 
   foreach ($name in $files) {
     $target = Join-Path $Project "nzrt\$name"
@@ -80,10 +127,11 @@ try {
   }
   if ($updateMain) {
     [IO.File]::WriteAllText($mainPath,$src,(New-Object System.Text.UTF8Encoding($false)))
-    Write-Host "Added 'nzrt dsp on/off' CLI handlers"
+    [IO.File]::WriteAllText($localIni,$localText,(New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "Enabled UTC time bridge, credential-masked serial input and NTP build"
   }
   Write-Host "Source backup: $backup"
-  Write-Host "Private admin password and all .ini files remain unchanged."
+  Write-Host "Private admin password and radio configs unchanged; local.ini includes new UTC source."
 } finally {
   foreach ($name in $files) {
     if ($downloads.ContainsKey($name) -and (Test-Path -LiteralPath $downloads[$name])) {
@@ -96,4 +144,6 @@ Write-Host "Compiling and uploading to $Port ..."
 if ($LASTEXITCODE -ne 0) {throw "PlatformIO failed (exit code $LASTEXITCODE). Firmware was not confirmed uploaded."}
 Write-Host "SUCCESS: new build should print 'NZRT SESSION', report 'NZRT-FIELD-PILOT-1', and start DSP automatically."
 Write-Host "Test serial with: py -m serial.tools.miniterm $Port 115200 --eol CR"
-Write-Host "Test: unplug/replug board, note exact local power-on time; use nzrt status ; log"
+Write-Host "Use CLI: nzrt wifi set YOUR_SSID|YOUR_WIFI_PASSWORD  (stored in device NVS, not GitHub)"
+Write-Host "Then reboot once. For time status enter: nzrt time ; nzrt status; log"
+Write-Host "No Wi-Fi configured? Start remains UNSYNCED; MeshCore's authenticated remote 'clock sync' is a fallback."
