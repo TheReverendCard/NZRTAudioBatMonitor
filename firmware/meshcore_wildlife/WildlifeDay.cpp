@@ -5,6 +5,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <SPIFFS.h>
+#include <Preferences.h>
 
 namespace WildlifeDay {
 namespace {
@@ -30,6 +31,7 @@ int localYday = -1;
 int overrideMode = -1; // -1 automatic, 0 test wake, 1 test standby
 uint32_t overrideUntil = 0;
 bool initialized = false;
+bool scheduleEnabled = true; // current BAT field-pilot default; configurable in NVS
 
 bool nowPassed(uint32_t now, uint32_t due) {
   return static_cast<int32_t>(now-due) >= 0;
@@ -70,9 +72,15 @@ void begin() {
   // This only affects formatting/sunrise calculations. RTC stays in UTC.
   setenv("TZ","NZST-12NZDT,M9.5.0/2,M4.1.0/3",1);
   tzset();
+  Preferences prefs;
+  if(prefs.begin("nzrt-day", true)) {
+    scheduleEnabled=prefs.getBool("enabled",true);
+    prefs.end();
+  }
   initialized=true;
   lastCheckMs=0;
-  Serial.println("NZRT DAY schedule=WHANGAREI_SUN sunrise+30m/sunset-30m; fail_open=ON; MeshCore=ON");
+  Serial.printf("NZRT DAY schedule=%s site=WHANGAREI sunrise+30m/sunset-30m fail_open=ON meshcore=ON\n",
+                scheduleEnabled?"ENABLED":"DISABLED");
 }
 void tick() {
   if(!initialized)return;
@@ -98,23 +106,46 @@ void tick() {
       }
     }
   }
+  if(!scheduleEnabled) shouldStandby=false;
   if(overrideMode>=0){
     if(nowPassed(now,overrideUntil)){overrideMode=-1;}
     else shouldStandby=(overrideMode==1);
   }
-  // An unknown or implausible clock always keeps ultrasonic monitoring on.
+  // An unknown or implausible clock always keeps ultrasonic monitoring on
+  // outside an explicitly requested, 90-second hardware test.
+  if(!knownTime && overrideMode<0) shouldStandby=false;
   WildlifeMic::setDaytimeStandby(shouldStandby);
 }
 void printStatus() {
   tick();
   uint32_t now=millis();
   uint32_t remain=overrideMode<0?0:(nowPassed(now,overrideUntil)?0:(overrideUntil-now)/1000UL);
-  Serial.printf("NZRT DAY state=%s mode=%s clock=%s coord=Whangarei lat=%.2f lon=%.2f local_day=%d local_min=%d sunrise_min=%.1f sunset_min=%.1f override_left_s=%lu schedule=sunrise+30/sunset-30\n",
+  Serial.printf("NZRT DAY state=%s schedule_enabled=%d mode=%s clock=%s coord=Whangarei lat=%.2f lon=%.2f local_day=%d local_min=%d sunrise_min=%.1f sunset_min=%.1f override_left_s=%lu schedule=sunrise+30/sunset-30\n",
     WildlifeMic::daytimeStandby()?"STANDBY":"MONITORING",
+    scheduleEnabled?1:0,
     overrideMode<0?"AUTO":(overrideMode?"TEST_SLEEP":"TEST_WAKE"),
     knownTime?(solarValid?"SYNCED":"SUN_UNAVAILABLE"):"UNSYNCED",
     LAT_DEG,LON_DEG,localYday,localMin,sunriseMin,sunsetMin,
     (unsigned long)remain);
+}
+void setScheduleEnabled(bool enabled) {
+  if(scheduleEnabled!=enabled) {
+    Preferences prefs;
+    if(prefs.begin("nzrt-day",false)) {
+      if(prefs.putBool("enabled",enabled)==0) {
+        Serial.println("NZRT DAY ERROR: failed saving schedule setting");
+        prefs.end();return;
+      }
+      prefs.end();
+    } else {
+      Serial.println("NZRT DAY ERROR: unable to open NVS");return;
+    }
+    scheduleEnabled=enabled;
+  }
+  overrideMode=-1;
+  lastCheckMs=0;
+  tick();
+  Serial.printf("NZRT DAY schedule_enabled=%d persisted=1\n",enabled?1:0);
 }
 void testSleep() {test(1);}
 void testWake() {test(0);}
