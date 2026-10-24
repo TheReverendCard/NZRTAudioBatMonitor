@@ -30,7 +30,7 @@ try {
   if (-not $detector.Contains("onInputGap") -or -not $detector.Contains("taps[17]")) {
     throw "Downloaded detector is not the expected CIC16/17-tap version"
   }
-  if (-not $mic.Contains("NZRT-FIELD-PILOT-2") -or -not $mic.Contains("WildlifeTime::epochForUptime")) {
+  if (-not $mic.Contains("NZRT-FIELD-PILOT-3") -or -not $mic.Contains("WildlifeTime::epochForUptime")) {
     throw "Downloaded microphone does not auto-enable DSP or match FIELD-PILOT-1"
   }
   $src = [IO.File]::ReadAllText($mainPath).Replace("`r`n","`n")
@@ -142,7 +142,7 @@ try {
 Write-Host "Compiling and uploading to $Port ..."
 & py -m platformio run -d $Project -e NZRT_Xiao_S3_WIO_wildlife_repeater -t upload --upload-port $Port
 if ($LASTEXITCODE -ne 0) {throw "PlatformIO failed (exit code $LASTEXITCODE). Firmware was not confirmed uploaded."}
-Write-Host "SUCCESS: new build should print 'NZRT SESSION', report 'NZRT-FIELD-PILOT-2', and start DSP automatically."
+Write-Host "SUCCESS: new build should print 'NZRT SESSION', report 'NZRT-FIELD-PILOT-3', and start DSP automatically."
 Write-Host "Test serial with: py -m serial.tools.miniterm $Port 115200 --eol CR"
 Write-Host "Use CLI: nzrt wifi set YOUR_SSID|YOUR_WIFI_PASSWORD  (stored in device NVS, not GitHub)"
 Write-Host "Then reboot once. For time status enter: nzrt time ; nzrt status; log"
