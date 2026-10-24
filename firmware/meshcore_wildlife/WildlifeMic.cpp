@@ -14,6 +14,7 @@
 #include <SPIFFS.h>  // same flash filesystem used by upstream MeshCore repeater
 #include <driver/i2s.h>
 #include <esp_timer.h>
+#include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
@@ -29,6 +30,9 @@ QueueHandle_t eventQueue = nullptr;
 TaskHandle_t captureTask = nullptr;
 TaskHandle_t dspTaskHandle = nullptr;
 QueueHandle_t dspQueue = nullptr;
+// Default-off DSP isolates the USB serial and MeshCore uptime from DSP load.
+// On-device CLI: nzrt dsp on / nzrt dsp off (trial only).
+volatile bool dspEnabledRequest = false;
 constexpr UBaseType_t DSP_QUEUE_BLOCKS = 8;
 struct RawBlock {
   uint32_t seq;
@@ -75,7 +79,7 @@ void readerTask(void*) {
       pkt.n = static_cast<uint32_t>(n);
     }
     uint32_t queueDrop=0, queueDepth=0;
-    if(status == ESP_OK && n) {
+    if(status == ESP_OK && n && dspEnabledRequest) {
       // Non-blocking. Prefer dropping an analysis block to missing I2S DMA.
       if(!dspQueue || xQueueSend(dspQueue, &pkt, 0) != pdPASS)
         ++queueDrop;
@@ -103,11 +107,22 @@ void readerTask(void*) {
 void dspTask(void*) {
   RawBlock pkt;
   uint32_t prevSeq=0, processed=0;
+  bool running=false;
   for(;;) {
-    if(xQueueReceive(dspQueue,&pkt,pdMS_TO_TICKS(1000)) != pdTRUE) {
+    bool requested=dspEnabledRequest;
+    if(requested!=running) {
+      running=requested;
+      WildlifeDetector::reset();
+      prevSeq=0;
+      // Only the DSP task resets its FIFO/algorithm state.
+      xQueueReset(dspQueue);
+    }
+    if(!running) {vTaskDelay(pdMS_TO_TICKS(25));continue;}
+    if(xQueueReceive(dspQueue,&pkt,pdMS_TO_TICKS(100)) != pdTRUE) {
       vTaskDelay(1);
       continue;
     }
+    if(!dspEnabledRequest) continue;
     // Detect gaps in the PDM byte stream and re-establish the noise baseline.
     if(prevSeq && pkt.seq!=prevSeq+1) {
       WildlifeDetector::reset();
@@ -176,6 +191,7 @@ bool begin() {
     i2s_driver_uninstall(PORT);
     return false;
   }
+  dspEnabledRequest=false;
   WildlifeDetector::reset();
   dspQueue = xQueueCreate(DSP_QUEUE_BLOCKS, sizeof(RawBlock));
   if(!dspQueue) {
@@ -203,6 +219,7 @@ bool begin() {
   started = true;
   Serial.println("NZRT MIC experimental legacy I2S: CLK GPIO1 DATA GPIO2 WS GPIO4 (unwired), target BCLK 3.072MHz");
   Serial.println("NZRT DSP bounded queue, worker core0 priority1, reader core1 priority18");
+  Serial.printf("NZRT DIAG build=USB-ISOLATE-1 reset_reason=%d dsp=OFF (enable via 'nzrt dsp on')\n", (int)esp_reset_reason());
   return true;
 }
 
@@ -234,7 +251,12 @@ void printHealthIfDue() {
   }
   static uint32_t lastReport = 0;
   static uint64_t lastBytes = 0;
+  static uint32_t lastAlive = 0;
   uint32_t now = millis();
+  if(now-lastAlive >= 10000UL) {
+    lastAlive=now;
+    Serial.printf("NZRT ALIVE t=%lus dsp=%s reset_reason=%d\n",(unsigned long)(now/1000), dspEnabledRequest?"ON":"OFF", (int)esp_reset_reason());
+  }
   if (now - lastReport < REPORT_MS) return;
   uint32_t dt = now - lastReport;
   lastReport = now;
@@ -293,9 +315,14 @@ void printHealthIfDue() {
     }
   }
 }
+void setDspEnabled(bool enable) {
+  dspEnabledRequest=enable;
+  Serial.printf("NZRT DSP requested=%s (USB-ISOLATE-1; not yet a bat classifier)\n",enable?"ON":"OFF");
+}
 void printStatus() {
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
+  Serial.printf("NZRT DIAG build=USB-ISOLATE-1 dsp=%s uptime=%lus reset_reason=%d\n", dspEnabledRequest?"ON":"OFF", (unsigned long)(millis()/1000), (int)esp_reset_reason());
   Serial.printf("NZRT BAND status 18-45kHz windows=%lu candidates=%lu rms=%.7f background=%.7f max_ratio=%.2fx unverified=1\n",
     static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
     ds.band_rms,ds.noise_rms,ds.peak_ratio);
