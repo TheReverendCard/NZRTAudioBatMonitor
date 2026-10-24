@@ -30,9 +30,14 @@ QueueHandle_t eventQueue = nullptr;
 TaskHandle_t captureTask = nullptr;
 TaskHandle_t dspTaskHandle = nullptr;
 QueueHandle_t dspQueue = nullptr;
-// USB-ISOLATE-1: default-off DSP isolates USB serial and MeshCore from DSP load.
-// On-device CLI: nzrt dsp on / nzrt dsp off (trial only).
+// Field pilot auto-starts DSP after MeshCore/microphone initialization.
+// The existing nzrt dsp on/off commands remain available for diagnostics.
 volatile bool dspEnabledRequest = false;
+constexpr const char* BUILD_ID = "NZRT-FIELD-PILOT-1";
+uint32_t sessionId = 0;
+uint32_t dspStartUptimeMs = 0;
+uint32_t dspRunNumber = 0;
+
 constexpr UBaseType_t DSP_QUEUE_BLOCKS = 8;
 struct RawBlock {
   uint32_t seq;
@@ -218,9 +223,28 @@ bool begin() {
     return false;
   }
   started = true;
+  sessionId = esp_random(); // Identifier only, not a wall-clock or cryptographic token.
+  if(sessionId == 0) sessionId = 1;
+  dspStartUptimeMs = millis();
+  dspRunNumber = 1;
   Serial.println("NZRT MIC experimental legacy I2S: CLK GPIO1 DATA GPIO2 WS GPIO4 (unwired), target BCLK 3.072MHz");
   Serial.println("NZRT DSP bounded queue, worker core0 priority1, reader core1 priority18");
-  Serial.printf("NZRT DIAG build=USB-ISOLATE-2 decimator=CIC16_FIR17 gap=SOFT reset_reason=%d dsp=OFF (enable via 'nzrt dsp on')\n", (int)esp_reset_reason());
+  Serial.printf("NZRT SESSION id=%08lX build=%s reset_reason=%d dsp=ON from_uptime_ms=%lu time=UNSYNCED\n",
+                (unsigned long)sessionId, BUILD_ID, (int)esp_reset_reason(),
+                (unsigned long)dspStartUptimeMs);
+  // MeshCore mounted SPIFFS before begin(); a fresh marker separates records
+  // from previous runs, even if power was cut unexpectedly.
+  File bootLog = SPIFFS.open("/packet_log", FILE_APPEND);
+  if(bootLog) {
+    bootLog.printf("NZRT SESSION id=%08lX build=%s reset_reason=%d dsp=ON from_uptime_ms=%lu time=UNSYNCED\n",
+                   (unsigned long)sessionId, BUILD_ID, (int)esp_reset_reason(),
+                   (unsigned long)dspStartUptimeMs);
+    bootLog.close();
+  } else {
+    Serial.println("NZRT FIELD ERROR: cannot write boot marker to SPIFFS");
+  }
+  // Start autonomous detection on every boot; no serial client required.
+  dspEnabledRequest = true;
   return true;
 }
 
@@ -233,7 +257,8 @@ void printHealthIfDue() {
   static uint32_t lastFlush=0;
   WildlifeDetector::Event ev;
   for(unsigned i=0; i<8 && WildlifeDetector::pop(ev);++i) {
-    Serial.printf("NZRT CANDIDATE seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx (UNVERIFIED)\n",
+    Serial.printf("NZRT CANDIDATE session=%08lX run=%lu seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx (UNVERIFIED)\n",
+       (unsigned long)sessionId, (unsigned long)dspRunNumber,
        static_cast<unsigned long>(ev.seq),static_cast<unsigned long>(ev.start_ms),
        static_cast<unsigned long>(ev.end_ms),ev.peak_ratio);
     if(pendingN<64)pending[pendingN++]=ev;
@@ -243,7 +268,8 @@ void printHealthIfDue() {
     File f=SPIFFS.open("/packet_log",FILE_APPEND);
     if(f) {
       for(size_t i=0;i<pendingN;++i)
-        f.printf("NZRT CANDIDATE seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx unverified=1\n",
+        f.printf("NZRT CANDIDATE session=%08lX run=%lu seq=%lu from_ms=%lu to_ms=%lu peak=%.2fx unverified=1\n",
+          (unsigned long)sessionId, (unsigned long)dspRunNumber,
           static_cast<unsigned long>(pending[i].seq),static_cast<unsigned long>(pending[i].start_ms),
           static_cast<unsigned long>(pending[i].end_ms),pending[i].peak_ratio);
       f.close();pendingN=0;
@@ -256,7 +282,9 @@ void printHealthIfDue() {
   uint32_t now = millis();
   if(now-lastAlive >= 10000UL) {
     lastAlive=now;
-    Serial.printf("NZRT ALIVE t=%lus dsp=%s reset_reason=%d\n",(unsigned long)(now/1000), dspEnabledRequest?"ON":"OFF", (int)esp_reset_reason());
+    Serial.printf("NZRT ALIVE session=%08lX t=%lus dsp=%s reset_reason=%d\n",
+      (unsigned long)sessionId, (unsigned long)(now/1000),
+      dspEnabledRequest?"ON":"OFF", (int)esp_reset_reason());
   }
   if (now - lastReport < REPORT_MS) return;
   uint32_t dt = now - lastReport;
@@ -272,7 +300,8 @@ void printHealthIfDue() {
       ? (100.0 * static_cast<double>(snap.ones) / (8.0 * static_cast<double>(snap.bytes))) : 0.0;
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT MIC t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu dsp_drop=%lu dsp_gap=%lu dsp_done=%lu dsp_qmax=%lu\n",
+  Serial.printf("NZRT MIC session=%08lX t=%lus bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu dsp_drop=%lu dsp_gap=%lu dsp_done=%lu dsp_qmax=%lu\n",
+                (unsigned long)sessionId,
                 static_cast<unsigned long>(now/1000),
                 static_cast<unsigned long>(bps), density,
                 static_cast<unsigned long>(snap.fullReads),
@@ -287,8 +316,8 @@ void printHealthIfDue() {
                 static_cast<unsigned long>(snap.dspBlocksProcessed),
                 static_cast<unsigned long>(snap.maxQueueDepth));
 
-  Serial.printf("NZRT BAND 18-45kHz windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx (NOT BAT ID)\n",
-    static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
+  Serial.printf("NZRT BAND session=%08lX 18-45kHz windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx (NOT BAT ID)\n",
+    (unsigned long)sessionId, static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
     ds.band_rms,ds.noise_rms,ds.peak_ratio);
   // Field-test journal: use MeshCore's existing /packet_log so the stock
   // 'log' command also returns mic/uptime evidence after power cycles.
@@ -300,15 +329,18 @@ void printHealthIfDue() {
     File journal = SPIFFS.open("/packet_log", FILE_APPEND);
     if (journal) {
       journal.printf(
-          "NZRT FIELD uptime=%lus mic_bps=%lu density=%.3f%% blocks=%lu short=%lu read_err=%lu dma_q_ovf=%lu\n",
-          static_cast<unsigned long>(now / 1000UL),
+          "NZRT FIELD session=%08lX uptime=%lus mic_bps=%lu density=%.3f%% blocks=%lu short=%lu read_err=%lu dma_q_ovf=%lu dsp_drop=%lu dsp_gap=%lu dspOver=%lu\n",
+          (unsigned long)sessionId, static_cast<unsigned long>(now / 1000UL),
           static_cast<unsigned long>(bps), density,
           static_cast<unsigned long>(snap.fullReads),
           static_cast<unsigned long>(snap.shortReads),
           static_cast<unsigned long>(snap.readErrors),
-          static_cast<unsigned long>(snap.rxQueueOverflows));
-      journal.printf("NZRT BAND uptime=%lus windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx unverified=1\n",
-         static_cast<unsigned long>(now/1000UL), static_cast<unsigned long>(ds.windows),
+          static_cast<unsigned long>(snap.rxQueueOverflows),
+          static_cast<unsigned long>(snap.dspQueueDrops),
+          static_cast<unsigned long>(snap.dspStreamResets),
+          static_cast<unsigned long>(snap.processOverBudget));
+      journal.printf("NZRT BAND session=%08lX uptime=%lus windows=%lu candidates=%lu rms=%.7f noise=%.7f peak=%.2fx unverified=1\n",
+         (unsigned long)sessionId, static_cast<unsigned long>(now/1000UL), static_cast<unsigned long>(ds.windows),
          static_cast<unsigned long>(ds.candidates),ds.band_rms,ds.noise_rms,ds.peak_ratio);
       journal.close();
     } else {
@@ -317,14 +349,29 @@ void printHealthIfDue() {
   }
 }
 void setDspEnabled(bool enable) {
-  dspEnabledRequest=enable;
-  Serial.printf("NZRT DSP requested=%s (USB-ISOLATE-1; not yet a bat classifier)\n",enable?"ON":"OFF");
+  bool wasEnabled=dspEnabledRequest;
+  if(enable != wasEnabled) {
+    dspEnabledRequest=enable;
+    if(enable) {dspStartUptimeMs=millis();++dspRunNumber;}
+    File marker=SPIFFS.open("/packet_log",FILE_APPEND);
+    if(marker) {
+      marker.printf("NZRT DSP_SWITCH session=%08lX run=%lu uptime_ms=%lu dsp=%s\n",
+        (unsigned long)sessionId, (unsigned long)dspRunNumber,
+        (unsigned long)millis(), enable?"ON":"OFF");
+      marker.close();
+    }
+  }
+  Serial.printf("NZRT DSP requested=%s build=%s\n",enable?"ON":"OFF",BUILD_ID);
 }
 void printStatus() {
   WildlifeDetector::Snapshot ds;
   WildlifeDetector::snapshot(ds);
-  Serial.printf("NZRT DIAG build=USB-ISOLATE-2 dsp=%s uptime=%lus reset_reason=%d\n", dspEnabledRequest?"ON":"OFF", (unsigned long)(millis()/1000), (int)esp_reset_reason());
-  Serial.printf("NZRT BAND status 18-45kHz windows=%lu candidates=%lu rms=%.7f background=%.7f max_ratio=%.2fx unverified=1\n",
+  Serial.printf("NZRT DIAG build=%s session=%08lX run=%lu dsp=%s uptime=%lus dsp_start_uptime_ms=%lu reset_reason=%d time=UNSYNCED\n",
+    BUILD_ID, (unsigned long)sessionId, (unsigned long)dspRunNumber,
+    dspEnabledRequest?"ON":"OFF", (unsigned long)(millis()/1000),
+    (unsigned long)dspStartUptimeMs, (int)esp_reset_reason());
+  Serial.printf("NZRT BAND status session=%08lX 18-45kHz windows=%lu candidates=%lu rms=%.7f background=%.7f max_ratio=%.2fx unverified=1\n",
+    (unsigned long)sessionId,
     static_cast<unsigned long>(ds.windows),static_cast<unsigned long>(ds.candidates),
     ds.band_rms,ds.noise_rms,ds.peak_ratio);
 }
