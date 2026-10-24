@@ -338,9 +338,9 @@ void printHealthIfDue() {
   WildlifeDetector::snapshot(ds);
   Serial.printf("NZRT MIC session=%08lX t=%lus mode=%s capture=%s bps=%lu density=%.3f%% blocks=%lu short=%lu errors=%lu legacy_rx_q_ovf=%lu worstRead=%luus worstDSP=%luus dspOver=%lu dsp_drop=%lu dsp_gap=%lu dsp_done=%lu dsp_qmax=%lu\n",
                 (unsigned long)sessionId,
+                static_cast<unsigned long>(now/1000),
                 dayStandby?"DAY_STANDBY":"MONITORING",
                 captureRunning?"ON":"OFF",
-                static_cast<unsigned long>(now/1000),
                 static_cast<unsigned long>(bps), density,
                 static_cast<unsigned long>(snap.fullReads),
                 static_cast<unsigned long>(snap.shortReads),
