@@ -35,3 +35,10 @@ The helper updates new `WildlifeDay.cpp/h`, the existing microphone/clock module
 ## User-module configuration design
 
 See the [modular deployment profiles design](../../docs/MODULAR_DEPLOYMENT_PROFILES.md). Selection of bird/trap/bat capabilities and wall/solar/battery power supply, automatic daughterboard identification and web/phone setup are intended but **not implemented** in this field-pilot version. A trap-only leaf will need a much lower-power policy; a repeater cannot reliably receive MeshCore messages while the CPU/radio are in deep sleep.
+
+
+## 25 October 2026: v4.0 crash at 60-second report and v4.1 corrective test
+
+The first on-device daylight test established `dsp=OFF capture=OFF mode=DAY_STANDBY` and responsive MeshCore ALIVE heartbeats, but v4.0 then crashed with `LoadProhibited` at **EXCVADDR=0x0000003c** immediately before the first 60-second `NZRT MIC` report. Root cause was a `Serial.printf` variadic argument-order error in the new health-report line, **not an I2S stop failure**: the format expected `t=%lu,mode=%s,capture=%s` yet received strings followed by uptime integer (60) as the `%s` pointer. The processor attempted to dereference address 60 / 0x3c. The result affects both recording and standby states at 60 seconds. Fix is committed in `NZRT-FIELD-PILOT-4.1`; a CI regression check guards the time/type ordering. On-device validation has not yet been completed. **Do not deploy v4.0.**
+
+On v4.1, wait past at least **three complete minute reports** after startup with `nzrt day test sleep` or automatic daylight standby, then run `nzrt day test wake` and verify resumed I2S/DSP while reporting remains stable. Confirm no `Guru Meditation Error`, `NZRT SESSION` restart, unexpected reset reason, or serial port disconnect. If the revised image still reboots, collect the new backtrace and compare its ELF SHA; do not assume it is the same incident.
