@@ -34,7 +34,7 @@ QueueHandle_t dspQueue = nullptr;
 // Field pilot auto-starts DSP after MeshCore/microphone initialization.
 // The existing nzrt dsp on/off commands remain available for diagnostics.
 volatile bool dspEnabledRequest = false;
-constexpr const char* BUILD_ID = "NZRT-FIELD-PILOT-2";
+constexpr const char* BUILD_ID = "NZRT-FIELD-PILOT-3";
 uint32_t sessionId = 0;
 uint32_t dspStartUptimeMs = 0;
 uint32_t dspRunNumber = 0;
