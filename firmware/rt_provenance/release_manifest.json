@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "as_of_nz": "2026-11-05",
+  "purpose": "Known firmware packages and last observed RT device build; this is a provenance manifest, not a deployable binary or verified flash ledger.",
+  "repo_context": {
+    "default_branch": "main",
+    "experimental_source_pr": 11,
+    "experimental_source_branch": "exp/meshcore-wildlife-repeater"
+  },
+  "known_artifacts": [
+    {
+      "artifact_name": "NZRT_RT_FieldPilot_5",
+      "date_nz": "2026-10-28",
+      "observed_build_id": "NZRT-FIELD-PILOT-5",
+      "package_filename": "NZRT_RT_FieldPilot_5(1).zip",
+      "package_bytes": 1698840,
+      "package_sha256": "19946dd688e44e0e7ef4d97c6f3c910a729e7e6d1dd628219eeb853e4e977c61",
+      "source_material": "C++ overlay/payload, source diff, updater and validation; ZIP itself is not committed",
+      "embedded_source_sha256": {
+        "SOURCE_CHANGES.patch": "b28fce3ea036e6883744e353fa8a80e89e69ddb027b432b8bfe61a77dc70452a",
+        "WildlifeDetector.cpp": "a1dce9dde93ef7a0aef1ce3a38180a5a3f5655910dc1dee9d6e9e6fb28fc2f88",
+        "WildlifeDetector.h": "e034ddd1a3e7bfcd41c59c3433301f6320d1f7eb10eae3e880a983b3c82606fd",
+        "WildlifeMic.cpp": "4229183f775a52cefef15d6b3e9f8278c33a9f325e7d94854834a288b5fa6739",
+        "WildlifeScoring.h": "5df033211dc6c749f2d02f2636d01c9d54c9d4da752dd256d1b6de26eb0d119b"
+      },
+      "source_provenance_base_commit": "7e8f3181844d0fee4200c8f771b4163f7d920ff9",
+      "upstream_meshcore_commit": "81dbae592ffad40b4212bc0b37e82b38da08f4bc",
+      "source_archived_in_github": false,
+      "full_firmware_compile_in_package": false
+    },
+    {
+      "artifact_name": "NZRT_WiFi_Daily_Update",
+      "date_nz": "2026-10-30/31",
+      "build_id_expected": "NZRT-FIELD-PILOT-5-WIFI-1",
+      "package_filename": "NZRT_WiFi_Daily_Update(1).zip",
+      "package_bytes": 1602173,
+      "package_sha256": "c91009e38b6c3877b51abccb6f1d2cbc9457b1563535f61d1cf3b67a8753079a",
+      "source_material": "Daytime Wi-Fi upload header, updater patch, receiver and Bat Daily scripts; ZIP itself is not committed",
+      "embedded_source_sha256": {
+        "WildlifeUpload.h": "f912f35f0b6a6ce4bbc7aa301f405e4b8901489b00b683211cc0cf707ba46ba8",
+        "update_wifi_rt.py": "d07e8ae0e0876d1d8e2f4956557cbae3508a17dbd4781af6d9f4b9b1955515bd"
+      },
+      "source_archived_in_github": false,
+      "full_firmware_compile_in_package": false,
+      "known_compilation_blocker": "PlatformIO toolchain package hash download failure in package validation"
+    },
+    {
+      "artifact_name": "RT_Logging_Update",
+      "date_nz": "2026-11-01",
+      "observed_build_id": "NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL",
+      "journal_version": "JOURNAL-2",
+      "source_material": "User's serial log and Wi-Fi snapshot metadata establish a running build; matching local source/archive not yet recovered",
+      "source_archived_in_github": false,
+      "zip_sha256": null,
+      "source_commit": null,
+      "verification": {
+        "device_build_seen": true,
+        "journal_test_pass": true,
+        "journal_fault_count": 0,
+        "journal_error_count": 0
+      },
+      "most_recent_device_build_observed": true
+    }
+  ],
+  "release_classifications": [
+    "candidate",
+    "built",
+    "uploaded",
+    "device-verified",
+    "field-tested",
+    "superseded"
+  ],
+  "safety": {
+    "not_replacement_for_current_rt_firmware": true,
+    "not_known_to_match_current_local_project": true,
+    "no_credentials_allowed": true,
+    "trained_ml_model_deployed": false
+  },
+  "next_action": "Recover currently installed local PlatformIO source and RT_Logging_Update, verify no secrets, make a separate firmware-source PR based on the correct experimental lineage, and establish post-flash GitHub commit/build hash provenance.",
+  "local_source_recovery": {
+    "source": "RT_Source_Recovery_20261105T080436Z.zip",
+    "created_utc": "2026-11-05T08:04:36.6641557Z",
+    "local_git_head": "ec387c02edb488b94f717bd7f62543ea35d7a444",
+    "related_observed_build": "NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL",
+    "source_status": "recovered partial local source snapshot, NOT an independently rebuilt or byte-for-byte verified flashed binary",
+    "inspected_secret_status": "common inline secret assignment and URL patterns scanned, no obvious embedded literal credentials; private local config was excluded",
+    "excluded_sources": [
+      "nzrt/WildlifeTime.cpp",
+      "nzrt/WildlifeUploadConfig.h"
+    ],
+    "missing_reproducibility": [
+      "full upstream/PlatformIO project checkout",
+      "all generated config and nonsecret project sources",
+      "full compile",
+      "post-flash firmware identity"
+    ],
+    "sha256_verified": true,
+    "files": [
+      {
+        "path": "examples/simple_repeater/main.cpp",
+        "bytes": 8407,
+        "sha256": "51a7e58f41a8d3463c7a10cf7307b7ac96722d69eb72573e8d55003318c51a4c"
+      },
+      {
+        "path": "nzrt/WildlifeDay.cpp",
+        "bytes": 5864,
+        "sha256": "2e1edbea437220dae7fdaf265d00e845ba95ea68ccbbdd492b80ccbba1cb7245"
+      },
+      {
+        "path": "nzrt/WildlifeDay.h",
+        "bytes": 378,
+        "sha256": "4179e91d8043a3166a28ccb3fcc48e787d00753abadd610362df06f2b8664b61"
+      },
+      {
+        "path": "nzrt/WildlifeDetector.cpp",
+        "bytes": 6623,
+        "sha256": "a1dce9dde93ef7a0aef1ce3a38180a5a3f5655910dc1dee9d6e9e6fb28fc2f88"
+      },
+      {
+        "path": "nzrt/WildlifeDetector.h",
+        "bytes": 961,
+        "sha256": "e034ddd1a3e7bfcd41c59c3433301f6320d1f7eb10eae3e880a983b3c82606fd"
+      },
+      {
+        "path": "nzrt/WildlifeJournal.h",
+        "bytes": 7259,
+        "sha256": "aed66d2539a09c00284ecfc48fce3de6454480265dcf286ff5041170c2c3a4d0"
+      },
+      {
+        "path": "nzrt/WildlifeMic.cpp",
+        "bytes": 22471,
+        "sha256": "0b7b9043103fae9f825fce4942b7845b2e9317cf74bf56f56e8b72d340f46a33"
+      },
+      {
+        "path": "nzrt/WildlifeMic.h",
+        "bytes": 325,
+        "sha256": "9aea63b20450f14ee5b14aa622d6f65578654289e0efc3acc92d0e605a522163"
+      },
+      {
+        "path": "nzrt/WildlifeScoring.h",
+        "bytes": 5846,
+        "sha256": "5df033211dc6c749f2d02f2636d01c9d54c9d4da752dd256d1b6de26eb0d119b"
+      },
+      {
+        "path": "nzrt/WildlifeTime.h",
+        "bytes": 533,
+        "sha256": "52afbcf818fcf06485ff0be671e40682b29cd558954a921b1c7f80fa81d9432d"
+      },
+      {
+        "path": "nzrt/WildlifeUpload.h",
+        "bytes": 3842,
+        "sha256": "b0fe8bb7073242c63d8a8a488474b987de42e7e32b7c9c6406c0f47a8ed9c58c"
+      }
+    ]
+  }
+}
