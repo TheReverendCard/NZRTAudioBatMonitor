@@ -6,7 +6,7 @@ This branch is based on the existing experimental MeshCore firmware development 
 
 ## Confirmed source evidence
 
-The recovered `nzrt/WildlifeMic.cpp` and `nzrt/WildlifeUpload.h` identify build `NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL` and implement `JOURNAL-2` with a read-back verified journal, segmented/retained flash logs, telemetry and `/rt-log` delivery. These match the *build identifier* of the owner's previously observed device status, but no binary-to-source verification or fresh device query was performed. Recovery contains eleven files (including `examples/simple_repeater/main.cpp`), and all their SHA-256 hashes were verified against the archive's `snapshot_manifest.json`.
+The verified, committed `nzrt/WildlifeMic.cpp` and `nzrt/WildlifeUpload.h` identify build `NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL` and implement `JOURNAL-2` with a read-back verified journal, segmented/retained flash logs, telemetry and `/rt-log` delivery. These match the *build identifier* of the owner's previously observed device status, but no binary-to-source verification or fresh device query was performed. Recovery contains eleven files (including `examples/simple_repeater/main.cpp`), and all their SHA-256 hashes were verified against the archive's `snapshot_manifest.json`.
 
 **The source collector intentionally excluded `nzrt/WildlifeTime.cpp` and `nzrt/WildlifeUploadConfig.h`.** These files must not be inferred or invented. `WildlifeUploadConfig.h` contains private receiver configuration and must never be committed. The full local PlatformIO tree, pinned dependencies, currently flashed binary and full build report are not provided in this snapshot.
 
@@ -24,7 +24,7 @@ The original relative source paths are maintained under `firmware/meshcore_wildl
 | `nzrt/WildlifeDay.h`, `nzrt/WildlifeDetector.h`, `nzrt/WildlifeMic.h`, `nzrt/WildlifeTime.h` | Corresponding headers |
 | `examples/simple_repeater/main.cpp` | Local repeater setup, journal command dispatch and CLI |
 
-A verified copy of `WildlifeJournal.h` was committed first. The remaining snapshot files need to be imported from the exact recovered archive and compared with their manifest checksums before this source PR is ready for review. **Do not merge this branch or call it current flash source until all source, build and test checks pass.**
+**Source archive fully recovered on 2026-11-06:** all eleven original code files are now committed in this draft branch under `recovered_snapshot/`. GitHub blob SHAs of each file have been verified against the original recovered ZIP byte-for-byte; each file's byte count matches the ZIP. The branch head after the owner's successful push was `0d02e43797a2c25cf2cbf1082eed41991c96392a`. The recovered source has not been built or matched byte-for-byte against the flashed binary. **Do not merge this branch or call it the currently flashed source until the full source/build, tests and field identity checks pass.**
 
 ## Shadow-mode next steps
 
