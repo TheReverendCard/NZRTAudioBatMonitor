@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "as_of_nz": "2026-11-05",
+  "purpose": "Known firmware packages and last observed RT device build; this is a provenance manifest, not a deployable binary or verified flash ledger.",
+  "repo_context": {
+    "default_branch": "main",
+    "experimental_source_pr": 11,
+    "experimental_source_branch": "exp/meshcore-wildlife-repeater"
+  },
+  "known_artifacts": [
+    {
+      "artifact_name": "NZRT_RT_FieldPilot_5",
+      "date_nz": "2026-10-28",
+      "observed_build_id": "NZRT-FIELD-PILOT-5",
+      "package_filename": "NZRT_RT_FieldPilot_5(1).zip",
+      "package_bytes": 1698840,
+      "package_sha256": "19946dd688e44e0e7ef4d97c6f3c910a729e7e6d1dd628219eeb853e4e977c61",
+      "source_material": "C++ overlay/payload, source diff, updater and validation; ZIP itself is not committed",
+      "embedded_source_sha256": {
+        "SOURCE_CHANGES.patch": "b28fce3ea036e6883744e353fa8a80e89e69ddb027b432b8bfe61a77dc70452a",
+        "WildlifeDetector.cpp": "a1dce9dde93ef7a0aef1ce3a38180a5a3f5655910dc1dee9d6e9e6fb28fc2f88",
+        "WildlifeDetector.h": "e034ddd1a3e7bfcd41c59c3433301f6320d1f7eb10eae3e880a983b3c82606fd",
+        "WildlifeMic.cpp": "4229183f775a52cefef15d6b3e9f8278c33a9f325e7d94854834a288b5fa6739",
+        "WildlifeScoring.h": "5df033211dc6c749f2d02f2636d01c9d54c9d4da752dd256d1b6de26eb0d119b"
+      },
+      "source_provenance_base_commit": "7e8f3181844d0fee4200c8f771b4163f7d920ff9",
+      "upstream_meshcore_commit": "81dbae592ffad40b4212bc0b37e82b38da08f4bc",
+      "source_archived_in_github": false,
+      "full_firmware_compile_in_package": false
+    },
+    {
+      "artifact_name": "NZRT_WiFi_Daily_Update",
+      "date_nz": "2026-10-30/31",
+      "build_id_expected": "NZRT-FIELD-PILOT-5-WIFI-1",
+      "package_filename": "NZRT_WiFi_Daily_Update(1).zip",
+      "package_bytes": 1602173,
+      "package_sha256": "c91009e38b6c3877b51abccb6f1d2cbc9457b1563535f61d1cf3b67a8753079a",
+      "source_material": "Daytime Wi-Fi upload header, updater patch, receiver and Bat Daily scripts; ZIP itself is not committed",
+      "embedded_source_sha256": {
+        "WildlifeUpload.h": "f912f35f0b6a6ce4bbc7aa301f405e4b8901489b00b683211cc0cf707ba46ba8",
+        "update_wifi_rt.py": "d07e8ae0e0876d1d8e2f4956557cbae3508a17dbd4781af6d9f4b9b1955515bd"
+      },
+      "source_archived_in_github": false,
+      "full_firmware_compile_in_package": false,
+      "known_compilation_blocker": "PlatformIO toolchain package hash download failure in package validation"
+    },
+    {
+      "artifact_name": "RT_Logging_Update",
+      "date_nz": "2026-11-01",
+      "observed_build_id": "NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL",
+      "journal_version": "JOURNAL-2",
+      "source_material": "User's serial log and Wi-Fi snapshot metadata establish a running build; matching local source/archive not yet recovered",
+      "source_archived_in_github": false,
+      "zip_sha256": null,
+      "source_commit": null,
+      "verification": {
+        "device_build_seen": true,
+        "journal_test_pass": true,
+        "journal_fault_count": 0,
+        "journal_error_count": 0
+      },
+      "most_recent_device_build_observed": true
+    }
+  ],
+  "release_classifications": [
+    "candidate",
+    "built",
+    "uploaded",
+    "device-verified",
+    "field-tested",
+    "superseded"
+  ],
+  "safety": {
+    "not_replacement_for_current_rt_firmware": true,
+    "not_known_to_match_current_local_project": true,
+    "no_credentials_allowed": true,
+    "trained_ml_model_deployed": false
+  },
+  "next_action": "Recover currently installed local PlatformIO source and RT_Logging_Update, verify no secrets, make a separate firmware-source PR based on the correct experimental lineage, and establish post-flash GitHub commit/build hash provenance."
+}
