@@ -76,5 +76,81 @@
     "no_credentials_allowed": true,
     "trained_ml_model_deployed": false
   },
-  "next_action": "Recover currently installed local PlatformIO source and RT_Logging_Update, verify no secrets, make a separate firmware-source PR based on the correct experimental lineage, and establish post-flash GitHub commit/build hash provenance."
+  "next_action": "Recover currently installed local PlatformIO source and RT_Logging_Update, verify no secrets, make a separate firmware-source PR based on the correct experimental lineage, and establish post-flash GitHub commit/build hash provenance.",
+  "local_source_recovery": {
+    "source": "RT_Source_Recovery_20261105T080436Z.zip",
+    "created_utc": "2026-11-05T08:04:36.6641557Z",
+    "local_git_head": "ec387c02edb488b94f717bd7f62543ea35d7a444",
+    "related_observed_build": "NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL",
+    "source_status": "recovered partial local source snapshot, NOT an independently rebuilt or byte-for-byte verified flashed binary",
+    "inspected_secret_status": "common inline secret assignment and URL patterns scanned, no obvious embedded literal credentials; private local config was excluded",
+    "excluded_sources": [
+      "nzrt/WildlifeTime.cpp",
+      "nzrt/WildlifeUploadConfig.h"
+    ],
+    "missing_reproducibility": [
+      "full upstream/PlatformIO project checkout",
+      "all generated config and nonsecret project sources",
+      "full compile",
+      "post-flash firmware identity"
+    ],
+    "sha256_verified": true,
+    "files": [
+      {
+        "path": "examples/simple_repeater/main.cpp",
+        "bytes": 8407,
+        "sha256": "51a7e58f41a8d3463c7a10cf7307b7ac96722d69eb72573e8d55003318c51a4c"
+      },
+      {
+        "path": "nzrt/WildlifeDay.cpp",
+        "bytes": 5864,
+        "sha256": "2e1edbea437220dae7fdaf265d00e845ba95ea68ccbbdd492b80ccbba1cb7245"
+      },
+      {
+        "path": "nzrt/WildlifeDay.h",
+        "bytes": 378,
+        "sha256": "4179e91d8043a3166a28ccb3fcc48e787d00753abadd610362df06f2b8664b61"
+      },
+      {
+        "path": "nzrt/WildlifeDetector.cpp",
+        "bytes": 6623,
+        "sha256": "a1dce9dde93ef7a0aef1ce3a38180a5a3f5655910dc1dee9d6e9e6fb28fc2f88"
+      },
+      {
+        "path": "nzrt/WildlifeDetector.h",
+        "bytes": 961,
+        "sha256": "e034ddd1a3e7bfcd41c59c3433301f6320d1f7eb10eae3e880a983b3c82606fd"
+      },
+      {
+        "path": "nzrt/WildlifeJournal.h",
+        "bytes": 7259,
+        "sha256": "aed66d2539a09c00284ecfc48fce3de6454480265dcf286ff5041170c2c3a4d0"
+      },
+      {
+        "path": "nzrt/WildlifeMic.cpp",
+        "bytes": 22471,
+        "sha256": "0b7b9043103fae9f825fce4942b7845b2e9317cf74bf56f56e8b72d340f46a33"
+      },
+      {
+        "path": "nzrt/WildlifeMic.h",
+        "bytes": 325,
+        "sha256": "9aea63b20450f14ee5b14aa622d6f65578654289e0efc3acc92d0e605a522163"
+      },
+      {
+        "path": "nzrt/WildlifeScoring.h",
+        "bytes": 5846,
+        "sha256": "5df033211dc6c749f2d02f2636d01c9d54c9d4da752dd256d1b6de26eb0d119b"
+      },
+      {
+        "path": "nzrt/WildlifeTime.h",
+        "bytes": 533,
+        "sha256": "52afbcf818fcf06485ff0be671e40682b29cd558954a921b1c7f80fa81d9432d"
+      },
+      {
+        "path": "nzrt/WildlifeUpload.h",
+        "bytes": 3842,
+        "sha256": "b0fe8bb7073242c63d8a8a488474b987de42e7e32b7c9c6406c0f47a8ed9c58c"
+      }
+    ]
+  }
 }
