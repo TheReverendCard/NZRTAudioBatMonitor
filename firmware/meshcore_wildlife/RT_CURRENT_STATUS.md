@@ -1,6 +1,6 @@
 # XiaoRT reconstruction status
 
-Updated 6 November 2026.  Last supported field identity: `NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL`.  Not a fresh query of the live device and not a binary identity claim.
+Updated 6 November 2026.  Last supported field identity: `NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL`.  Fresh owner-supplied COM8 status on 6 November confirms this build identifier; not a binary-to-source identity claim.
 
 ## Evidence
 
@@ -30,3 +30,11 @@ Learned MLP/CNN, INT8/SIMD model inference, model OTA, live nighttime WiFi alert
 5. Publish one canonical RT release with source commit, dependency pins, binary SHA-256, target/partition profile and separate model ID.  Use an updater with source/binary checks and a manifest rather than inferring a project from the newest Downloads folder.
 
 No new firmware built or flashed by this reconstruction update.  Source and documentation recovery only.  See PRs #11, #15 and #16.
+
+## Owner upload comparison, 6 November
+
+The owner's live `nzrt/WildlifeTime.cpp` from `C:\Users\revje\NZRTAudioBatMonitor-meshcore\NZRT-MeshCore-NZBat-BandMonitor` exactly matches the candidate SHA-256 above.  The previously missing time source is now independently corroborated.  Both uploaded root platformio.ini files are byte-identical (SHA-256 `994e3af4321a30a502ffb5c4a61725adbddaabd5f89fcfff8c889ff9fc43bddc`), despite different file dates.  They include `platformio.local.ini` and `variants/*/platformio.ini`; the root files alone do not define the wildlife build target.
+
+The four uploaded WildlifeMic/Detector .cpp/.h files from Downloads differ from the recovered snapshot.  The uploaded microphone implementation lacks the JOURNAL-2 and RT-SCORE-1 identifiers seen on the live device.  Do not overwrite recovered source with these older Downloads files.  Use the NZRTAudioBatMonitor-meshcore project as the next configuration recovery source; request its `platformio.local.ini` to resolve the custom target and its inherited board configuration.
+
+Live session 4717F833: JOURNAL-2 fault=0, errors=0, verified=6; WIFI_NTP synced; daytime AUTO standby; WiFi log ACK.  Startup DSP drops=38 and input gaps=15 remain observed; healthy journal does not establish lossless audio acquisition.
