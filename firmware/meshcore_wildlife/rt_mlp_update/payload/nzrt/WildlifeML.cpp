@@ -28,7 +28,7 @@ Clip clips[2];int16_t* ring=nullptr;size_t ringAt=0,ringN=0;
 float* workspace=nullptr;RTModel::Model* model=nullptr;TaskHandle_t task=nullptr;
 std::atomic<bool> enabled{false},activeMode{false},wavEnabled{false};
 std::atomic<uint32_t> skipped{0},gaps{0},completed{0};
-uint32_t session=0,nextNet=0,acked=0,failed=0,nextControl=120000;char modelHash[65]="builtin-wav-mlp-v01";char fetchHash[65]={};
+uint32_t session=0,nextNet=0,acked=0,failed=0,networkFailures=0,nextControl=120000;char modelHash[65]="builtin-wav-mlp-v01";char fetchHash[65]={};
 int modelSlot=-1;
 portMUX_TYPE modelGate=portMUX_INITIALIZER_UNLOCKED;bool mutating=false;
 void yieldWorker(){vTaskDelay(1);}
@@ -88,7 +88,7 @@ void pollControl() {
  if(!http.begin(client,String(NZRT_UPLOAD_URL)+"/rt-control/"+device))return;
  http.addHeader("Authorization",String("Bearer ")+NZRT_UPLOAD_TOKEN);
  int code=http.GET();
- if(code!=200||http.getSize()<34||http.getSize()>220){http.end();return;}
+ if(code!=200||http.getSize()<34||http.getSize()>220){http.end();if(code!=204){char line[96];snprintf(line,sizeof(line),"NZRT CONTROL poll_http=%d retry_seconds=1800",code);note(line);}return;}
  String body=http.getString();http.end();int sep=body.indexOf('\n');if(sep!=32)return;
  String id=body.substring(0,32),cmd=body.substring(33);cmd.trim();
  for(int i=0;i<32;++i)if(!((id[i]>='0'&&id[i]<='9')||(id[i]>='a'&&id[i]<='f')))return;
@@ -190,8 +190,8 @@ void tick(){
   if(saved){Serial.println(line);c.queued=millis();c.state.store(c.wav&&wavEnabled.load()&&c.valid?UPLOAD:FREE);}
  }
 }
-void status(Print& out){char b[384];snprintf(b,sizeof(b),"NZRT ML_STATUS enabled=%u model=%s mode=%s wav=%s completed=%lu skipped_busy=%lu gaps=%lu wav_ack=%lu wav_failed=%lu model_pending=%u psram_bytes=%lu",
- unsigned(enabled.load()),modelHash,activeMode.load()?"active":"shadow",wavEnabled.load()?"on":"off",(unsigned long)completed.load(),(unsigned long)skipped.load(),(unsigned long)gaps.load(),(unsigned long)acked,(unsigned long)failed,unsigned(fetchHash[0]!=0), (unsigned long)(PRE*2+TOTAL*4+RTFeatures::WORK_FLOATS*4+sizeof(RTModel::Model)));out.println(b);}
+void status(Print& out){char b[512];snprintf(b,sizeof(b),"NZRT ML_STATUS enabled=%u model=%s mode=%s wav=%s completed=%lu skipped_busy=%lu gaps=%lu wav_ack=%lu wav_failed=%lu network_failures=%lu model_pending=%u psram_bytes=%lu",
+ unsigned(enabled.load()),modelHash,activeMode.load()?"active":"shadow",wavEnabled.load()?"on":"off",(unsigned long)completed.load(),(unsigned long)skipped.load(),(unsigned long)gaps.load(),(unsigned long)acked,(unsigned long)failed,(unsigned long)networkFailures,unsigned(fetchHash[0]!=0), (unsigned long)(PRE*2+TOTAL*4+RTFeatures::WORK_FLOATS*4+sizeof(RTModel::Model)));out.println(b);}
 bool command(const char* line){
  if(strcmp(line,"nzrt ml status")==0){status();return true;}
  if(strcmp(line,"nzrt ml test")==0){
@@ -235,5 +235,13 @@ void connected(){
   char line[192];snprintf(line,sizeof(line),"NZRT WAV session=%08lx run=%lu seq=%lu result=%s attempt=%u",(unsigned long)session,(unsigned long)c.run,(unsigned long)c.seq,ok?"ACK":"FAILED",unsigned(++c.attempts));note(line);
   if(ok||c.attempts>=3||!wavEnabled.load())c.state.store(FREE);nextNet=millis()+(ok?1000:60000);return;}
 }
-void networkFailed(){++failed;for(auto& c:clips)if(c.state.load()==UPLOAD&&++c.attempts>=3)c.state.store(FREE);nextNet=millis()+60000;note("NZRT WAV_OR_MODEL network=FAILED retry_seconds=60");}
+void networkFailed(){
+ ++networkFailures;bool clipsWaiting=false;
+ for(auto& c:clips)if(c.state.load()==UPLOAD){
+  if(++c.attempts>=3){char line[160];snprintf(line,sizeof(line),"NZRT WAV session=%08lx run=%lu seq=%lu result=DISCARDED reason=connection_retries",(unsigned long)session,(unsigned long)c.run,(unsigned long)c.seq);note(line);c.state.store(FREE);}else clipsWaiting=true;
+ }
+ if(int32_t(millis()-nextControl)>=0)nextControl=millis()+1800000UL;
+ uint32_t retry=clipsWaiting?60000UL:(fetchHash[0]?900000UL:1800000UL);nextNet=millis()+retry;
+ char line[96];snprintf(line,sizeof(line),"NZRT WIFI_OPTIONAL network=FAILED retry_seconds=%lu",(unsigned long)(retry/1000));note(line);
+}
 }

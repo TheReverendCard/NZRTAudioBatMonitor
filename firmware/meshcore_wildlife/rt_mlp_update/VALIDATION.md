@@ -18,7 +18,7 @@
 
 ## Full firmware build
 
-Full recovered MeshCore target compilation is being checked separately from the standalone SDK harness.  The Windows updater requires its complete target build to succeed before flashing.  Dependency versions use the recovered project configuration; this is not a claim of a completely locked reproducible upstream checkout.
+Full retained MeshCore target **compiled successfully with exit code 0**, including the complete package payload.  Target: `NZRT_Xiao_S3_WIO_wildlife_repeater`.  Static RAM: 107,904 / 327,680 bytes; flash program: 1,274,137 / 3,342,336 bytes.  The additional dynamic PSRAM allocation is approximately 2,262,952 bytes and is not included in that static RAM figure.  `build_receipt.json` records source and binary hashes.  This binary is not distributed because the retained project configuration is private.  The Windows updater builds with the owner's local configuration before flashing.  Full upstream/source identity is not independently locked to the owner checkout; this is not a claim of a bit-reproducible release.
 
 An initial PlatformIO follow-up was blocked by automatic approval review because of possible build/environment telemetry.  PlatformIO telemetry was then explicitly disabled for subsequent local builds and for the Windows updater subprocesses.  No public build logs or firmware binaries are included.
 

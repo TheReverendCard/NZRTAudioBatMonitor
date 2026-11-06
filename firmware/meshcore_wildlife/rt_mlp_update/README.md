@@ -14,7 +14,7 @@ Build ID: `NZRT-MLP-1-JOURNAL-2`.  Prepared 6 November 2026 from the recovered `
 
 ## Controls
 
-Use **WiFi RT Controls.bat** to queue one command for a known RT device.  The RT polls about every 30 minutes, with the first poll about two minutes after startup/time synchronisation.  This adds brief WiFi connection attempts even when WAV upload is off.  If offline, it retries after 60 seconds.  A queued command survives device restart and is deduplicated by its request ID.  The receiver saves a `.ack.json` when the command has been accepted; acceptance of a model-fetch request is not proof that the model has finished installing.
+Use **WiFi RT Controls.bat** to queue one command for a known RT device.  The RT polls about every 30 minutes, with the first poll about two minutes after startup/time synchronisation.  This adds brief WiFi connection attempts even when WAV upload is off.  Offline control-only polling stays at 30-minute intervals; queued clips retry after 60 seconds, and a queued model download retries connection after 15 minutes.  A queued command survives device restart and is deduplicated by its request ID.  The receiver saves a `.ack.json` when the command has been accepted; acceptance of a model-fetch request is not proof that the model has finished installing.
 
 Use **RT Controls.bat** for immediate USB controls.  The corresponding serial commands are:
 
