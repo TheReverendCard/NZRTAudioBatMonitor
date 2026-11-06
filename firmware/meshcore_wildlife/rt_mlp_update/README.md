@@ -63,6 +63,22 @@ While the RT is still connected in daytime, use RT Controls option 8 to run the 
 
 Useful evidence: the updater `after.txt`, a complete overnight RT TXT snapshot, `RT_ML_All.csv`, and several uploaded RT clips with their JSON receipts.  Compare ML completions and `inference_us` with `skipped_busy`, `dsp_drop`, `input_gaps`, and original candidate counts.  Keep shadow mode for the first overnight comparison.  A model probability is an uncalibrated classifier output, not a human confidence grade.
 
+## Pending Daily Run integration and deployment timing
+
+Owner decision, 6 November 2026 (Pacific/Auckland):  firmware installation is postponed to preserve the night's monitoring with the existing firmware.  Do not treat this candidate as installed or hardware-verified.  Resume installation in a suitable daytime maintenance window when the owner is ready.
+
+After the owner confirms that the firmware updater completes and the device starts correctly, the following desktop integration remains required before calling this update fully integrated:
+
+- [ ] Inspect the installed Daily Run source and configuration, then add explicit discovery of `WiFi_Backup\RT_Clips\<device>\YYYYMMDD` as Xiao RT audio.  Receiver storage tests alone do not establish Daily Run ingestion.
+- [ ] Preserve original 192 kHz RT WAVs and JSON receipts, device identity, Pacific/Auckland recording date and UTC metadata.  Keep RT and existing 96 kHz Xiao SD recordings distinguishable and imports idempotent.
+- [ ] Include RT clips in daily folders, BMP preparation, AviaNZ processing and the existing human review workflow.  Verify physical time/frequency scaling for 192 kHz input; any derived conversion must leave source WAVs intact.
+- [ ] Join clips, original candidate records and MLP records by device/session/run/sequence, retaining model identity, mode, score and threshold.  Preserve original candidate fallback and distinguish missing/skipped inference from a negative classification.
+- [ ] Include the joined results in Daily Run summaries and review reconciliation.  Keep human review labels separate from model predictions; predictions must not become supervised training labels automatically.
+- [ ] Verify a received RT clip end to end through Daily Run and review, repeat the run to check deduplication and annotation preservation, and regression-check existing SD imports and RT log summaries.
+- [ ] Document the implemented paths, configuration, checks and remaining limitations in the repository, with a versioned desktop update and installation instructions.
+
+Firmware startup verification, subsequent overnight shadow/acoustic validation, and desktop integration are separate milestones.  No Daily Run implementation changes are included in this documentation update.
+
 ## Recovery
 
 Keep the recovered JOURNAL-2 project/build receipt and this update's source backup.  `Restore Previous Sources.bat` restores only the files changed by the selected update; it refuses if subsequent edits are present.  It does not flash automatically.  Rebuild/upload the restored target using PlatformIO or the prior updater when intentionally rolling the device back.  Never run a filesystem erase to change models or firmware.  Preserved binaries and logs can contain private receiver configuration; do not publish them.
