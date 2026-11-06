@@ -1,5 +1,6 @@
 """Verify recovered RT source, then compile only. Never uploads or erases a device."""
 import argparse
+import os
 import datetime
 import hashlib
 import json
@@ -25,20 +26,25 @@ def main():
     print('All 14 recovered source/configuration hashes match.')
     if args.check_only:
         return 0
+    env = dict(os.environ, PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     out = root/'RT_Build_Receipts'/stamp
     out.mkdir(parents=True)
     command = [sys.executable, '-m', 'platformio', 'run', '-d', str(root), '-e', TARGET]
     # Build logs remain local: compiler output can include private build flags.
     with (out/'build.log').open('w', encoding='utf-8') as log:
-        result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT)
+        result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, env=env)
     receipt = {'schema':1, 'target':TARGET, 'created_utc':stamp,
                'exit_code':result.returncode, 'sources':expected,
                'status':'build_failed', 'flashed':False,
                'limitations':'Source subset verified; upstream/dependency and board identity not fully locked. Not proof of running device binary.'}
+    receipt['metadata_exports'] = {}
     for name, cmd in [('dependencies', [sys.executable,'-m','platformio','pkg','list','-d',str(root),'-e',TARGET]),
                       ('platformio_version',[sys.executable,'-m','platformio','--version'])]:
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', env=env)
+        receipt['metadata_exports'][name] = {'exit_code': r.returncode, 'ok': r.returncode == 0}
+        if r.returncode:
+            print('WARNING: metadata export failed:', name)
         (out/(name+'.txt')).write_text(r.stdout+r.stderr, encoding='utf-8')
     binary = root/'.pio'/'build'/TARGET/'firmware.bin'
     if result.returncode == 0 and binary.is_file():
