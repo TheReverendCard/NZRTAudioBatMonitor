@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "target": "NZRT_Xiao_S3_WIO_wildlife_repeater",
+  "created_utc": "20261106T013147221028Z",
+  "exit_code": 0,
+  "sources": {
+    "nzrt/WildlifeMic.cpp": "0b7b9043103fae9f825fce4942b7845b2e9317cf74bf56f56e8b72d340f46a33",
+    "nzrt/WildlifeMic.h": "9aea63b20450f14ee5b14aa622d6f65578654289e0efc3acc92d0e605a522163",
+    "nzrt/WildlifeDetector.cpp": "a1dce9dde93ef7a0aef1ce3a38180a5a3f5655910dc1dee9d6e9e6fb28fc2f88",
+    "nzrt/WildlifeDetector.h": "e034ddd1a3e7bfcd41c59c3433301f6320d1f7eb10eae3e880a983b3c82606fd",
+    "nzrt/WildlifeDay.cpp": "2e1edbea437220dae7fdaf265d00e845ba95ea68ccbbdd492b80ccbba1cb7245",
+    "nzrt/WildlifeDay.h": "4179e91d8043a3166a28ccb3fcc48e787d00753abadd610362df06f2b8664b61",
+    "nzrt/WildlifeTime.cpp": "577fb7425ce2d2e688a9b12a673f250decf481c119d4a9f45c5ab81d729eabd5",
+    "nzrt/WildlifeTime.h": "52afbcf818fcf06485ff0be671e40682b29cd558954a921b1c7f80fa81d9432d",
+    "nzrt/WildlifeJournal.h": "aed66d2539a09c00284ecfc48fce3de6454480265dcf286ff5041170c2c3a4d0",
+    "nzrt/WildlifeScoring.h": "5df033211dc6c749f2d02f2636d01c9d54c9d4da752dd256d1b6de26eb0d119b",
+    "nzrt/WildlifeUpload.h": "b0fe8bb7073242c63d8a8a488474b987de42e7e32b7c9c6406c0f47a8ed9c58c",
+    "examples/simple_repeater/main.cpp": "51a7e58f41a8d3463c7a10cf7307b7ac96722d69eb72573e8d55003318c51a4c",
+    "platformio.ini": "994e3af4321a30a502ffb5c4a61725adbddaabd5f89fcfff8c889ff9fc43bddc",
+    "platformio.local.ini": "0ce3795a8cfaf3ba4f35fb3dc5d596e403dc7b2e178c264242e74928b23a405c"
+  },
+  "status": "compiled_not_hardware_verified",
+  "flashed": false,
+  "limitations": "Source subset verified; upstream/dependency and board identity not fully locked. Not proof of running device binary.",
+  "firmware_sha256": "5fb76022f7849f22a82faef5c2237f673ad0f215a2c58e5178763279843861cd"
+}
