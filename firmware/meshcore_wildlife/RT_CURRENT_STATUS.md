@@ -1,0 +1,32 @@
+# XiaoRT reconstruction status
+
+Updated 6 November 2026.  Last supported field identity: `NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL`.  Not a fresh query of the live device and not a binary identity claim.
+
+## Evidence
+
+PR #16 contains eleven source files recovered from the owner's November 5 snapshot.  On November 6 this chat independently compared Git blob hashes for all eleven against its retained `wifi_work/compile_project` workspace: all eleven match exactly.  PR #16 remains a draft, based on PR #11.  Main is not the recovered field release.
+
+That same retained build workspace contains the previously omitted `WildlifeTime.cpp`.  It is now archived separately in `recovery_candidates/WildlifeTime.cpp`, not substituted into the owner's original snapshot.  SHA-256: `577fb7425ce2d2e688a9b12a673f250decf481c119d4a9f45c5ab81d729eabd5`.  It integrates the JOURNAL-2 writer and WildlifeUpload tick.  Reviewed source contains NVS credential access, not embedded WiFi credentials.  This is a strong reconstruction candidate, not proof of the owner's compiled source.
+
+## Reconstructed capabilities
+
+- FieldPilot-5 audio pipeline and RT-SCORE-1 heuristic shadow scoring, not a trained MLP/CNN.
+- Rolling, read-back verified JOURNAL-2 flash journal, journal health/test commands, no automatic format on filesystem mount failure.
+- Serial log dump/erase and more robust line handling.
+- Daytime microphone/DSP standby with MeshCore still running; not the SD recorder's deep-sleep firmware.
+- Daytime authenticated `/rt-log` snapshots, checked response body/hash, retained local journal.  First attempt after 60 seconds of standby, hourly after success, 15-minute retry after failure.  Fresh verified journal required before upload.
+- Candidate recovered time module: boot NTP plus 24-hour attempts, authenticated MeshCore clock integration.  Adaptive drift-based intervals are not implemented here.
+
+## Not established as deployed
+
+Learned MLP/CNN, INT8/SIMD model inference, model OTA, live nighttime WiFi alerts, SD recording/fallback changes and all proposed future changes must not be inferred from this RT build string.  A separately prepared shadow port is not deployment evidence.
+
+## Finish the reproducible release
+
+1. Obtain fresh `nzrt status`, `nzrt journal`, `nzrt time` and `nzrt day` output.  Preserve logs before any update; no erase is needed.
+2. Recover the owner's complete project configuration: platformio.ini, additional referenced INIs, partition CSV, build scripts, upstream commit/dirty patch and resolved dependency versions.  Retain firmware.bin and build metadata if available.  Keep credentials, receiver token, NVS and device identity material private.
+3. Compare the candidate time module against the owner's copy.  Reconstruct the pinned upstream checkout and overlay all recovered modules.  Resolve HTTPClient dependency explicitly in the target build.
+4. Build, verify journal retention/readback and upload acknowledgement, schedule wake, capture/DSP health and MeshCore coexistence.  Archive a rollback binary before adding a learned model.
+5. Publish one canonical RT release with source commit, dependency pins, binary SHA-256, target/partition profile and separate model ID.  Use an updater with source/binary checks and a manifest rather than inferring a project from the newest Downloads folder.
+
+No new firmware built or flashed by this reconstruction update.  Source and documentation recovery only.  See PRs #11, #15 and #16.
