@@ -38,3 +38,9 @@ The owner's live `nzrt/WildlifeTime.cpp` from `C:\Users\revje\NZRTAudioBatMonito
 The four uploaded WildlifeMic/Detector .cpp/.h files from Downloads differ from the recovered snapshot.  The uploaded microphone implementation lacks the JOURNAL-2 and RT-SCORE-1 identifiers seen on the live device.  Do not overwrite recovered source with these older Downloads files.  Use the NZRTAudioBatMonitor-meshcore project as the next configuration recovery source; request its `platformio.local.ini` to resolve the custom target and its inherited board configuration.
 
 Live session 4717F833: JOURNAL-2 fault=0, errors=0, verified=6; WIFI_NTP synced; daytime AUTO standby; WiFi log ACK.  Startup DSP drops=38 and input gaps=15 remain observed; healthy journal does not establish lossless audio acquisition.
+
+## Custom target recovered
+
+Owner supplied `platformio.local.ini`, now archived in recovery_candidates.  It defines `NZRT_Xiao_S3_WIO_wildlife_repeater`, inherits `env:Xiao_S3_WIO_repeater`, compiles WildlifeMic/Detector/Time/Day and explicitly adds HTTPClient and WiFiClientSecure.  It sets LoRa coding rate 5 and TX power 10, unsetting TX power 22.  Relative to this chat's retained compilation workspace, the only textual difference is WiFiClientSecure's position in lib_deps.  Preserve the owner's order until verified by a fresh build.
+
+The inherited target is located in `variants/xiao_s3_wio/platformio.ini` in the retained workspace.  The owner's copy of that file has not yet been compared.  It can contain the MeshCore ADMIN_PASSWORD build flag; redact actual passwords before sharing.  Root and local INIs are now recovered, but full build reproducibility and binary matching remain unverified.  The available Python runtime initially had no PlatformIO installation; installing build tools is not evidence of a successful firmware compile.
