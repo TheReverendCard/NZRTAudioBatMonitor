@@ -93,6 +93,22 @@ Before changing triggers, account for events at each stage: raw candidate, legac
 **Documentation only in this change.**  Required implementation files (bat_tool.py alignment producer, FastReview viewer/review ledger, RT capture logs and Run Daily source importer) still need to be inspected and tested together on the owner's actual installed code before an operational patch.
 
 
+## Coordinated next RT maintenance: candidate model plus unbiased WAV sampling
+
+**Owner-approved intention, 2026-11-08:** Train improved WAV candidate models and, if new firmware is required for autonomous audit WAV capture, deploy both changes in one planned RT maintenance session. This is a plan, not an instruction to flash or promote the field unit now.
+
+- First inspect actual installed RT firmware, ML shadow/active mode, legacy capture trigger, WAV export controls, receiver receipts, queue/drop counters, and any existing periodic/audio audit feature. Owner confirms uploads are ON. Do not assume a weak MLP suppresses recordings unless logs verify gating.
+- If necessary, add **model-independent, bounded-duration WAV audit captures** at randomly offset intervals across the night. Starting trial: approximately 2 seconds at 192 kHz mono PCM16 once per 20–30 minutes on average, with configurable night cap and jitter. That format is roughly 768 kB/clip, about 18–28 MB over a 12-hour night for 24–36 clips before overhead. These are proposal settings, not energy/network test results. Yield to event capture; log skipped audit slots and healthy uptime.
+- Preserve sensitive legacy event trigger, event WAV evidence and model score logs independent of MLP results. Tag provenance as event-triggered, periodic-random-audit, or manual/other; keep audit samples **unlabelled** until reviewed (they may contain previously missed bats). Track sampling schedule, probability/coverage, receiver delivery and missing clips. Never convert an upload failure into a negative label.
+- Offline train new local WAV candidates (and eligible DOC-WAV hybrid candidates) with grade-first binary bat-presence labels, immutable train/eval splits and separate 96 kHz common-band versus 192 kHz full-band compatibility. Compare with current RT model on identical held-out data before release.
+- **One maintenance visit, logically separate safe operations**: (A) install/configure and test audit-capture firmware if needed; (B) put the prevalidated WAV model in a SHA-verified inactive slot using existing Wi-Fi model-update mechanism where supported. New models start in SHADOW. Record firmware and model hashes separately, preserve previous known-good model and firmware, verify logging/upload/LoRa continuity and rollback. If feature contracts change, rebuild/test the model with matching firmware rather than pretending numeric weights are drop-in.
+- After an unattended shadow trial, compare bat recall, false alarms, capture rate, loss/coverage, 96/192 kHz bands and performance against paired AR4 and audited quiet-period WAVs; require explicit owner approval for an active change.
+- Complete the receiver -> Daily Run -> 192 kHz BMP -> stock AviaNZ -> FastReview -> WAV-label feedback path. New firmware alone does not make clips training-ready; hash-linked, human-graded evidence is required.
+
+**Acceptance:** Random audit clips exist regardless of MLP score; they do not block normal event recording; audit clips never silently become negatives; receipts/accounting identify missing WAVs; all changes and rollback are documented; new model starts shadow and does not silently filter recordings.
+
+**Implementation status:** Documentation/design only; no field device flash, model install, scheduler, WAV settings or daily pipeline changed by this update.
+
 ## Recommended report layout
 
 - Training readiness: unique new grade 4/5, grade 1/2, grade 3, corrected reviews, new nights/sites, excluded/conflicted, and remaining-to-trigger.
