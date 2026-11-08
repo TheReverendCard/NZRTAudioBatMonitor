@@ -1,0 +1,26 @@
+{
+  "retry_acoustic_nights.py": {
+    "required": false,
+    "old": [],
+    "new": "09dba1588f81b8a2caa145c35c94693fc874b7d2c04a1f2b787481958b58a8b5"
+  },
+  "run_integrity.py": {
+    "required": true,
+    "old": [
+      "2112fc52d0518ca8edfbc55331e79887d34c76fe0d4b72b562417f4f316884c1"
+    ],
+    "new": "2112fc52d0518ca8edfbc55331e79887d34c76fe0d4b72b562417f4f316884c1"
+  },
+  "Retry Six Acoustic Nights.bat": {
+    "required": false,
+    "old": [],
+    "new": "bfdc04275e8e46886313841c14389bda8ea7929dbedd7ffbe349865327029f2b"
+  },
+  "acoustic_pairs.py": {
+    "required": true,
+    "old": [
+      "c311fb7467106f99c0e959324e1be3b28df3f9c153bf6e1e2acadc1e00484a6b"
+    ],
+    "new": "9e6a1f9c2662a5807069608047c9baad3f1691355bd5fd8c85ee61f0c41ad857"
+  }
+}
