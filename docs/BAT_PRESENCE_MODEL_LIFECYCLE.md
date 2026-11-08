@@ -62,6 +62,37 @@ Primary binary target: **IS BAT?**  Minimise missed genuine bat recordings while
 - [ ] A new WAV candidate can be trained and evaluated without changing current RT runtime; shadow parity test and documented owner approval precede active model promotion.
 
 
+## AR4/Xiao acoustic paired-spectrogram review: owner request 2026-11-08
+
+**Status: approved concept / implementation proposed, NOT yet in the owner's Windows Daily Run.**  Owner proposes an optional reviewer showing a co-located AR4 BMP directly above a XiaoSD or XiaoRT WAV-derived spectrogram, with a horizontal drag/slider to align calls, automatic time-offset suggestion, and explicit decisions: likely match, not a match, uncertain/no overlap.  Confirm *same acoustic event* rather than the identity of an individual bat; retain reviewer uncertainty separately from bat-presence labels.
+
+### Candidate detection and visual design
+
+1. Start with the existing bat_tool.py candidate generator from issue #12, not a replacement: clock-corrected candidate windows plus/minus 2 s, 24–42.5 kHz envelope correlation in 2 ms offset steps.  Low correlation is "timing-only/weak", **not** confirmation.  Known weak examples: 20261102_213830.bmp versus event_20261102T083846Z_00025.wav (r=0.084), and 20261103_040303.bmp versus event_20261102T150308Z_00060.wav (r=0.123).  Support no-match and multiple alternatives; estimate night-level offset/drift only from independently verified shared events.
+2. Display two stacked, zoomable spectrograms with real calibrated time and Hz axes, a shared cursor and adjustable manual millisecond offset; optional translucent overlay and a common-frequency mask.  XiaoSD 96 kHz versus RT 192 kHz have different Nyquist limits.  Account for AR4 BMP orientation, dimensions and conversion metadata.  Never claim physical frequency matches by simply matching image row numbers or differently normalized intensities.
+3. Automatic suggestions may use shared-band energy-envelope correlation plus call-contour/pulse-sequence landmarks and multiple events; avoid coincident rain, electronic clicks, birds and broadband transients.  The existing special 22 kHz calibrated reference pulse comparison in #12 is separate from ordinary wildlife matching.
+4. Show file IDs/hashes, recorder, site, UTC and local timestamp, sample rate, trigger/periodic mode, review grade and provenance, algorithm match score, suggested offset and any clock uncertainty.  Include no corresponding recording, source missing, and incomplete overlap states.
+5. Human decisions: confirmed_same_acoustic_event, rejected, uncertain, insufficient_overlap, missing_source; reviewer can adjust offset in milliseconds and add note.  Persist to an append-only, separately versioned pairing ledger with both media/derivation hashes, algorithm version, proposed and accepted offsets, human decision, reviewer and UTC decision timestamp.  Do NOT edit either original WAV/BMP, its .bmp.data, or the machine backup.  Invalidate/stale-mark pairs when underlying hashes change.
+6. A verified shared event supports linked-evidence analysis, but **must not automatically copy an AR4 negative grade to a Xiao WAV** (different microphone sensitivity and bandwidth).  Prefer direct human grade of Xiao BMP derived from the very same WAV for training.  Correlated AR4/Xiao observations are not independent samples and cannot leak across train/test groups.
+7. Add optional paired-review queue, suggested matches and conflict/disagreement dashboard to existing Run Daily/FastReview architecture without blocking ingestion or altering Shed-only index or monitoring count.  Test correct offset storage, weak/no-match cases, 64-row BMP orientation, cross-rate display, duplicate import idempotency and false confidence for noise.
+
+### RT export clarification and evidence capture
+
+**Owner confirmed 2026-11-08 that RT WAV uploads are ON on their installed unit.**  The earlier PR #24 description "off by default" is a packaged default, not its current operator setting.  However the live firmware mode, upload success, and RT -> Daily Run intake have not been verified here.  The existence of a weak model does not by itself prove it gates recording: PR #24 describes preservation of original candidates in shadow mode and possible clip loss when busy/offline.
+
+Before changing triggers, account for events at each stage: raw candidate, legacy trigger, MLP score and active/shadow mode, clip capture, clip queued, attempted upload, receiver accepted/hash receipt, Daily Run imported, correctly scaled 192 kHz BMP produced, reviewed.  Persist coverage periods, busy/queue loss, storage, Wi-Fi failures and missing WAVs as *missing evidence*, never negatives.  Use a model-independent sensitive acquisition trigger plus bounded periodic unbiased/background audit WAVs if feasible, so weak current recognisers cannot decide every item entering their own training dataset.  Check constraints for power/PSRAM/network and do not change active firmware without owner approval.
+
+### Acceptance and handoff
+
+- [ ] Reviewer can reject weak alignment and save a positive match with manual offset; reload shows both source hashes and provenance.
+- [ ] Common time/frequency display respects BMP orientation and 96 versus 192 kHz information; doesn't imply image-pixel match equals acoustic match.
+- [ ] Paired-label eligibility requires verified source WAV derivation or independently confirmed event; automatic timestamp transfer is disallowed.
+- [ ] Source files, human grades, backups and RT firmware remain unchanged; pairing ledger writes are atomic and idempotent.
+- [ ] Report the number of RT candidate events, WAVs captured, WAVs received and imported, plus any losses and model mode; do not blame MLP without evidence.
+
+**Documentation only in this change.**  Required implementation files (bat_tool.py alignment producer, FastReview viewer/review ledger, RT capture logs and Run Daily source importer) still need to be inspected and tested together on the owner's actual installed code before an operational patch.
+
+
 ## Recommended report layout
 
 - Training readiness: unique new grade 4/5, grade 1/2, grade 3, corrected reviews, new nights/sites, excluded/conflicted, and remaining-to-trigger.
