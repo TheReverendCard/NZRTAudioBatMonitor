@@ -109,6 +109,18 @@ Before changing triggers, account for events at each stage: raw candidate, legac
 
 **Implementation status:** Documentation/design only; no field device flash, model install, scheduler, WAV settings or daily pipeline changed by this update.
 
+### RT periodic-audit command interface: owner clarification 2026-11-08
+
+**Requirement: periodic model-independent WAV capture MUST be remotely configurable through the existing RT command/control path, alongside existing WAV upload, mode and model-fetch controls.**  A fixed unconditional firmware schedule is insufficient.  This is an interface contract to implement after inspecting the actual command parser/protocol; the command spellings below are illustrative, not claims of commands already supported by installed firmware.
+
+- Provide persistent `periodic_wav_enabled` true/false, `periodic_wav_interval_min` (starting suggestion 20–30), `periodic_wav_duration_s` (starting suggestion 2), `periodic_wav_jitter_pct` or equivalent randomisation, `periodic_wav_max_per_night`, and optionally `periodic_wav_upload_enabled` independent of ordinary event WAV uploads.  Validate configuration bounds and reject unsafe values with explicit errors.
+- Expose operations conceptually equivalent to `periodic status`, `periodic on`, `periodic off`, `periodic set interval=25 duration=2 jitter=20 max_per_night=36`.  The *actual* command tokens must follow existing Wi-Fi command transport, security/authentication, acknowledgement, state/versioning and replay handling.  Preserve existing commands and never permit an unverified command to overwrite active settings.
+- Remote configuration must survive reboot, indicate intended and confirmed applied state, and report next eligible audit window, successful recordings, skipped-while-busy, buffer/SD/network skips, uploaded/acknowledged counts, model mode, sample rate and firmware revision.  Ensure changes don't silently enable an unsafe unbounded record/upload rate.
+- Audit samples must be triggered *independently* of the current model score, and must not pre-empt the existing event recorder.  Periodic capture should be jittered/time-stratified rather than always at the same minute.  Distinguish schedule misses from recorded-negative observations; leave the audio unlabelled until reviewed.
+- Initial enablement can be staged during the next firmware-plus-model maintenance window after testing and explicit owner approval.  Subsequent parameter changes should use the RT's existing remote control plane, **not require another firmware flash**.
+
+**Status:** UI/control requirement documented only, not implemented or sent to the device.  Verify exact installed RT command format and logging before coding.
+
 ## Recommended report layout
 
 - Training readiness: unique new grade 4/5, grade 1/2, grade 3, corrected reviews, new nights/sites, excluded/conflicted, and remaining-to-trigger.
