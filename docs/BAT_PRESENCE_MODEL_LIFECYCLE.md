@@ -121,6 +121,34 @@ Before changing triggers, account for events at each stage: raw candidate, legac
 
 **Status:** UI/control requirement documented only, not implemented or sent to the device.  Verify exact installed RT command format and logging before coding.
 
+## Mandatory stock AviaNZ baseline in every recogniser report: 2026-11-08 correction
+
+**Owner correction:** Stock AviaNZ generated automatic call/species annotations and those machine labels have been saved as baseline evidence, including automatic `Short-tailed bat` and mixed labels that the older training policy incorrectly treated as grounds for exclusion. Every successive BMP recogniser report **must** include stock AviaNZ as a frozen control, not show `unknown` merely because its confusion matrix has not yet been reconciled.
+
+### Source-of-truth hierarchy and baseline reconstruction
+
+1. Read the **original, pre-human-review machine `.bmp.data`** from each recorder's immutable `Backup` directory or a verifiable archived first-run copy. Preserve actual AviaNZ recogniser/filter file name and hash, processing code/settings, segmentation and call labels, time windows and candidate origin. The current edited `.bmp.data` and `species_annotations` are not reliable substitutes for the original automatic outputs. Scan baseline archives/receipts non-destructively and classify unavailable evidence explicitly.
+2. Join original machine evidence to human-reviewed BMP by canonical source identity and media SHA-256, distinguishing machine call labels (`Don't Know`, `Long-tailed bat`, `Short-tailed bat`, both/mixed, other, no machine segment) from actual **human** bat-presence grades (1/2 negative, 3 uncertain, 4/5 positive). Any machine-issued bat label counts as a *bat-presence positive* prediction regardless of species; machine short-tailed tags must **never** override or exclude trusted owner grade-first training labels. Machine-only species annotations remain machine metadata, not human-verified species.
+3. Distinguish **AviaNZ candidate selection** (original WAV/BMP accepted/rejected to review) from **machine bat-positive annotation within an accepted candidate** and from a **verified bat pass** (potentially spanning multiple files). Each has a different denominator. If only already-selected AviaNZ BMPs are human-reviewed, they **cannot** establish full-pipeline recall without an independent graded sample of raw rejected/uncaptured files.
+4. Produce the same-cohort confusion matrices, precision, recall, false-positive rate, FP per 1,000 eligible source recordings, candidate review burden and uncertainty intervals for stock AviaNZ versus each frozen local BMP model. Report both file-level metrics and pass-level metrics, when event grouping is defensible. Compare models at identical source IDs and record availability status for each model; report performance by recorder/night/site/BMP orientation and old/new label provenance. No zero-filled machine scores or assumed machine negatives.
+5. Keep an **original-backup availability/coverage ledger** with states `baseline_original_verified`, `baseline_present_unverified`, `post_review_only`, `source_not_selected`, `missing` plus original hashes and reason. Lack of a column in an export is **not** proof that the original Backup sidecars are missing. Preserve old benchmark cohorts and stock AviaNZ file unchanged.
+
+### 8 November 2026 inventory provenance audit (not a performance benchmark)
+
+Read-only audit of 28,213 current review-inventory rows: 24,814 `baseline_provenance=missing`; 3,122 `isolated_cli_batch`; 192 `gui_batch_confirmed`; 85 `unknown`. Only 369 rows contain an explicit nonempty `machine_species_annotations` field: 73 long-tailed, 196 short-tailed, 100 both. Of those, human grades 1/2 are present for 339, grades 4/5 for 13, grade 3 for 13, and no numerical grade for 4. This demonstrates significant machine/human disagreement **among stored explicitly tagged records**, but this selected subset is not AviaNZ's population precision or recall. Restore original Backups where possible before producing the full stock baseline.
+
+The owner's approximate historical 15,000 original files, ~9,000 stock AviaNZ candidate files and 364 verified bat **passes** must not be combined into an invalid single-file confusion matrix: 364 passes may cover multiple recordings; the unflagged original files need independent human audits to measure misses.
+
+### Report acceptance checks
+
+- [ ] Every candidate evaluation includes an explicit stock AviaNZ control row with source population, raw filter hash/version, total processed, original baseline successfully joined, missing baseline count and scorable cohort size. Show `not computable` for unsupported metrics, not zero or silence.
+- [ ] Machine short-tailed and mixed species predictions are treated as bat-present candidates in the **binary comparator**, even if false according to human review; they do not alter supervised ground truth.
+- [ ] Every automatic annotation used for performance is proved to predate human modification; conflicting sidecar versions must be reconciled with audit history.
+- [ ] Review load per 1,000 original files and FP per 1,000 are both reported alongside file/pass-level recall and precision, without changing denominators across methods.
+- [ ] Results from a selected AviaNZ-positive set are marked conditional-on-selection; no unsupported full-pipeline sensitivity claim until rejected-source audit exists.
+
+**Implementation status:** These are required report contracts and a read-only exported-inventory audit. The existing Windows reporting pipeline has NOT yet been patched. File-level stock AviaNZ confusion matrices remain uncomputed until preserved original baselines and source-negative controls are reconciled.
+
 ## Recommended report layout
 
 - Training readiness: unique new grade 4/5, grade 1/2, grade 3, corrected reviews, new nights/sites, excluded/conflicted, and remaining-to-trigger.
