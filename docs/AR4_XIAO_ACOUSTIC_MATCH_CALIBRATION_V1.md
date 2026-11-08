@@ -49,3 +49,23 @@ Contains:
 Track this in issue #12 (acoustic alignment), issue #27 (Daily Run), issue #13 (review safety). This is an optional calibration feature and not a new model, training data, species assignment, RT firmware modification or deployment.
 
 **Current status remains: pilot ZIP built/tested locally; installation and owner field validation pending.**
+
+
+## 2026-11-09 update v1.1: loading, stable saved shift, bat-only review queue
+
+**Owner field feedback:** v1's paired spectrograms appear blank before image generation; after automatic suggested acoustic fit (example 0.672 s), clicking the positive review snaps back to newly fitted clock-estimate shift (example 0.908 s); user also does not want routine background-noise alignment. These are directly reported in 2026-11-09 screenshots.
+
+**Deliverable:** `BatDaily_Acoustic_Match_Calibration_v1_1.zip`, SHA-256 `9163d5d9928623d992a0666330a615d5166c5e0ca3ac60b1eb808174f4564142`, 27,130 bytes, generated in the ChatGPT project conversation. Changed module `acoustic_pair_calibration.py` SHA-256 `6b931dc95c6baf973c2c55c0ba268854482e124e4917de88b7c749d3f10b6ba8`; update installer SHA-256 `25c0f247138dbf97edbf87895c88db3d5fabbd173d31bac43e4253a3fb6693f2`. Full README, change log, source and tests inside artifact. This **replaces only the optional reviewer module**, not original Daily Run scripts.
+
+**Implemented in the v1.1 package:**
+
+1. Each track has `Loading ... spectrogram` overlay, then hides on PNG load or shows a clear error. It resets on pair change.
+2. Reviewer captures the actual manually selected/algorithm-suggested Xiao shift before POST. After positive decision and per-night refit it reloads with the exact previous UI shift; on later reopening it prefers SHA-valid `saved_match_shift_seconds` to recalculated `initial_shift_seconds`. The clock suggestion remains separate information. An already accepted pair can be changed to Not a match to revoke the anchor with ledger history preserved.
+3. Default review scope is AR4 with trusted human grade 4/5 or legacy accepted human-reviewed LT bat. Optionally expand to human grade 3 or ungraded machine bat candidate. Owner human grades 1/2 exclude AR4 even if AviaNZ predicted machine short-tailed; independently graded Xiao WAV/BMP grade 1/2 is also excluded. Ungraded Xiao WAVs remain potential partners to true AR4 bat calls. The match engine still does not assert shared bat identity from timing/correlation.
+4. Optional reviewer supports same cached clock anchors, source SHA checks and 96/192 kHz WAV display. Normal `bat_tool.scan` integration established by v1 continues unchanged.
+
+**Update command (owner PC only; no update applied remotely):** Stop the reviewer and Daily Run; extract ZIP; `py -3 update_acoustic_reviewer_v11.py --root "C:\Users\revje\Documents\Bat" --dry-run`. It accepts exactly the known v1 `acoustic_pair_calibration.py` SHA `73fc3a7b3b2d27ca92ad8e16b97ee541f8d8388fba903ec65b369268d731dcaa` or reports already updated. If ready, run without `--dry-run`. Refuses altered/unknown source and does not force a patch. Original module saved with SHA-verified rollback receipt under `BatDailyTool/Program_Backups/acoustic_reviewer_v11_*`; preserves `Matched/Acoustic_Calibration/anchor_reviews.json` untouched.
+
+**Verification performed:** 13 Python tests pass; headless Chromium with a mocked API confirms accept-at-0.672 and restoration-at-0.672 despite backend model refit (direct loopback navigation was blocked in hosted browser); render_image PNG tests for 96/192 kHz inputs; updater dry-run, idempotent install, rollback smoke pass against the exact original v1 hash. No owner Windows installation test or real field audio comparison has been performed. Reviewer-only module updated; no firmware, source recordings, AviaNZ reviews or training data touched.
+
+**Owner-side checks still needed:** verify dry-run source version; install v1.1 safely; open AR4 human grade-4/5 bat candidate, see loading states and both spectrograms; press automatic suggestion and accept; ensure shift stays identical and reopens unchanged; try optional grade 3/machine candidates; confirm noise-grade AR4 and Xiao files absent; verify next Daily Run has no new errors; record install receipt and real recorded match. RT receiver-only WAV ingestion remains a separate pending workstream.
