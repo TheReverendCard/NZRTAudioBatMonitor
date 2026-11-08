@@ -1,0 +1,46 @@
+# BAT PRESENCE training starter v1: implementation and handoff
+
+**Recorded:** 8 November 2026. **Status:** candidate source ZIP locally tested against real review **metadata** and synthetic **media**, owner Windows installation and full media training **not performed**. **Do not call this a trained or deployed bat recogniser.** Existing AviaNZ stock `NZ Bats.h5`, RT-SCORE-1, RT shadow MLP and current firmware untouched.
+
+## Source artifact and integrity
+
+- Owner-facing conversation attachment: **`Bat_Presence_GradeFirst_Training_Starter_v1.zip`** (76,953 bytes, 28 entries), **SHA256 `dc6e8fdbb01213b37a326f303faac91216bc9f15733e728e29f63772fae75988`**. Inside: `Bat_Presence_Training_v1/README.md`, `SOURCE_MANIFEST.json`, `FILE_HASHES.json`, three complete patched trainer-source snapshots, exact original fixtures, hash-guarded installer, isolated training environment launcher, full audit and model-training runners, MLP --phase patch, original CNN MIL source, 10 Python tests, metadata audit preview.
+- **The executable ZIP is NOT in this GitHub PR**; this branch commits the normative grade-policy source and full artifact provenance only. It does not claim to be a complete build source repository. Obtain the verified ZIP from the owner's ChatGPT conversation before shipping or modifying it. `SOURCE_MANIFEST.json` and `FILE_HASHES.json` inside ZIP are the full byte-level source map.
+- Original owner-recovered source files were from the `DOC_BMP_Model_Context.zip` archive, crosschecked to owner-provided `train_baseline_models.py` library file. No environment configuration, private firmware, actual original recording or annotation was uploaded to GitHub.
+
+| Offline workbench source | Before SHA256 | Proposed after SHA256 |
+|---|---|---|
+| `TrainingWorkbench/training_phase1.py` | `87d66a827499787069ab64387d93ecdfd72fb9e6d39206a21d537b5e74fa3a87` | `d8f94d903b0d3c1314bbff4c7a28f6ef5230f67f147f23c9c827608fa8c077f5` |
+| `BatTraining_Phase1_Workbench/training_phase1.py` (optional installed legacy duplicate) | `c7e5225c28e360864876924ca025d2b42e0a6a200b4161ceaedc5a1c869ffd86` | `d8f94d903b0d3c1314bbff4c7a28f6ef5230f67f147f23c9c827608fa8c077f5` |
+| `TrainingWorkbench/train_baseline_models.py` | `27ea228bb979c6bd3de4ff653f3f3ee0e800c033460e3aa7e0c3951eb8eee923` | `45749b859c1be5ab59f1d5055fc614382c3e87449b28a736cd5ee63aaebb3379` |
+
+**Implementation change details:**
+
+1. **Human grade-first binary BAT PRESENCE** policy, exact normative code in `label_policy.py`: trust only `reviewed_metadata` or `reviewed_confirmed`; grades 1/2 negative, 3 excluded uncertain, 4/5 positive; grade missing or machine-only unreviewed. No machine short-tailed annotation or legacy `any_short_tailed_annotation` rule may exclude an otherwise trustworthy human grade. Explicit known artificial/playback origin remains excluded. DOC species identification separately sourced; the 46 prior scored DOC diagnostics are **already examined development data**, not untouched holdout.
+2. **Weights:** legacy excluded examples frequently had `suggested_weight=0.0`; the old fitter clamped them to only 0.01, which would defeat a label-only change. New versioned manifest stores legacy weight as `source_suggested_weight`, assigns current human grade weights (1/5=1.0, 2=0.7, 4=0.8) and records whether machine short-tailed exclusion was ignored. `label_policy_version=bat_presence_grade_first_v1` required for BMP **and WAV** training manifests.
+3. **Trainer checks:** refuses old/stale manifests and labels inconsistent with grades; verifies source BMP/WAV and sidecar SHA from audit; fails on identical-media cross-split leakage or *opposite-label duplicates*; aborts on missing/changed selected source inputs. Retains weighted logistic baseline 165-feature extraction, negative sampling and original frozen night split roles. Saves separately named new experimental candidates and versioned report metadata, with 2–3 Nov 2026 historically diagnosed test explicitly **not independent**. Existing MLP source changed only to take `--phase` and correct policy description; CNN MIL script unchanged but launches with the same phase snapshot. No new class-taxonomy architecture or firmware inference contract imposed.
+4. **Runner:** Read-only candidate audit uses `Daily_Run_Reports/Review_Training/review_inventory.csv` refreshed by Run Daily, reuses an existing `Daily_Run_Reports/Training_Phase1/night_splits.json` rather than secretly assigning new test data, checks file SHA, emits a *new* snapshot under `Daily_Run_Reports/Training_BatPresence_V1/<UTC>_<inventorySha>/`, with `audit_receipt.json`. Training requires the newest source-verified, unmodified audit; no fitting under Run Daily lock. Isolated optional venv `Training_Presence_Environment/.venv`; CNN uses separate CNNWorkbench venv. Outputs do not replace active stock AviaNZ, RT or user source media. Installer is precise-source SHA gated, immutable original-source backups under `Daily_Run_Reports/Training_Source_Backups/BatPresenceV1_*/`, atomic source replace, readback SHA, and restore that refuses newer owner edits.
+5. **Operational launchers:** `Preview Bat Presence Update.bat`, `Install Bat Presence Update.bat`, `Audit Bat Presence Data.bat`, `Setup Isolated Training Python.bat`, `Train Offline Presence Models.bat`, `Train Experimental MLP.bat`, `Train Experimental CNN.bat`, `Restore Previous Training Sources.bat`. Preview must pass before install. If installer reports unexpected local SHA, **stop**: source has changed and must be reconciled. Do not reinstall an old ZIP or overwrite local changes to make it pass.
+6. **Known evaluation limits:** existing validation 30/31 Oct and test 2/3 Nov have been investigated extensively, so outputs are for controlled development comparison **only**; sealed new nights, independent DOC partitions and owner-approved threshold/model promotion remain open. BMP/WAV are independent families; 96 kHz XiaoSD cannot be upsampled to acquire 192-kHz information, nor is CNN BMP a drop-in RT WAV model. DOC hybrid and model-training scheduler NOT implemented in this starter.
+
+## Actual metadata audit (real, supplied inventory, no original media)
+
+File `review_inventory(1).csv` SHA256 `6d50eee8dbb8568640ee8e158ed69ea5aa9887394b301a4b3a458613864eb5a9`, **28,213** rows, **27,899** with numeric human 1–5 grades. Grade-first metadata-only audit produced:
+
+- **550 grade4/5 positive** (352 grade4, 198 grade5);
+- **26,938 grade1/2 negative** (7,993 grade1, 18,945 grade2);
+- **411 grade3 uncertain**; **314 missing grade excluded/unreviewed**.
+- Old species-exclusion flag ignored on **12,686 human graded positives/negatives**.
+- Historical split *before source/media SHA verification and duplicate/negative sampling*: BMP train 499+/26,020−; validation 28+/194−; previously-diagnosed test 23+/724−. Paired WAV metadata-only eligible train 42+/3,032−; val 8+/189−; historical test 9+/656−. These **are not fitted-example counts or confirmed media integrity**. Actual training on the owner's media may yield fewer examples or block on missing WAVs or changed annotations.
+
+**Tests:** 10 local Python tests passed, including grade-first machine-ST overrides, uncertain/ungraded exclusion, playback, weight restoration, old-manifest rejection, exact media contradictory labels, guarded install/rollback, and real (synthetic) BMP+WAV logistic training end to end with original file SHA unchanged. Package ZIP CRC and per-file SHA manifest verified. **No trained model fit on owner media because owner's entire ~28k original BMP/WAV corpus exists on their Windows PC, not in this tool container.**
+
+## Unfinished gates / next steps
+
+- Owner should run preview/install on the **current** offline TrainingWorkbench. No machine install success reported. Run Daily first to refresh the newest reviews, then full audit and offline training, share `audit_receipt.json` and model reports for verification. If source SHA mismatches, use a non-destructive merge of current scripts. Do not infer success from the current metadata-only totals.
+- Independently audit source aliases and reviewed positive/negative conflicts, and current seasonal/sensor distribution before promotion. A duplicate source across train/val/test must fail closed.
+- Once local-only logistic/MLP/CNN candidates exist, verify fixed-cohort comparison and errors on owner media. Train a DOC hybrid **only** from separately licensed/verified training media assigned away from examined DOC Batch01 and sealed external tests. Update v0.2 model-progress registry via a separate explicit post-training evaluation; don't present older diagnosed test as independent or auto re-evaluate on every daily run.
+- For XiaoRT, new WAV MLP needs numerical feature/quantisation parity, shadow trial, source/firmware hashes and explicit approval. Next firmware on-demand recording requirement is #33; not implemented by training.
+- No automatic retrain queue; source-health/checkpoint/version orchestration and owner’s incremental new training threshold workflow (BMP proposed 20+/100−/5 nights; WAV 10+/50−/5 nights, with cooldown) remain #14/#27.
+
+**Related:** #14 model lifecycle, #22 MLP/CNN benchmarking, #26 external data, #27 Run Daily roadmap, #33 future manual RT audio capture, PR #18 old baseline and PR #24 RT shadow.
