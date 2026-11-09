@@ -213,7 +213,7 @@ public:
   void close(){f.close();remaining=0;index=3;}
 };
 inline void status(Print& out=Serial) {
-  Stats& s=stats();out.printf("NZRT JOURNAL version=JOURNAL-4-PROTOTYPE fault=%u errors=%lu verified=%lu rotations=%lu retention_discards=%lu last_ok_uptime_ms=%lu bytes=%lu limit_segment=%lu reserve=%lu quarantines=%lu export_skips=%lu retry_deferred=%lu cooldown=%u counters=since_boot\n",s.fault,(unsigned long)s.errors,(unsigned long)s.verified,(unsigned long)s.rotations,(unsigned long)s.discarded,(unsigned long)s.lastOK,(unsigned long)(sizeOf(path(0))+sizeOf(path(1))+sizeOf(path(2))),(unsigned long)SEGMENT,(unsigned long)RESERVE),(unsigned long)s.quarantines,(unsigned long)s.skippedSegments,(unsigned long)s.deferred,(unsigned)coolingDown());
+  Stats& s=stats();out.printf("NZRT JOURNAL version=JOURNAL-4-PROTOTYPE fault=%u errors=%lu verified=%lu rotations=%lu retention_discards=%lu last_ok_uptime_ms=%lu bytes=%lu limit_segment=%lu reserve=%lu quarantines=%lu export_skips=%lu retry_deferred=%lu cooldown=%u counters=since_boot\n",s.fault,(unsigned long)s.errors,(unsigned long)s.verified,(unsigned long)s.rotations,(unsigned long)s.discarded,(unsigned long)s.lastOK,(unsigned long)(sizeOf(path(0))+sizeOf(path(1))+sizeOf(path(2))),(unsigned long)SEGMENT,(unsigned long)RESERVE,(unsigned long)s.quarantines,(unsigned long)s.skippedSegments,(unsigned long)s.deferred,(unsigned)coolingDown());
 }
 inline bool dump() {
   Reader r;char buf[512];
