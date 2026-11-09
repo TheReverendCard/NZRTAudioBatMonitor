@@ -1,0 +1,14 @@
+{
+  "model_id": "WAV-MLP-v0.1",
+  "sha256": "b5ddf6282cd269251e8fed77fc4f21646bb0c54da623530772094221998f6c14",
+  "source_joblib_sha256": "497ff930552797bb0d2d43ab701f8ffdfe4960dd8d336e2d73ec039c7913d7c4",
+  "schema": 1,
+  "feature_schema": 1,
+  "mode_on_install": "shadow",
+  "architecture": [
+    165,
+    32,
+    16,
+    1
+  ]
+}

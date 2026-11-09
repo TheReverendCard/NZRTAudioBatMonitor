@@ -1,0 +1,15 @@
+{
+  "version": "0.1",
+  "build": "NZRT-MLP-1-JOURNAL-2",
+  "status": "compiled_not_hardware_verified",
+  "source_commit": "d963554d97bf4b5a04fa6fe0d6ffb875f5688341",
+  "archive": "RT_MLP_Update_v0.1.zip",
+  "sha256": "6f7f82d1ceda72d698f626e5a2d1278453842af060bc133ce8a5bb462e99c424",
+  "bytes": 158470,
+  "files": 47,
+  "defaults": {
+    "recogniser": "shadow",
+    "wav_upload": false
+  },
+  "pull_request": 24
+}

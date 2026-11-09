@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "build": "NZRT-MLP-1-JOURNAL-2",
+  "target": "NZRT_Xiao_S3_WIO_wildlife_repeater",
+  "date_nz": "2026-11-06",
+  "status": "compiled_not_hardware_verified",
+  "exit_code": 0,
+  "flashed": false,
+  "firmware_sha256": "0d1d8a1f3cf52c52a7056ef584e12b86e6068e2fdfdde65fbcff7ab80cf4afe7",
+  "package_payload_sha256": {
+    "examples/simple_repeater/main.cpp": "745e4d9c5e91a9926d29d5f8b7421aae99fc66642888818b50736066420b7a0f",
+    "nzrt/RTFeatures.h": "8bee999484df77e40df2df1c50bff55af33f21454ce3c1c27cb6499b0481cfcb",
+    "nzrt/RTModel.h": "87a98378be4b70e5018d6fa737d90743319481b3890b8c374a20845cd8204a90",
+    "nzrt/WildlifeDetector.cpp": "fb3173f2123e35d9476b00c8db7dfb4720e3454377b3e39defdd3225cdad15bd",
+    "nzrt/WildlifeML.cpp": "40067560cb504914c650082632010750c28a5efc13edd47b9fec73b294ef346c",
+    "nzrt/WildlifeML.h": "8d1d73a5fdd14ee96b06592682d0a351460b432d89eb4374bba145ff24f7769e",
+    "nzrt/WildlifeMic.cpp": "4d171685bceab5f3a235ff83f27485dd28253263ffe19f4bfdfdfbd04e981351",
+    "nzrt/WildlifeUpload.h": "0982eb8af6425785b7c0f0f970a1fd4787757b5575f50b5dcaab2bd78e905e02",
+    "nzrt/wav_mlp_model_parameters.h": "f65bc3241cdba3de4855515ce8ac7ec36670248934057437025e28760e2e8e13"
+  },
+  "static_ram_bytes": 107904,
+  "flash_program_bytes": 1274137,
+  "flash_app_capacity_bytes": 3342336,
+  "additional_dynamic_psram_bytes": 2262952,
+  "platform": "espressif32 6.11.0",
+  "framework": "Arduino 2.0.17 / framework-arduinoespressif32 3.20017.241212+sha.dcc1105b",
+  "compiler": "xtensa-esp32s3-elf 8.4.0+2021r2-patch5",
+  "telemetry_enabled": false,
+  "limitations": "Built against retained local MeshCore project; full upstream/source identity is not independently locked to the owner project. No hardware, acoustic, overnight or power verification. Private config and binary not distributed."
+}

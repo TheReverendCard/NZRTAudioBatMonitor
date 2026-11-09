@@ -1,0 +1,142 @@
+{
+  "cases": [
+    {
+      "case": "silence_0.12",
+      "max_feature_error": 4.277467269275803e-12,
+      "probability": 4.45389196975e-20,
+      "reference_probability": 4.45389197e-20,
+      "probability_error": 2.499995494029385e-30,
+      "host_elapsed_seconds": 0.014281441000093764
+    },
+    {
+      "case": "noise_0.12",
+      "max_feature_error": 2.2351740586179503e-06,
+      "probability": 0.999744415283,
+      "reference_probability": 0.999744415,
+      "probability_error": 2.829999568021435e-10,
+      "host_elapsed_seconds": 0.01825715399991168
+    },
+    {
+      "case": "sweep_0.12",
+      "max_feature_error": 0.0004507601257031091,
+      "probability": 1.0,
+      "reference_probability": 1.0,
+      "probability_error": 0.0,
+      "host_elapsed_seconds": 0.011474607000309334
+    },
+    {
+      "case": "silence_0.5",
+      "max_feature_error": 2.2852830738884222e-12,
+      "probability": 6.71079271723e-21,
+      "reference_probability": 6.71079272e-21,
+      "probability_error": 2.7699995874867075e-30,
+      "host_elapsed_seconds": 0.029223506000562338
+    },
+    {
+      "case": "noise_0.5",
+      "max_feature_error": 1.043081337914753e-06,
+      "probability": 0.41043227911,
+      "reference_probability": 0.41043371,
+      "probability_error": 1.4308899999870839e-06,
+      "host_elapsed_seconds": 0.028332028000477294
+    },
+    {
+      "case": "sweep_0.5",
+      "max_feature_error": 0.00026884675034816174,
+      "probability": 0.99998497963,
+      "reference_probability": 0.99998498,
+      "probability_error": 3.7000003061393727e-10,
+      "host_elapsed_seconds": 0.02264700300020195
+    },
+    {
+      "case": "silence_2.0",
+      "max_feature_error": 3.1539215683551447e-12,
+      "probability": 1.07581674616e-21,
+      "reference_probability": 1.07581675e-21,
+      "probability_error": 3.8399999971306074e-30,
+      "host_elapsed_seconds": 0.07956513800036191
+    },
+    {
+      "case": "noise_2.0",
+      "max_feature_error": 0.002673804760198545,
+      "probability": 0.0473452322185,
+      "reference_probability": 0.0472072326,
+      "probability_error": 0.00013799961849999404,
+      "host_elapsed_seconds": 0.06001242399997864
+    },
+    {
+      "case": "sweep_2.0",
+      "max_feature_error": 2.1383165898503087e-05,
+      "probability": 0.99883043766,
+      "reference_probability": 0.998830378,
+      "probability_error": 5.966000005130923e-08,
+      "host_elapsed_seconds": 0.07281270199928258
+    },
+    {
+      "case": "field_event_20261028T134259Z_00020(1).wav",
+      "max_feature_error": 2.861023370992477e-06,
+      "probability": 0.110325269401,
+      "reference_probability": 0.110324919,
+      "probability_error": 3.504010000071611e-07,
+      "host_elapsed_seconds": 0.05743063599948073
+    },
+    {
+      "case": "field_event_20261028T154009Z_00018.wav",
+      "max_feature_error": 4.231929999043427e-06,
+      "probability": 0.00361455278471,
+      "reference_probability": 0.00361455139,
+      "probability_error": 1.3947100002686952e-09,
+      "host_elapsed_seconds": 0.055522329000268655
+    },
+    {
+      "case": "field_event_20261028T160505Z_00024.wav",
+      "max_feature_error": 1.728534563705253e-06,
+      "probability": 0.000628643261734,
+      "reference_probability": 0.000628646347,
+      "probability_error": 3.085265999928574e-09,
+      "host_elapsed_seconds": 0.05585455400068895
+    },
+    {
+      "case": "field_event_20261028T161055Z_00026.wav",
+      "max_feature_error": 5.125999462451958e-06,
+      "probability": 0.00205756933428,
+      "reference_probability": 0.00205757353,
+      "probability_error": 4.195720000165631e-09,
+      "host_elapsed_seconds": 0.07513232600012998
+    },
+    {
+      "case": "field_event_20261028T172309Z_00053.wav",
+      "max_feature_error": 4.291533925782076e-06,
+      "probability": 0.0291458312422,
+      "reference_probability": 0.0291456692,
+      "probability_error": 1.620421999984356e-07,
+      "host_elapsed_seconds": 0.06417153100028372
+    },
+    {
+      "case": "field_event_20261028T172318Z_00054.wav",
+      "max_feature_error": 4.172325067108851e-06,
+      "probability": 0.0147125413641,
+      "reference_probability": 0.0147127341,
+      "probability_error": 1.9273590000021268e-07,
+      "host_elapsed_seconds": 0.062102794000566064
+    },
+    {
+      "case": "field_event_20261105T123240Z_00116.wav",
+      "max_feature_error": 0.0026737898588014564,
+      "probability": 0.999694705009,
+      "reference_probability": 0.999695599,
+      "probability_error": 8.939910000060891e-07,
+      "host_elapsed_seconds": 0.06535250500019174
+    },
+    {
+      "case": "field_periodic_20261028T132956Z_00015.wav",
+      "max_feature_error": 2.8610224759306746e-06,
+      "probability": 0.0417538918555,
+      "reference_probability": 0.0417543687,
+      "probability_error": 4.768445000039034e-07,
+      "host_elapsed_seconds": 0.06488443800026289
+    }
+  ],
+  "max_error": 0.002673804760198545,
+  "note": "96kHz field files resampled to 192kHz as parity fixtures, not evidence of microphone fidelity or MCU timing"
+}
