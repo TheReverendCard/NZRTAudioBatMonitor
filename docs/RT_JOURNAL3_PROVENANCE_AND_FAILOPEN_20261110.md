@@ -32,7 +32,7 @@ The build receipt also records RTFeatures/RTModel/ML header/model and a *private
 
 ## Incident and next repair
 
-On 10 Nov `nzrt journal`: `JOURNAL-3 fault=1 errors=44 verified=0 last_ok_uptime_ms=0 bytes=521941`; repeated `tail_read`. Serial `log` failed `reader_scan_read file=/packet_log offset=259135` then `dump_read`. MLP synthetic test PASSED but took 17.54s. The RT flash was imaged before repair (8 MiB, SHA-256 `cc74c5eaadbeb125d92110bad9b276db1a7cfda5e15beba065501e61d5f5d935`. **Typo guard: canonical hash is `cc74c5eaadbeb125d92110bad9b276db1a7cfda5e15beba065501e61d5f5d935` without the display space.**). Historical recovery is being treated as complete by owner; do not spend time on further bit-perfect reconstruction.
+On 10 Nov `nzrt journal`: `JOURNAL-3 fault=1 errors=44 verified=0 last_ok_uptime_ms=0 bytes=521941`; repeated `tail_read`. Serial `log` failed `reader_scan_read file=/packet_log offset=259135` then `dump_read`. MLP synthetic test PASSED but took 17.54s. The RT flash was imaged before repair (8 MiB, SHA-256 `cc74c5eaadbeb125d92110bad9b276db1a7cfda5e15beba065501e61d5f5d935`).. Historical recovery is being treated as complete by owner; do not spend time on further bit-perfect reconstruction.
 
 The next build must:
 1. Use the exact SHA-matched JOURNAL-3 sources; keep MLP, MeshCore, NVS identity, board config, receiver protocol and daylight behaviour intact.
