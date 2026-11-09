@@ -1,0 +1,30 @@
+{
+  "schema": "nzrt-journal4-source-patch-1",
+  "build_baseline": "NZRT-MLP-1-JOURNAL-3",
+  "candidate_build": "NZRT-MLP-1-JOURNAL-4",
+  "status": "host-tested source patch, no PlatformIO or device verification",
+  "artifact_name": "NZRT_Journal4_Failopen_Source_Patch_20261110.zip",
+  "artifact_sha256": "243add1273ea7120804900f2f7e8069421431c237433266854fe319d0784133e",
+  "files": {
+    "WildlifeJournal.h": {
+      "original_sha256": "84e4ffc89d65615ccd07922fd9c0e9e9b64f0054e67a29c5136283adacdb050c",
+      "patched_sha256": "f6c400229be2a3e4f01984deefe2b3fe9133a707a32362351d10218968d921cd"
+    },
+    "WildlifeMic.cpp": {
+      "original_sha256": "1fe75d81d5f0aa9fc9249a50fc9214188a5b54ed2bd60b89596b3d9b15656b7f",
+      "patched_sha256": "bd553d36d49facb6a5fc97ec0e4bc3fd68ba80f82486cd996682f3a4613d65c3"
+    },
+    "WildlifeUpload.h": {
+      "original_sha256": "cc9f57a9046553d8061e73a7198cc5e71155196cf292dfd3fa48d8a58db60ab5",
+      "patched_sha256": "f2b073c4e387bab33b1abd4f3cd64a18e9e38f32f8f55607513f77271e2acbfe"
+    }
+  },
+  "validation": {
+    "exact_owner_source_hashes": "6 of 6 match original receipt",
+    "mock_journal_cpp_checks": 24,
+    "guarded_source_update_tests": "preview/apply/restore/idempotence/mismatch refusal passed",
+    "source_contract_checks": "passed",
+    "esp32_full_build": "not performed",
+    "real_device": "not performed"
+  }
+}
