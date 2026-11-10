@@ -33,15 +33,7 @@ def acoustic_patch(src):
     for original,expr in ((a,"p"),(b,"p.with_suffix('.bmp')")):
         src=change(src,original,
             "if ar4_bat_evidence("+expr+").get('human_grade') not in (4,5):\n                    continue\n                "+original)
-    # Only eligible saved anchors can enter the fitted clock or suggestions.
-    marker="def latest_decisions(root):\n"
-    src=change(src,marker,marker+"    def eligible(row):\n"
-               "        try:\n"
-               "            b=safe_source(root,row['bmp'],'.bmp')\n"
-               "            w=safe_source(root,row['wav'],'.wav')\n"
-               "            return all(ar4_bat_evidence(p).get('human_grade') in (4,5) for p in (b,w.with_suffix('.bmp')))\n"
-               "        except (KeyError,ValueError,OSError):\n            return False\n")
-    return change(src,"if 'pair_id' in x}","if 'pair_id' in x and eligible(x)}")
+    return src
 
 
 def gui_patch(src):
@@ -119,10 +111,13 @@ def verified_patch(src):
         cache=ReportCache(root)
         try:
             nights={p.split("/")[0] for p in cache.files if p.count("/")==2 and p.lower().endswith((".wav",".bmp"))}
-            return {datetime.strptime(d,"%Y%m%d").date().isoformat() for d in nights}
+            today=datetime.now(NZ).date()
+            return {today.isoformat()} | {datetime.strptime(d,"%Y%m%d").date().isoformat() for d in nights if d.isdigit() and len(d)==8 and d<=today.strftime("%Y%m%d")}
         finally:cache.db.close()
     dates=set()
 ''')
+    src=change(src,"let dates=DATA.agg.nights","let dates=[...DATA.agg.nights].reverse()")
+    src=change(src,"Run Daily never launches performance evaluation.","See the nightly model trials for field predictions.")
     return src
 
 def experimental_patch(src):
@@ -154,6 +149,36 @@ def pairs_patch(src):
     body=src[src.index("            rel=w.relative",a):b]
     src=src[:a]+"\n".join(line[4:] for line in body.splitlines())+"\n"+src[b:]
     src=change(src,"r.get('human_level') in ('confirmed','legacy')","r.get('human_grade') in (4,5)")
+    src=change(src,"    refs=[", """    import acoustic_pair_calibration as calibration
+    decisions=[row for row in calibration.latest_decisions(root).values() if row.get('day')==day]
+    manual={}
+    withheld=set()
+    for row in decisions:
+        bmp,wav=row['bmp'],row['wav']
+        withheld.add((bmp,wav))
+        if row.get('decision')!='match':continue
+        try:
+            valid=all(calibration.digest(calibration.safe_source(root,row[k],'.'+k))==row[k+'_sha256'] for k in ('bmp','wav'))
+        except (OSError,ValueError,KeyError):
+            valid=False
+        manual.setdefault(bmp,[]).append(dict(wav=wav,shift=row.get('manual_shift_seconds'),valid=valid))
+    refs=[""")
+    src=change(src,"    def search(e,shift):","""    existing={e['ar4'] for e in out}
+    for bmp in sorted(manual.keys()-existing):
+        out.append(dict(ar4=bmp,ar4_utc=0,duration=0,candidates=[],tested=[],issues=[]))
+    def search(e,shift):
+        if e['ar4'] in manual:
+            e['manual_matches']=manual[e['ar4']]
+            e['status']='human-confirmed match' if any(m['valid'] for m in e['manual_matches']) else 'saved match needs source verification'
+            return""")
+    src=change(src,"            if rel in tested","            if (e['ar4'],rel) in withheld:continue\n            if rel in tested")
+    src=change(src,"        for i,z in enumerate(e['candidates']):","""        for m in e.get('manual_matches',[]):
+            label=h(m['wav'])+' | saved shift '+h(str(m['shift']))+' s'
+            if m['valid']:body.append('<p>Human match: <a href="'+h(url(root/m['wav'],dest))+'">'+label+'</a></p>')
+            else:body.append('<p>Saved match requires verification: '+label+'</p>')
+        for i,z in enumerate(e['candidates']):""")
+    src=change(src,"            block+='<li>'","            if r.get('manual_matches'):name=' → '+', '.join(html.escape(m['wav']) for m in r['manual_matches'])\n            block+='<li>'")
+    src=change(src,'probable / {len(rs)}','probable / {sum(r["status"]=="human-confirmed match" for r in rs)} human-confirmed / {len(rs)}')
     return change(src,"    for e in out:search(e,0)",'''    from concurrent.futures import ThreadPoolExecutor
     if len(out)>1:
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -232,7 +257,7 @@ def pilot_patch(src):
     src=change(src,'    for p in sorted(folder.rglob("*")):','''    if os.environ.get("BAT_DAILY_INDEXED_REPORTS")=="1":
         import sqlite3
         with sqlite3.connect((root/"Daily_Run_Reports"/"Daily_Integration"/"daily_tasks.sqlite").resolve().as_uri()+"?mode=ro",uri=True) as db:
-            paths=[root/p for (p,) in db.execute("SELECT path FROM media WHERE kind='local' AND path LIKE ? AND (lower(path) LIKE '%.bmp' OR lower(path) LIKE '%.wav') AND path NOT IN (SELECT path FROM quarantine) ORDER BY path",(night+'/%',))]
+            paths=[root/p for (p,) in db.execute("SELECT path FROM media WHERE kind='local' AND path LIKE ? AND (lower(path) LIKE '%.bmp' OR lower(path) LIKE '%.wav') AND path NOT IN (SELECT path FROM quarantine) AND substr(path,1,length(path)-4)||'.bmp' NOT IN (SELECT path FROM quarantine) ORDER BY path",(night+'/%',))]
     else:
         paths=sorted(folder.rglob("*"))
     for p in paths:''')
@@ -255,18 +280,6 @@ def install(tool,restore=False):
     manifest=backup/"install.json"
     if manifest.exists():
         saved=json.loads(manifest.read_text())
-        # Upgrade just the released v2 reader. Preserve the original rollback baseline.
-        name = "daily_state.py"
-        previous = "541236cddeb9eb941832fb1cbc74a521fcbf3a36b9983988026bf25ee61219e0"
-        if not restore and saved.get(name,{}).get("installed") == previous:
-            replacement = (HERE/name).read_bytes()
-            current = digest((tool/name).read_bytes())
-            if current not in (previous,digest(replacement)):
-                raise ValueError("Locally modified file: "+str(tool/name))
-            if current == previous:
-                write(tool/name,replacement)
-            saved[name]["installed"] = digest(replacement)
-            write(manifest,json.dumps(saved).encode())
         for name,expected in saved.items():
             p=tool/name
             if p.exists() and digest(p.read_bytes()) not in (expected["installed"],expected["before"]):
@@ -283,10 +296,7 @@ def install(tool,restore=False):
                     write(p,data)
             manifest.unlink()
             return
-        if all((tool/n).is_file() and digest((tool/n).read_bytes())==v["installed"] for n,v in saved.items()):
-            return
-        raise ValueError("Interrupted install. Run Restore Review First, then install again.")
-    if restore:
+    elif restore:
         raise ValueError("No review-first installation at "+str(tool))
     for name in ("daily_pipeline.py","review_unreviewed_queue.py","sd_wifi_import.py","rt_audio_daily.py",
                  "external_import.py","post_daily_sync.py","run_integrity.py","bmp_health.py"):
@@ -294,12 +304,28 @@ def install(tool,restore=False):
             raise FileNotFoundError(tool/name)
     outputs={name:(HERE/name).read_bytes() for name in ("daily_state.py","daily_reports.py","review_first_daily.py")}
     for name,fn in (("model_progress.py",progress_patch),("external_import.py",external_patch),("experimental_review.py",experimental_patch),("post_daily_sync.py",post_patch),("review_dataset.py",inventory_patch),("verified_activity.py",verified_patch),("cumulative_summary.py",summary_patch),("acoustic_pairs.py",pairs_patch),("rt_audio_daily.py",rt_patch),("daily_timeline.py",timeline_patch),("review_plot_audit.py",audit_patch),("Model_Trials_Runtime_v1/model_workflow.py",model_patch),("Model_Trials_Runtime_v1/pilot.py",pilot_patch),("acoustic_pair_calibration.py",acoustic_patch),("fast_review_entrypoint.py",gui_patch)):
-        outputs[name]=patched(tool/name,fn)
-    launcher='@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\n".venv\\Scripts\\python.exe" -u review_first_daily.py %*\r\nset "rc=%errorlevel%"\r\nif not "%rc%"=="0" pause\r\nexit /b %rc%\r\n'
+        source=(backup if manifest.exists() else tool)/name
+        if manifest.exists() and digest(source.read_bytes())!=saved[name]["before"]:
+            raise ValueError("Damaged original backup: "+name)
+        outputs[name]=patched(source,fn)
+    launcher='@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\n".venv\\Scripts\\python.exe" -u review_first_daily.py %*\r\nset "rc=%errorlevel%"\r\nif not "%BAT_DAILY_NO_PAUSE%"=="1" pause\r\nexit /b %rc%\r\n'
     for name in ("Run Daily with Final Review.bat","Run Daily Scan.bat"):
         if not (tool/name).is_file():
             raise FileNotFoundError(tool/name)
         outputs[name]=launcher.encode()
+    if manifest.exists():
+        old_manifest=manifest.read_bytes()
+        originals={n:(tool/n).read_bytes() for n in outputs}
+        try:
+            for n,data in outputs.items():
+                if originals[n]!=data:write(tool/n,data)
+                saved[n]["installed"]=digest(data)
+            write(manifest,json.dumps(saved).encode())
+        except Exception:
+            for n,data in originals.items():write(tool/n,data)
+            write(manifest,old_manifest)
+            raise
+        return
     backup.mkdir(exist_ok=True,parents=True)
     saved={}
     for name,data in outputs.items():

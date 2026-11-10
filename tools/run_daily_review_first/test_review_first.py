@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from daily_state import State
-from review_first_daily import group_signature
+from review_first_daily import group_signature, check_predictions
 
 
 class Checkpoints(unittest.TestCase):
@@ -121,6 +121,20 @@ class Checkpoints(unittest.TestCase):
         (folder/"old.bmp").touch()
         self.state.discover_day(self.day)
         self.assertEqual([],self.state.pending("prepare"))
+
+    def test_model_completion_requires_each_applicable_prediction(self):
+        folder=self.root/"scoring"
+        folder.mkdir()
+        (folder/"trial_report.json").write_text(json.dumps({"night":self.day,"status":"COMPLETE"}))
+        source=self.day+"/AR4"+self.day+"/one.bmp"
+        csv=folder/"trial_predictions.csv"
+        csv.write_text("night,source,model,probability\n"+"".join(
+            f"{self.day},{source},{model},0.7\n" for model in ("bmp_lr","bmp_mlp")))
+        with self.assertRaisesRegex(RuntimeError,"1 missing"):
+            check_predictions(folder,self.day,[(source,"stamp")])
+        with csv.open("a") as f:
+            f.write(f"{self.day},{source},bmp_cnn,0.5\n")
+        self.assertEqual(3,len(check_predictions(folder,self.day,[(source,"stamp")])))
 
     def test_failed_step_has_timing_but_remains_pending(self):
         self.state.put("night",self.day)

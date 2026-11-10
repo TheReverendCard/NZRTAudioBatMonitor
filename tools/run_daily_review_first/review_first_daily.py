@@ -1,5 +1,9 @@
 """Review-first entry point for the installed Windows BatDailyTool."""
 import argparse
+import hashlib
+import importlib.util
+import csv
+from collections import Counter
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -372,6 +376,85 @@ def receiver_signature(path):
                     (path,path.with_suffix(".json"),path.with_name(path.name+".json")))
 
 
+def night_media(state,day):
+    return list(state.db.execute("""SELECT path,sig FROM media WHERE kind='local'
+        AND path>=? AND path<? AND (lower(path) LIKE '%.bmp' OR lower(path) LIKE '%.wav')
+        AND path NOT IN (SELECT path FROM quarantine)
+        AND substr(path,1,length(path)-4)||'.bmp' NOT IN (SELECT path FROM quarantine) ORDER BY path""",(day+"/",day+"0")))
+
+
+def night_signature(state,day):
+    inputs=night_media(state,day)
+    runtime=TOOL/"Model_Trials_Runtime_v1"
+    spec=importlib.util.spec_from_file_location("daily_model_manifest",runtime/"pilot.py")
+    pilot=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pilot)
+    files=[runtime/n for n in ("pilot.py","model_workflow.py","cnn_bmp_mil.py","cnn_worker.py")]
+    files.extend(base/"train_baseline_models.py" for base in (state.root/"TrainingWorkbench",TOOL/"TrainingWorkbench"))
+    for family,run,weights,report in pilot.MODELS.values():
+        base=state.root/"Daily_Run_Reports"/"Model_Experiments"/family/run
+        files.extend((base/weights,base/report))
+    models=[(str(p),stamp(p) if p.is_file() else None) for p in files]
+    return hashlib.sha256(json.dumps([inputs,models]).encode()).hexdigest()
+
+
+def check_predictions(folder,day,sources):
+    report=json.loads((folder/"trial_report.json").read_text(encoding="utf-8-sig"))
+    if report.get("night")!=day or report.get("status") not in ("COMPLETE","PARTIAL_MEDIA_COVERAGE"):
+        raise RuntimeError(f"Incomplete model predictions for {day}: {folder}")
+    families={"bmp":("bmp_lr","bmp_mlp","bmp_cnn"),"wav":("wav_lr","wav_mlp")}
+    expected={(p,m) for p,_ in sources for m in families[Path(p).suffix.lower()[1:]]}
+    seen=set()
+    with (folder/"trial_predictions.csv").open(encoding="utf-8-sig",newline="") as f:
+        for row in csv.DictReader(f):
+            k=(row["source"],row["model"])
+            if k in seen or row["night"]!=day or not 0<=float(row["probability"])<=1:
+                raise RuntimeError("Invalid or duplicate model prediction in "+str(folder))
+            seen.add(k)
+    for issue in report.get("invalid_inputs",[]):
+        reason=issue.get("reason","")
+        if reason.startswith("identical_media_duplicate_alias_of:"):
+            source=issue["source"]
+            primary=reason.split(":",1)[1]
+            for model in families[Path(source).suffix.lower()[1:]]:
+                if (primary,model) in seen:expected.discard((source,model))
+    if seen!=expected or not seen:
+        raise RuntimeError(f"{day}: {len(expected-seen)} missing and {len(seen-expected)} unexpected model predictions. See {folder}")
+    return dict(Counter(m for p,m in seen))
+
+
+def schedule_final(state,today,days):
+    root=state.root
+    page=root/"Daily_Run_Reports"/"Verified_Bat_Activity"/"index.html"
+    published=state.db.execute("SELECT value FROM notes WHERE key='heat-calendar-v202'").fetchone()
+    if not published or published[0]!=today or not page.is_file():
+        state.put("publish","reports")
+    latest=next((day for day in sorted(days,reverse=True) if day<today and night_media(state,day)),None)
+    targets=set(state.pending("score-night"))
+    if latest:targets.add(latest)
+    if today in days and night_media(state,today):targets.add(today)
+    for day in sorted(targets):
+        if not night_media(state,day):
+            state.done("score-night",day)
+            continue
+        prior=state.db.execute("SELECT value FROM notes WHERE key=?",("inference-v202:"+day,)).fetchone()
+        evidence=json.loads(prior[0]) if prior else {}
+        folder=root/evidence.get("folder","")
+        if (evidence.get("signature")==night_signature(state,day) and
+                all((folder/n).is_file() and stamp(folder/n)==v for n,v in evidence.get("files",{}).items())
+                and evidence.get("files")):
+            print("Nightly predictions reused",day,evidence["counts"],folder,flush=True)
+            state.done("score-night",day)
+            continue
+        state.put("score-night",day)
+        state.put("publish","reports")
+        receipts=root/"Daily_Run_Reports"/day
+        if not any((json.loads(f.read_text(encoding="utf-8-sig")).get("status")=="complete")
+                   for f in (receipts/"review_first_receipt.json",receipts/"receipt.json") if f.is_file()):
+            state.put("night",day)
+    state.db.commit()
+
+
 def report(state,daily,days):
     import acoustic_pairs
     import flac_archive
@@ -478,10 +561,21 @@ def report(state,daily,days):
                 if name=="model_trials":
                     for day in state.pending("score-night"):
                         if day in days:
+                            runs=root/"Daily_Run_Reports"/"Model_Pilot_V2"/"runs"
+                            before=set(runs.glob(day+"_*"))
                             with state.timed("Model inference "+day):
                                 scored=post.stage_command("model_"+day,[*cmd,"--night",day,"--score-only"],**kwargs)
                             if scored.get("status")!="complete":
                                 return scored
+                            fresh=sorted(set(runs.glob(day+"_*"))-before)
+                            if not fresh:
+                                raise RuntimeError("No new model prediction receipt for "+day)
+                            folder=fresh[-1]
+                            counts=check_predictions(folder,day,night_media(state,day))
+                            evidence=dict(signature=night_signature(state,day),folder=folder.relative_to(root).as_posix(),
+                                          files={n:stamp(folder/n) for n in ("trial_report.json","trial_predictions.csv")},counts=counts)
+                            state.db.execute("INSERT OR REPLACE INTO notes VALUES (?,?)",("inference-v202:"+day,json.dumps(evidence)))
+                            print("Nightly predictions verified",day,counts,folder,flush=True)
                         state.done("score-night",day)
                     cmd=[*cmd[:2],"refresh",*cmd[3:]]
                 outcome=post.stage_command(name,cmd,**kwargs)
@@ -543,6 +637,7 @@ def main():
             now=datetime.now(ZoneInfo("Pacific/Auckland"))
             today=now.strftime("%Y%m%d")
             yesterday=(now-timedelta(days=1)).strftime("%Y%m%d")
+            daily.create_next_day_folders(root,yesterday)
             recent={today,yesterday}
             if args.day:
                 datetime.strptime(args.day,"%Y%m%d")
@@ -567,22 +662,28 @@ def main():
             # A single edited manual calibration ledger can affect several nights.
             import acoustic_pair_calibration as calibration
             anchor=calibration.ledger_file(root)
-            key="anchor-ledger"
+            key="anchor-ledger-v202"
             token=stamp(anchor) if anchor.exists() else "missing"
             state.db.execute("CREATE TABLE IF NOT EXISTS controls(name TEXT PRIMARY KEY,value TEXT)")
             previous=state.db.execute("SELECT value FROM controls WHERE name=?", (key,)).fetchone()
-            if previous and previous[0]!=token:
-                for row in calibration.ledger(root)["history"]:
-                    if row.get("day") in days:
-                        state.put("night",row["day"])
-                state.put("publish","reports")
+            if not previous or previous[0]!=token:
+                by_day=defaultdict(list)
+                for row in calibration.latest_decisions(root).values():
+                    if row.get("day") in days:by_day[row["day"]].append(row)
+                old=state.db.execute("SELECT value FROM notes WHERE key='manual-decisions-v202'").fetchone()
+                before=json.loads(old[0]) if old else {}
+                current={day:hashlib.sha256(json.dumps(sorted(rows,key=lambda r:r["pair_id"]),sort_keys=True).encode()).hexdigest()
+                         for day,rows in by_day.items()}
+                for day in before.keys()|current.keys():
+                    if before.get(day)!=current.get(day):
+                        state.put("night",day)
+                        state.put("publish","reports")
+                state.db.execute("INSERT OR REPLACE INTO notes VALUES ('manual-decisions-v202',?)",(json.dumps(current),))
             state.db.execute("INSERT OR REPLACE INTO controls VALUES (?,?)",(key,token))
             state.db.commit()
             with state.timed("Current recorder intake and baseline"):
                 for day in recent:
-                    first=not state.db.execute("SELECT 1 FROM versions WHERE name=?",("active:"+day,)).fetchone()
-                    state.discover_day(day,args.force or day==args.day or first)
-                    state.db.execute("INSERT OR IGNORE INTO versions VALUES (?,1)",("active:"+day,))
+                    state.discover_day(day,True)
                 state.db.commit()
                 prepare(state,daily,auto,recent)
             shown=set()
@@ -613,12 +714,15 @@ def main():
                     from review_unreviewed_queue import ReviewQueue
                     if ReviewQueue(root).load()["items"]:
                         break
-            daily.create_next_day_folders(root,today)
+            schedule_final(state,today,days)
         report(state,daily,days)
+        state.db.execute("INSERT OR REPLACE INTO notes VALUES (?,?)",("heat-calendar-v202",today))
         state.db.execute("INSERT INTO timing VALUES (?,?,?,?)",(state.run,"Total elapsed (includes human review)",time.perf_counter()-state.start,"complete"))
         state.db.commit()
         if os.name=="nt" and (root/"Daily_Run_Reports"/"index.html").exists():
             os.startfile(root/"Daily_Run_Reports"/"index.html")
+        print(f"Run Daily complete in {time.perf_counter()-state.start:.1f} seconds. Collection date {today}.")
+        print("Verified heat map:",root/"Daily_Run_Reports"/"Verified_Bat_Activity"/"index.html")
         print("Timing and quarantine database:",home/"daily_tasks.sqlite")
     return 0
 
