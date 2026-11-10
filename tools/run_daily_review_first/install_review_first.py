@@ -132,6 +132,17 @@ def experimental_patch(src):
     src=change(src,"if harmonic.exists() and not","if days is None and harmonic.exists() and not")
     src=change(src,"    for p in dest.glob('*/*/*/record.json'):",'''    previous=dest.glob('*/*/*/record.json') if days is None else (p for day in days for p in dest.glob('*/'+day+'/*/record.json'))
     for p in previous:''')
+    marker="    core.csv_write(dest/'issues.csv',issues,['file','error'])"
+    src=change(src,marker,"""    path=dest/'issues.csv'
+    if days is not None and path.is_file():
+        keep=set(days)
+        with path.open(encoding='utf-8-sig',newline='') as stream:
+            for old in csv.DictReader(stream):
+                name=old['file']
+                affected=any(part in keep for part in PureWindowsPath(name).parts)
+                if name.startswith('experimental__'):affected=name.split('__')[1] in keep
+                if not affected:issues.append(old)
+    core.csv_write(path,issues,['file','error'])""")
     return src
 
 

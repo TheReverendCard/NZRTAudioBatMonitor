@@ -339,9 +339,10 @@ def import_receiver(state,kind):
                         state.reject(key,sig," | ".join(result["errors"]))
                     if result.get("status")=="wifi_imported":
                         for offset in (-1,0,1):
-                            target=(timestamp+timedelta(days=offset)).strftime("%Y%m%d")
+                            target=(timestamp.astimezone(ZoneInfo("Pacific/Auckland"))+timedelta(days=offset)).strftime("%Y%m%d")
                             if (root/target).is_dir():
-                                state.put("night",target)
+                                state.put("timeline-day",target)
+                                state.put("final","timelines")
             elif kind=="sd":
                 if sd.DEVICE.fullmatch(path.parent.parent.name) and sd.SESSION.fullmatch(path.parent.name) and sd.WAV_NAME.fullmatch(path.name):
                     try:
@@ -449,10 +450,53 @@ def schedule_final(state,today,days):
         state.put("score-night",day)
         state.put("publish","reports")
         receipts=root/"Daily_Run_Reports"/day
+        if day in state.pending("receipt-day") or day in state.pending("timeline-day"):continue
         if not any((json.loads(f.read_text(encoding="utf-8-sig")).get("status")=="complete")
                    for f in (receipts/"review_first_receipt.json",receipts/"receipt.json") if f.is_file()):
             state.put("night",day)
     state.db.commit()
+
+
+def recover_v202(state):
+    """Adopt only outputs from the interrupted, audited v2.0.2 batch."""
+    if state.db.execute("SELECT 1 FROM versions WHERE name='timeline-jobs-v203'").fetchone():return
+    pending=state.pending("timeline-day")
+    previous=state.db.execute("SELECT run,result FROM timing WHERE stage='Recorder timelines' ORDER BY run DESC LIMIT 1").fetchone()
+    root=state.root
+    audit=root/"Daily_Run_Reports"/"Review_Plot_Audit"/"latest.json"
+    issues=root/"Experimental_Review"/"issues.csv"
+    index=root/"Experimental_Review"/"index.html"
+    audited={}
+    if previous and previous[1]=="failed" and pending:
+        try:
+            start=int(previous[0])
+            end=audit.stat().st_mtime_ns
+            if start<=end<=issues.stat().st_mtime_ns<=index.stat().st_mtime_ns:
+                data=json.loads(audit.read_text(encoding="utf-8-sig"))
+                if data.get("mismatches")==[]:audited=data["days"]
+        except (ValueError,KeyError,OSError):pass
+    reused=[]
+    for day in pending:
+        products=[root/"Daily_Timeline"/day/name for name in ("index.html","timeline.json")]
+        products.extend(root/"Matched"/"Acoustic"/day/name for name in ("pairs.json","index.html"))
+        if day in audited and all(p.is_file() and start<=p.stat().st_mtime_ns<=end for p in products):
+            state.put("receipt-day",day)
+            state.db.execute("DELETE FROM jobs WHERE stage='timeline-day' AND item=?",(day,))
+            reused.append(day)
+        else:
+            state.put("experimental-day",day)
+    if reused:print("Resuming after verified v2.0.2 timeline and experimental output for",len(reused),"date(s).",flush=True)
+    state.db.execute("INSERT INTO versions VALUES ('timeline-jobs-v203',1)")
+    state.db.commit()
+
+
+def open_report_pages(root):
+    for path in (root/"Daily_Run_Reports"/"index.html",root/"Daily_Run_Reports"/"Verified_Bat_Activity"/"index.html"):
+        if path.is_file():
+            print("Report:",path,flush=True)
+            if os.name=="nt":
+                try:os.startfile(path)
+                except OSError as exc:print("Could not open report:",exc,flush=True)
 
 
 def report(state,daily,days):
@@ -503,12 +547,12 @@ def report(state,daily,days):
                 daily.export_summaries(bmps,root/"Daily_Run_Reports"/day/folder)
             state.put("final","timelines")
             state.put("timeline-day",day)
+            state.put("experimental-day",day)
             state.done("night",day)
     if "timelines" in state.pending("final"):
         dirty=state.pending("timeline-day")
         if dirty:
             with state.timed("Recorder timelines"):
-                import experimental_review
                 from review_plot_audit import audit
                 import re
                 index=root/"Daily_Timeline"/"index.html"
@@ -529,14 +573,21 @@ def report(state,daily,days):
                 temp.replace(index)
                 if audit(root,dirty,excluded=quarantined):
                     raise RuntimeError("Grade-to-timeline reconciliation failed")
-                if experimental_review.sync(root,daily.core,days=dirty,excluded=quarantined):
-                    raise RuntimeError("Experimental review reconciliation needs attention")
-                for complete in dirty:
-                    receipt=root/"Daily_Run_Reports"/complete/"review_first_receipt.json"
-                    daily.core.write_json(receipt,{"status":"complete","day":complete,"finished_utc":daily.now(),"scope":"Review-first intake, baseline, reconciliation and timeline"})
+                for day in dirty:state.put("receipt-day",day)
                 for day in dirty:
                     state.done("timeline-day",day)
         state.done("final","timelines")
+    dirty=state.pending("experimental-day")
+    if dirty:
+        import experimental_review
+        with state.timed("Experimental AviaNZ reconciliation"):
+            excluded={r[0] for r in state.db.execute("SELECT path FROM quarantine")}
+            experimental_review.sync(root,daily.core,days=dirty,excluded=excluded)
+            for day in dirty:state.done("experimental-day",day)
+    for day in state.pending("receipt-day"):
+        receipt=root/"Daily_Run_Reports"/day/"review_first_receipt.json"
+        daily.core.write_json(receipt,{"status":"complete","day":day,"finished_utc":daily.now(),"scope":"Review-first intake, baseline and audited timeline"})
+        state.done("receipt-day",day)
     if state.pending("publish"):
         with state.timed("Cumulative summary"):
             changed=state.pending("summary-file")
@@ -551,7 +602,16 @@ def report(state,daily,days):
             if r:
                 checks.append((day,r.get("status")=="complete",r.get("scope",r.get("status","unknown"))))
         quarantine_count=state.db.execute("SELECT count(*) FROM quarantine").fetchone()[0]
-        daily.status_page(root,checks,[f"{quarantine_count} quarantined input(s). See Daily Timing and Quarantine for details."] if quarantine_count else [])
+        warnings=[]
+        issues=root/"Experimental_Review"/"issues.csv"
+        if issues.is_file():
+            with issues.open(encoding="utf-8-sig",newline="") as f:issue_count=sum(1 for row in csv.DictReader(f))
+            if issue_count:
+                message=f"Experimental AviaNZ has {issue_count} outstanding issue(s). Details: {issues}"
+                warnings.append(message)
+                print(message,flush=True)
+        if quarantine_count:warnings.append(f"{quarantine_count} quarantined input(s). See Daily Timing and Quarantine for details.")
+        daily.status_page(root,checks,warnings)
         generation=state.db.execute("SELECT value FROM versions WHERE name='reports'").fetchone()[0]
         def measured(name,cmd,**kwargs):
             if state.db.execute("SELECT 1 FROM completed WHERE stage=? AND generation=?", (name,generation)).fetchone():
@@ -632,6 +692,7 @@ def main():
     home=root/"Daily_Run_Reports"/"Daily_Integration"
     with exclusive(home/"review_first.lock"):
         with run_lock(root,"review-first"):
+            recover_v202(state)
             auto=daily.ensure_source_cli(root,daily.core.read_json(daily.AUTO,{}))
             days=state.dates()
             now=datetime.now(ZoneInfo("Pacific/Auckland"))
@@ -676,7 +737,8 @@ def main():
                          for day,rows in by_day.items()}
                 for day in before.keys()|current.keys():
                     if before.get(day)!=current.get(day):
-                        state.put("night",day)
+                        state.put("timeline-day",day)
+                        state.put("final","timelines")
                         state.put("publish","reports")
                 state.db.execute("INSERT OR REPLACE INTO notes VALUES ('manual-decisions-v202',?)",(json.dumps(current),))
             state.db.execute("INSERT OR REPLACE INTO controls VALUES (?,?)",(key,token))
@@ -715,12 +777,27 @@ def main():
                     if ReviewQueue(root).load()["items"]:
                         break
             schedule_final(state,today,days)
-        report(state,daily,days)
+        try:
+            report(state,daily,days)
+        except Exception as exc:
+            # Flag this run explicitly even when only older companion reports exist.
+            print("Daily reporting incomplete:",exc,flush=True)
+            try:
+                checks=[]
+                for day in days:
+                    folder=root/"Daily_Run_Reports"/day
+                    saved=daily.core.read_json(folder/"review_first_receipt.json",{}) or daily.core.read_json(folder/"receipt.json",{})
+                    if saved:checks.append((day,saved.get("status")=="complete",saved.get("scope","Previously saved receipt")))
+                daily.status_page(root,checks,[f"Run {today} stopped during reporting: {exc}. Companion pages may show earlier results."])
+                import post_daily_sync
+                post_daily_sync.home_links(root)
+            finally:
+                open_report_pages(root)
+            raise
         state.db.execute("INSERT OR REPLACE INTO notes VALUES (?,?)",("heat-calendar-v202",today))
         state.db.execute("INSERT INTO timing VALUES (?,?,?,?)",(state.run,"Total elapsed (includes human review)",time.perf_counter()-state.start,"complete"))
         state.db.commit()
-        if os.name=="nt" and (root/"Daily_Run_Reports"/"index.html").exists():
-            os.startfile(root/"Daily_Run_Reports"/"index.html")
+        open_report_pages(root)
         print(f"Run Daily complete in {time.perf_counter()-state.start:.1f} seconds. Collection date {today}.")
         print("Verified heat map:",root/"Daily_Run_Reports"/"Verified_Bat_Activity"/"index.html")
         print("Timing and quarantine database:",home/"daily_tasks.sqlite")

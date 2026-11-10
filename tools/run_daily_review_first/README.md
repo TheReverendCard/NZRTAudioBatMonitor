@@ -1,5 +1,9 @@
 # Bat Daily review-first update
 
+Version 2.0.3 fixes the stop after “Experimental AviaNZ review ... issues.”  Individual experimental discrepancies remain in Experimental_Review/issues.csv and appear as a warning on the daily status page.  A completed grade-to-plot audit, experimental reconciliation, and receipt publication now have separate checkpoints.  An RT log or manual clock change queues timeline work without regenerating recorder workbooks or experimental results.  On Windows the daily status and verified activity pages open after publication.  A reporting exception still exits with an error and opens the available reports with a failure notice on the daily status page.
+
+When upgrading a stopped v2.0.2 run, the runner checks the failed timeline run, zero-mismatch audit and output timestamps before accepting existing timeline, acoustic and experimental products.  Dates without matching evidence are rebuilt.  Existing pending model work continues through the normal scoring checks.  A regression run reproduced the v2.0.2 traceback with eight experimental input errors, upgraded the failed installation, and published both reports without replaying its audited timeline or recorder summaries.  The errors remained visible on the status page and in issues.csv.  The test substituted the GUI and model predictions.
+
 Version 2.0.2 upgrades v2 and v2.0.1 directly.  Finish the active run before installing.  Both Run Daily windows pause after success or failure so the results can be copied.  Unattended callers can set BAT_DAILY_NO_PAUSE=1.
 
 This release includes the v2.0.1 Windows startup repair for the optional v1.2 checkpoint.  If the old checkpoint cannot be read, the runner reports it and continues with existing task state and per-day receipts.  The first inventory of previously uncatalogued folders may take longer.

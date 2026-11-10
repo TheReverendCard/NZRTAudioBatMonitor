@@ -136,6 +136,15 @@ class Checkpoints(unittest.TestCase):
             f.write(f"{self.day},{source},bmp_cnn,0.5\n")
         self.assertEqual(3,len(check_predictions(folder,self.day,[(source,"stamp")])))
 
+    def test_failed_timeline_without_matching_audit_stays_pending(self):
+        from review_first_daily import recover_v202
+        self.state.put("timeline-day",self.day)
+        self.state.db.execute("INSERT INTO timing VALUES (?,?,?,?)",(self.state.run,"Recorder timelines",4,"failed"))
+        recover_v202(self.state)
+        self.assertEqual([self.day],self.state.pending("timeline-day"))
+        self.assertEqual([self.day],self.state.pending("experimental-day"))
+        self.assertFalse(self.state.pending("receipt-day"))
+
     def test_failed_step_has_timing_but_remains_pending(self):
         self.state.put("night",self.day)
         with self.assertRaises(ValueError):
