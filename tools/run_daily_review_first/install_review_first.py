@@ -255,6 +255,18 @@ def install(tool,restore=False):
     manifest=backup/"install.json"
     if manifest.exists():
         saved=json.loads(manifest.read_text())
+        # Upgrade just the released v2 reader. Preserve the original rollback baseline.
+        name = "daily_state.py"
+        previous = "541236cddeb9eb941832fb1cbc74a521fcbf3a36b9983988026bf25ee61219e0"
+        if not restore and saved.get(name,{}).get("installed") == previous:
+            replacement = (HERE/name).read_bytes()
+            current = digest((tool/name).read_bytes())
+            if current not in (previous,digest(replacement)):
+                raise ValueError("Locally modified file: "+str(tool/name))
+            if current == previous:
+                write(tool/name,replacement)
+            saved[name]["installed"] = digest(replacement)
+            write(manifest,json.dumps(saved).encode())
         for name,expected in saved.items():
             p=tool/name
             if p.exists() and digest(p.read_bytes()) not in (expected["installed"],expected["before"]):

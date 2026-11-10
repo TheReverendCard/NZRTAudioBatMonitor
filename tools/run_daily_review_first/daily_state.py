@@ -45,20 +45,40 @@ class State:
         self.receipts = {}
         self.seal_ns = 0
         legacy = home / "Incremental_State_v3.sqlite3"
-        if legacy.is_file():
-            self.db.execute("ATTACH DATABASE ? AS archived", (legacy.resolve().as_uri()+"?mode=ro",))
-            row = self.db.execute("SELECT value FROM archived.meta WHERE key='seal'").fetchone()
-            if row:
+        self.archive = None
+        try:
+            if legacy.is_file():
+                # URI interpretation must be enabled on this SQLite connection.
+                self.archive = sqlite3.connect(legacy.resolve().as_uri()+"?mode=ro", uri=True, timeout=1)
+                self.archive.execute("BEGIN")
+                row = self.archive.execute("SELECT value FROM meta WHERE key='seal'").fetchone()
+                if row is None:
+                    raise ValueError("no completed seal")
                 seal = json.loads(row[0])
-                if seal.get("root") == str(root):
-                    self.seal_ns = int(datetime.fromisoformat(seal["created_utc"]).timestamp()*1e9)
+                if not isinstance(seal, dict) or Path(seal["root"]) != root:
+                    raise ValueError("seal belongs to another recording root")
+                self.seal_ns = int(datetime.fromisoformat(seal["created_utc"]).timestamp()*1e9)
+        except (sqlite3.DatabaseError, OSError, ValueError, TypeError, KeyError, OverflowError) as error:
+            self.skip_archive(error)
+
+    def skip_archive(self, error):
+        if self.archive is not None:
+            self.archive.close()
+            self.archive = None
+        self.seal_ns = 0
+        print(f"Previous incremental checkpoint unavailable ({error}). Continuing with saved daily work and per-day receipts.", flush=True)
 
     def seed(self, rel, info, zone, recursive):
         """Reuse known membership; do not acknowledge unprocessed additions."""
-        if not self.seal_ns or not self.db.execute(
-                "SELECT 1 FROM archived.folder WHERE path=?", (rel,)).fetchone():
+        if self.archive is None or not self.seal_ns:
             return None
-        rows = self.db.execute("SELECT path,size,mtime_ns FROM archived.source WHERE folder=?", (rel,))
+        try:
+            if not self.archive.execute("SELECT 1 FROM folder WHERE path=?", (rel,)).fetchone():
+                return None
+            rows = self.archive.execute("SELECT path,size,mtime_ns FROM source WHERE folder=?", (rel,)).fetchall()
+        except sqlite3.DatabaseError as error:
+            self.skip_archive(error)
+            return None
         for path, size, mtime in rows:
             self.db.execute("INSERT OR IGNORE INTO media VALUES (?,?,?,?)",
                             (path,rel,f"{size}/{mtime}",zone))

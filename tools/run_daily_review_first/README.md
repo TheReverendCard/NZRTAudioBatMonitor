@@ -1,5 +1,7 @@
 # Bat Daily review-first update
 
+Version 2.0.1 fixes Windows startup when opening the optional v1.2 checkpoint.  Extract this version and run **Install Review First.bat** directly over v2.  It updates the reader and its rollback manifest.  If the old checkpoint cannot be read, the runner reports it and continues with existing task state and per-day receipts.  The first inventory of previously uncatalogued folders may take longer.
+
 Release candidate for the BatDailyTool installation supplied on 11 November 2026.  Both Run Daily launchers use the same Python entry point.
 
 ## Install and run

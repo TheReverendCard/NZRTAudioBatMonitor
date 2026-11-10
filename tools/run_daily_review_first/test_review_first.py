@@ -21,6 +21,53 @@ class Checkpoints(unittest.TestCase):
         self.state=State(self.root)
         self.addCleanup(self.state.db.close)
 
+    def test_readonly_sealed_legacy_checkpoint(self):
+        root=self.root/"Bat #1 % data"
+        home=root/"Daily_Run_Reports"/"Daily_Integration"
+        home.mkdir(parents=True)
+        path=home/"Incremental_State_v3.sqlite3"
+        conn=sqlite3.connect(path)
+        conn.executescript("CREATE TABLE meta(key,value); CREATE TABLE folder(path); CREATE TABLE source(path,size,mtime_ns,folder)")
+        conn.execute("INSERT INTO meta VALUES ('seal',?)",(json.dumps({"root":str(root),"created_utc":"2026-11-10T00:00:00+00:00"}),))
+        conn.execute("INSERT INTO folder VALUES ('recorder')")
+        conn.execute("INSERT INTO source VALUES ('recorder/example.bmp',42,10,'recorder')")
+        conn.commit()
+        conn.close()
+        before=path.read_bytes()
+        state=State(root)
+        self.addCleanup(state.db.close)
+        self.addCleanup(state.archive.close)
+        with self.assertRaisesRegex(sqlite3.OperationalError,"readonly"):
+            state.archive.execute("DELETE FROM meta")
+        state.seed("recorder",None,"local",False)
+        self.assertEqual(state.db.execute("SELECT sig FROM media").fetchone()[0],"42/10")
+        self.assertEqual(before,path.read_bytes())
+
+    def test_failed_legacy_open_preserves_pending_work(self):
+        self.state.put("prepare","pending.bmp")
+        self.state.db.commit()
+        path=self.root/"Daily_Run_Reports"/"Daily_Integration"/"Incremental_State_v3.sqlite3"
+        path.touch()
+        connect=sqlite3.connect
+        def simulate(path,*args,**kwargs):
+            if str(path).startswith("file:"):
+                raise sqlite3.OperationalError("unable to open database")
+            return connect(path,*args,**kwargs)
+        with patch("daily_state.sqlite3.connect",side_effect=simulate):
+            state=State(self.root)
+        self.addCleanup(state.db.close)
+        self.assertEqual(state.pending("prepare"),["pending.bmp"])
+        self.assertIsNone(state.archive)
+        self.assertIsNone(state.seed("recorder",None,"local",False))
+
+    def test_damaged_optional_checkpoint_does_not_block_startup(self):
+        path=self.root/"Daily_Run_Reports"/"Daily_Integration"/"Incremental_State_v3.sqlite3"
+        path.write_bytes(b"damaged database header")
+        state=State(self.root)
+        self.addCleanup(state.db.close)
+        self.assertIsNone(state.archive)
+        self.assertEqual(path.read_bytes(),b"damaged database header")
+
     def test_unchanged_night_never_enumerates_members(self):
         (self.folder/"initial.bmp").write_bytes(b"a")
         self.state.discover_day(self.day)
