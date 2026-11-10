@@ -1,0 +1,18 @@
+{
+  "WildlifeDetector.cpp": {
+    "original": "fb3173f2123e35d9476b00c8db7dfb4720e3454377b3e39defdd3225cdad15bd",
+    "live": "0d0ceb0e8becae93702bdd0f83222a45f40db77761eec584d7990b6f5a5ee06a"
+  },
+  "WildlifeML.cpp": {
+    "original": "40067560cb504914c650082632010750c28a5efc13edd47b9fec73b294ef346c",
+    "live": "684fb8a60f821675a67faf8b22db369e37f7642b21fb40a56f8be736f004908d"
+  },
+  "WildlifeMic.cpp": {
+    "original": "bd553d36d49facb6a5fc97ec0e4bc3fd68ba80f82486cd996682f3a4613d65c3",
+    "live": "a10fa70223fcf395a0737b0a299014835b57f6210338c3345c0ec0e04d11f6b1"
+  },
+  "WildlifeUpload.h": {
+    "original": "f2b073c4e387bab33b1abd4f3cd64a18e9e38f32f8f55607513f77271e2acbfe",
+    "live": "2fca89f634aad7348b0abec95932f1d791cbda7c17d00ee4fcaa3004853f29ea"
+  }
+}

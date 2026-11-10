@@ -1,5 +1,9 @@
 # XiaoRT reconstruction status
 
+## 11 November 2026 update
+
+Field serial output confirmed JOURNAL-4 quarantined the damaged journal and resumed verified writes. The daytime wake test still showed DSP drops and gaps, eight missed clip triggers and no completed WAV. The LIVE-1 source overlay adds independent candidate reporting while monitoring, reduces acoustic processing cost and adds a field acceptance check. See [RT live repair](rt_live_repair/README.md) for the implementation, host tests, deployment and outstanding hardware verification. The older recovery entries below are historical.
+
 Updated 6 November 2026.  Last supported field identity: `NZRT-FIELD-PILOT-5-WIFI-2-JOURNAL`.  Fresh owner-supplied COM8 status on 6 November confirms this build identifier; not a binary-to-source identity claim.
 
 ## Evidence
