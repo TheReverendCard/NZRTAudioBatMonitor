@@ -1,0 +1,32 @@
+# Bat Daily review-first update
+
+Release candidate for the BatDailyTool installation supplied on 11 November 2026.  Both Run Daily launchers use the same Python entry point.
+
+## Install and run
+
+1. Extract this package into a separate folder and close any running Daily or FastAviaNZ session.
+2. Run **Install Review First.bat**.  It uses the existing Python in Documents/Bat/BatDailyTool.  The installer checks the local source before it writes and keeps the original program files under Program_Backups/review_first_v1.
+3. Run **Run Daily with Final Review.bat** in BatDailyTool.  Operator defaults to **Auto** and Reviewer to **Jesse Card - Untrained**.  The original recording is updated through the existing grade reconciliation and conflict checks.
+4. **Daily Timing and Quarantine.bat** in the extracted folder shows the last five runs.  Time to first review launch ends when Bat Daily calls the GUI launcher.  Qt and AviaNZ startup occur inside the review stage.  Nested timings overlap.  Total elapsed includes the time spent grading.
+5. **Restore Previous Daily.bat** restores the original program files.  The source-only rollback leaves recordings, grades, machine snapshots and reports in place.
+
+## Daily sequence
+
+- Check the recorder folders, known External Data sites and the receiver's Clips, RT_Clips and RT inputs.  Store directory membership in SQLite.  On ordinary repeats the discovery step checks directory timestamps and lists members only for changed directories.  The old global plan, seal and duplicate review walkthrough are out of the daily path.
+- Reuse the v1.2 recording inventory when it has a successful seal for this installation.  Without it, completed per-day receipts can seed known inputs.  Uncatalogued inputs need an initial inventory.  On the first run current recordings get a review window before historical initialization when there is current work to review.
+- Prepare changed WAVs and BMPs, classify through the installed isolated control CLI, retain machine snapshots, then open the bounded FastAviaNZ queue.  A missing historical comparison needed for a queued recording is reconstructed from a separate BMP copy.  Its origin is recorded as reconstructed.  Reviewed originals and immutable existing snapshots keep their provenance.
+- Run archive exports, affected nightly summaries, acoustic matching, recorder timelines, review-to-plot audit, cumulative reports, verified activity exports and model work after review.  The collection-date folders for tomorrow are provisioned as before.  Model input selection uses changed canonical nights and the saved eligible file list.  A grade-only change refreshes labels and reports.
+- Both sides of an AR4/XiaoSD acoustic pair need human grade 4 or 5.  Existing per-recording features and per-pair scores remain reusable.  Independent eligible AR4 comparisons can use two workers.  Manual calibration remains available and refits after a saved decision.  Daily processing skips the legacy harmonic workflow.
+- Successful new control batches release their temporary input copies.  Failed batch diagnostics remain available.  The dashboard, model runner and reviewer use separate source identities for Shed, South and Other.  Quarantine records identify the source path, input signature and failure reason.  A changed recording or sidecar can become eligible again.  The original media stays at its existing path.
+
+## Checkpoints and historical edits
+
+State and timings live in Daily_Run_Reports/Daily_Integration/daily_tasks.sqlite.  Directory membership and pending work commit together.  Completed preparation, receiver imports, review sync, per-night processing and successful model stages are recorded progressively.  A changed date can rebuild its timeline as a unit to preserve within-night event relationships.  The workbook and dashboard still assemble whole-project summaries.  Cached facts supply historical rows and media hashes.
+
+For an in-place edit by another program that preserves a historical folder's directory timestamp, run `Run Daily with Final Review.bat --day YYYYMMDD`.  Normal FastAviaNZ grading through the daily queue schedules reconciliation directly.  `--full-rescan` checks all expected input memberships explicitly.  Existing inspection, deep-verification and recovery tools remain available independently.  An already active Daily lock still takes precedence.
+
+## Verification and limits
+
+The patch was applied to an extracted copy of the supplied installation and rolled back against the original files.  Tests exercised a late historical arrival, nested external intake, unchanged directory checks, quarantine, saved work across reopen, and stable queue-generated sidecars.  Integration fixtures exercised canonical AR4 and XiaoSD media, a late historical Wi-Fi SD recording, receipt-validated 192 kHz RT audio, a separate Other-site AR4 recording, an unreadable BMP, grade sync, FLAC, timelines, grade-to-plot auditing, report inventory, dashboard generation and an unchanged repeat.  The tests used stand-ins at the model inference and interactive GUI boundaries.  Windows Qt rendering, the installed recogniser runtimes and real field timings require the owner's machine.
+
+The delivered ZIP contains update code and documentation only.  The supplied ZIP's virtual environment is approximately 282 MB uncompressed.  The program backups also contain duplicate example images and the old diagnostic run contains a copy of the sample BMP.  Those directories are outside routine discovery.  Existing backups, diagnostics, evidence archives and historical harmonic files are retained.
