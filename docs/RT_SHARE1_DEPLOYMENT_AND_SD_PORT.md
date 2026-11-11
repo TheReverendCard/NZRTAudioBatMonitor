@@ -1,0 +1,25 @@
+# SHARE-1 field deployment and SD firmware handoff
+
+The owner deployed NZRT-J4-SHARE-1 on the XIAO ESP32-S3 RT board on 11 November 2026 (NZDT). The daytime playback check verified one shared capture through receiver acknowledgement. Overnight coverage and field sensitivity await a night of data. The SD recorder remains the comparison recorder.
+
+## Deployed behaviour and evidence
+
+- The RT listens for ultrasonic candidates and keeps two seconds of mono 192 kHz PCM per armed clip (250 ms before the trigger, 1,750 ms after it). In ordinary WAV-enabled operation, a candidate starting inside a valid, still-filling clip in the same run records the parent's sequence ID. It consumes no additional clip slot and does not extend the parent. Each candidate still has a journal entry. Candidate counts therefore cannot be used as pass counts.
+- The full XIAO repeater build compiled and linked. Installer and rollback round-tripped on the reference source. The owner-facing patch is NZRT_SHARE1.zip, SHA-256 f21a0219558e8487c837715c0a75785e2f5b5805517f28ad90fde5465d8b0b72. It applies to BUFFER-1 plus the overlap optimisation. The deployed recogniser is builtin-wav-mlp-v01 in shadow mode. In the tested WAV-enabled configuration a complete clip can be sent regardless of its score.
+- Before sharing, two triggers 360 ms apart occupied both slots. During that run eight subsequent tester pulses logged busy. Three received WAVs each contained 384,000 samples and their PCM checksums matched. In the SHARE-1 playback check, session 56d228a8/run 1, candidate 2 shared candidate 1's WAV. Both candidates were journalled, the parent was acknowledged, and its receiver metadata recorded a valid 384,000-sample capture. Playback belongs in equipment-test evidence.
+- At handover, the field check reported automatic scheduling, synced clock, daytime standby and no override. The reported sunset implied a scheduled start around 19:33 NZDT. This was a scheduled transition, not an observed overnight start.
+
+## Performance and recogniser trials
+
+Reusing 512 filtered samples in overlapping FFT windows and skipping zero FIR coefficients preserved all 165 feature values on the tested inputs. On the S3, two reversed-order comparisons on the same two-second synthetic signal gave 38.31 to 8.36 seconds and 23.72 to 8.84 seconds. Live scoring on two earlier ordinary clips with the optimisation took 18.2 and 24.6 seconds under load. Slot occupancy and missed candidates still need measurement.
+
+The 26–44 kHz two-pulse trigger and v2 WAV MLP were evaluated **offline** on 862 previously examined recordings. All 17 bat-labelled recordings contained a qualifying pair and a complete two-second clip. Of 845 noise recordings, 482 had a scoreable clip, 42 had only boundary pairs and 321 had no pair. At the v2 threshold of 0.97346 the first clip retained 14/17 bat recordings and accepted two noise recordings. Lowering the threshold retrospectively to 0.88 retained 16/17 with two noise acceptances. Retrying at the original threshold retained 16/17 with four noise acceptances and required 626 evaluations instead of 499. These are recording-level results on four historical nights. The two-pulse rule, v2 model and lower threshold remain trial settings.
+
+## SD port and future shared implementation
+
+1. Make the unit of reported activity an acoustic pass or bout. Open one ID on qualification, remember the last activity, and use an inexpensive activity check during capture. Near the end, retain contiguous audio under the same ID if activity continues. Close after a quiet gap calibrated against reviewed passes. Preserve explicit gaps and distinguish a pass spanning multiple files from two separate passes. This is proposed work on both recorders; SHARE-1 only shares a filling clip.
+2. Share the pass state machine, audio ownership rules and event schema. Include session/run, pass ID, clip owner, sample range, continuity, trigger reason and recogniser version/decision. Keep SD writes and Wi-Fi delivery as separate storage interfaces. On SD, record successful file completion; on RT, record receiver acknowledgement. Either outcome can fail after the trigger.
+3. Port feature reuse only where the SD build computes the compatible features. Preserve native recording rates and stable SD recording behaviour. Use identical PCM to check feature parity at the appropriate input rate. Measure dropped blocks, write gaps, processing time and queue occupancy during acquisition.
+4. Before using a recogniser to discard audio, compare the two firmwares on the same reviewed material and co-located field nights. Check quiet or single-pulse calls, sustained activity crossing a clip boundary, two passes separated by quiet, and dropped audio. Track passes and complete WAVs separately. Save periodic reference audio and sample rejected triggers to audit missed activity.
+
+Next field handoff: check actual overnight acquisition start, gap/busy counters, parent linkage, received WAVs and agreement with the SD/AR4 reference before changing thresholds or counting passes.
