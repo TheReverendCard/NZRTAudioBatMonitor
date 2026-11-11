@@ -1,5 +1,9 @@
 # Shared development log and handoff
 
+## 11 November 2026 | RT deployed, SD port pending
+
+The owner deployed SHARE-1 after verifying shared capture and receiver acknowledgement. The next shared firmware milestone is one activity record per pass. See the [deployment evidence and SD port checklist](RT_SHARE1_DEPLOYMENT_AND_SD_PORT.md).
+
 ## 2026-10-17:  project baseline
 
 ### Agreed direction
