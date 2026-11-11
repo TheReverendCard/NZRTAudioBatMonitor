@@ -1,0 +1,66 @@
+{
+  "split_method": "Existing Phase 1 night split",
+  "seed": 461,
+  "generations": 300,
+  "population": 48,
+  "device": "cpu",
+  "validation_recall_target": 0.98,
+  "met_validation_target": true,
+  "winner": 3,
+  "weights": [
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      -3,
+      -5
+    ],
+    [
+      0,
+      -2,
+      2
+    ],
+    [
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      3,
+      0
+    ]
+  ],
+  "bias": [
+    0.0,
+    -0.5,
+    2.5
+  ],
+  "threshold": 1.0,
+  "estimated_multiplies_s_192k": 4608800,
+  "duplicate_rows_collapsed": 0,
+  "conflicting_rows_excluded": 0,
+  "counts": {
+    "train": {
+      "bats_kept": 55,
+      "bats_missed": 0,
+      "noise_kept": 733,
+      "noise_suppressed": 5186
+    },
+    "validation": {
+      "bats_kept": 8,
+      "bats_missed": 0,
+      "noise_kept": 3,
+      "noise_suppressed": 186
+    },
+    "test": {
+      "bats_kept": 8,
+      "bats_missed": 1,
+      "noise_kept": 55,
+      "noise_suppressed": 601
+    }
+  }
+}
