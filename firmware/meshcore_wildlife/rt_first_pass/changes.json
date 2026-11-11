@@ -1,0 +1,187 @@
+{
+ "WildlifeML.cpp": {
+  "before": "5f987334d54621eedb37cd3f3f8a7f26d0510bde0e3a833bd947cefe50647e78",
+  "after": "a3105a42651021715e0eeaa2cc8cd8667fe6515c3cf5f200d0a5a649ec82b6f9",
+  "edits": [
+   [
+    2,
+    2,
+    "#include \"WildlifeDetector.h\"\n"
+   ],
+   [
+    29,
+    29,
+    " unsigned passCfg=8;\n"
+   ],
+   [
+    180,
+    180,
+    "\nbool passCommand(const String& cmd){\n char msg[320];\n if(cmd==\"pass status\"){WildlifeDetector::passStatus(msg,sizeof(msg));note(msg);return true;}\n for(unsigned a=0;a<3;++a)for(unsigned s=0;s<4;++s){\n   if(s==a+1)continue;\n   if(cmd!=String(\"pass \")+WildlifeDetector::passName(a)+\" \"+(s?WildlifeDetector::passName(s-1):\"off\"))continue;\n   unsigned cfg=a+4*s;\n   if(!WildlifeDetector::preparePass(cfg)){note(\"NZRT FIRST_PASS error=resource\");return false;}\n   Preferences p;if(!p.begin(\"nzrt-ml\",false))return false;\n   bool saved=p.getUInt(\"pass1\",255)==cfg || p.putUInt(\"pass1\",cfg)>0;p.end();\n   if(saved)WildlifeDetector::requestPass(cfg);\n   WildlifeDetector::passStatus(msg,sizeof(msg));note(msg);\n   return saved && WildlifeDetector::passApplied(cfg);\n }\n note(\"NZRT FIRST_PASS invalid_selection\");return false;\n}\n\n"
+   ],
+   [
+    192,
+    193,
+    " bool ok=last==id && !cmd.startsWith(\"pass \");\n"
+   ],
+   [
+    194,
+    195,
+    "  if(cmd.startsWith(\"pass \"))ok=passCommand(cmd);\n  else if(cmd==\"record now\" || cmd==\"test on\" || cmd==\"test off\" || cmd==\"scan off\" || cmd.startsWith(\"scan every \")){ok=testCommand(cmd.c_str());}\n"
+   ],
+   [
+    209,
+    210,
+    "  if(ok && last!=id){bool saved=p.begin(\"nzrt-ml\",false);if(saved){saved=p.putString(\"control\",id)>0;p.end();}ok=saved;}\n"
+   ],
+   [
+    214,
+    214,
+    "  if(cmd.startsWith(\"pass \")){char msg[320];WildlifeDetector::passStatus(msg,sizeof(msg));http.addHeader(\"X-NZRT-Pass\",msg);}\n"
+   ],
+   [
+    238,
+    238,
+    " if(!diagnostic)http.addHeader(\"X-First-Pass\",WildlifeDetector::passName(c.passCfg&3));\n"
+   ],
+   [
+    239,
+    240,
+    " http.addHeader(\"X-Firmware\",\"NZRT-J4-PASS-1\");http.addHeader(\"X-Model\",modelHash);\n"
+   ],
+   [
+    245,
+    245,
+    "bool passCaptureBusy(){for(auto& c:clips)if(c.state.load()==FILLING)return true;return scanState.load()==Sampling;}\n"
+   ],
+   [
+    246,
+    246,
+    " {Preferences p;if(p.begin(\"nzrt-ml\",true)){unsigned cfg=p.getUInt(\"pass1\",8);p.end();WildlifeDetector::requestPass(cfg);}}\n"
+   ],
+   [
+    328,
+    329,
+    "  c.passCfg=WildlifeDetector::passCurrent();c.test=false;c.rawBench=benchRaw.load() && wavEnabled.load();c.n=PRE;c.run=run;c.seq=seq;c.trigger=at;c.start=at-250;c.valid=true;c.active=activeMode.load();c.wav=wavEnabled.load();c.attempts=0;\n"
+   ],
+   [
+    430,
+    431,
+    "void status(Print& out){char pass[320];WildlifeDetector::passStatus(pass,sizeof(pass));out.println(pass);char b[512];snprintf(b,sizeof(b),\"NZRT ML_STATUS enabled=%u model=%s mode=%s wav=%s completed=%lu skipped_busy=%lu short_history=%lu gaps=%lu wav_ack=%lu wav_failed=%lu network_failures=%lu model_pending=%u psram_bytes=%lu\",\n"
+   ],
+   [
+    433,
+    433,
+    " if(!strncmp(line,\"nzrt pass \",10)){passCommand(String(line+5));return true;}\n"
+   ]
+  ]
+ },
+ "WildlifeMic.cpp": {
+  "before": "641841444d7a883f2e0f2fddea94b28186fec3cea0f25c730f62c70044e141a4",
+  "after": "6ca6bff4abbc214ba391e02f0a2459ecc5e7ee89f0089cde49f6b5febdbc260b",
+  "edits": [
+   [
+    47,
+    48,
+    "constexpr const char* BUILD_ID = \"NZRT-J4-PASS-1\";\n"
+   ],
+   [
+    248,
+    249,
+    "    \"NZRT CANDIDATE session=%08lX run=%lu seq=%lu from_ms=%lu to_ms=%lu utc_start=%lu utc_end=%lu time_source=%s peak=%.2fx score_version=%s score=%u class=%s shadow=1 pulses=%lu short_pulses=%lu pulse_mean_ms=%.2f pulse_max_ms=%.2f gap_mean_ms=%.2f freq_mean_khz=%.2f freq_min_khz=%.2f freq_max_khz=%.2f narrow_fraction=%.3f duty=%.3f harmonic_fraction=%.3f ended_reason=%u clip_request=%s clip_owner_seq=%lu bench=%d first_pass=%s pass_shadow=%s pass_shadow_hit=%u unverified=1\\n\",\n"
+   ],
+   [
+    257,
+    258,
+    "    f.duty,f.harmonic_fraction,(unsigned)ev.ended_reason,ev.clipRequest,(unsigned long)ev.clipOwnerSeq,ev.bench,WildlifeDetector::passName(ev.passConfig&3),\n    (ev.passConfig>>2)?WildlifeDetector::passName((ev.passConfig>>2)-1):\"off\",unsigned(ev.shadowMatched));\n"
+   ]
+  ]
+ },
+ "WildlifeUpload.h": {
+  "before": "554c9ddfebe538106eb244144410931d939683bacf8b22421c9875595ebd3ab5",
+  "after": "50dff9943ae8e7bbd2583be4fc4c04d961acbe3d6b197ab06fcd77ee8c685471",
+  "edits": [
+   [
+    84,
+    85,
+    "  http.addHeader(\"X-Firmware\",\"NZRT-J4-PASS-1\");\n"
+   ],
+   [
+    111,
+    112,
+    "  http.addHeader(\"X-Firmware\",\"NZRT-J4-PASS-1\");\n"
+   ]
+  ]
+ },
+ "WildlifeDetector.h": {
+  "before": "bc67e25283926898217d5e27d94a1b5523d1c0b065022de9c28df76bef10b55a",
+  "after": "69c289f42e38e8b967c9a540d21eadba78b1cc8bad953da9cd476c9f6226e598",
+  "edits": [
+   [
+    7,
+    7,
+    "const char* passName(unsigned);\nbool preparePass(unsigned);\nbool requestPass(unsigned);\nunsigned passCurrent();\nbool passApplied(unsigned);\nvoid passStatus(char*,size_t);\n"
+   ],
+   [
+    8,
+    8,
+    "  unsigned passConfig;bool shadowMatched;\n"
+   ]
+  ]
+ },
+ "WildlifeDetector.cpp": {
+  "before": "62d29ae10130cb4583f2117ae6a431771b31679111a2de7cd5206b868035069c",
+  "after": "bdbd8dc776bdf52303fc6b5cc9b5e458cba056b20038d03480245172cc1e54f7",
+  "edits": [
+   [
+    5,
+    5,
+    " bool passCaptureBusy();\n"
+   ],
+   [
+    18,
+    18,
+    "#include <new>\n#include <cstdio>\n"
+   ],
+   [
+    22,
+    22,
+    "// PASS-1. Continuous 192 kHz PCM, reset the feature history at each input gap.\nnamespace FirstPass {\nstruct Band {\n float b,a1,a2,z1=0,z2=0;\n Band(float lo,float hi){\n   const float f=sqrtf(lo*hi), w=6.28318530718f*f/192000.f;\n   const float a=sinf(w)*(hi-lo)/(2*f);\n   b=a/(1+a);a1=-2*cosf(w)/(1+a);a2=(1-a)/(1+a);\n }\n inline float step(float x){float y=b*x+z1;z1=z2-a1*y;z2=-b*x-a2*y;return y;}\n};\nBand bands[]={{18000,24000},{24000,27000},{27000,33000},{36000,44500}};\nfloat background[4],energy[4];\nunsigned warmE=0;\nbool evolved(const float* pcm){\n bool hot=false;\n for(unsigned start=0;start<3840;start+=1920){\n   for(unsigned k=0;k<4;++k){\n     float sum=0;auto& b=bands[k];\n     for(unsigned i=start;i<start+1920;++i){float y=b.step(pcm[i]);sum+=y*y;}\n     energy[k]=sum/1920.f;\n   }\n   if(warmE<5){++warmE;for(unsigned k=0;k<4;++k)background[k]+=(energy[k]-background[k])/warmE;continue;}\n   float x[4];\n   for(unsigned k=0;k<4;++k){\n     x[k]=fminf(8,energy[k]/(background[k]+1.e-12f))-1;\n     background[k]+=.05f*(energy[k]-background[k]);\n   }\n   float pos=fmaxf(0,-3*x[0]-2*x[1]+x[2]+3*x[3]-.5f);\n   float neg=fmaxf(0,-5*x[0]+2*x[1]+2.5f);\n   hot|=pos-neg>1;\n }\n return hot;\n}\n// 960-point mixed-radix DFT. Only allocated when the audible rule is enabled.\nstruct Complex {float r,i;};\nstruct Audible {\n Complex roots[960],out[960];\n float window[960],input[960],bg[2]={};\n unsigned warm=0;\n Audible(){\n   for(int j=0;j<960;++j){float a=-6.28318530718f*j/960;roots[j]={cosf(a),sinf(a)};\n     window[j]=.5f-.5f*cosf(6.28318530718f*j/959);}\n }\n void transform(Complex* dest,int n,int stride,const float* src){\n   if(n==1){*dest={*src,0};return;}\n   int radix=n%4==0?4:n%3==0?3:5, m=n/radix;\n   for(int t=0;t<radix;++t) transform(dest+t*m,m,stride*radix,src+t*stride);\n   for(int k=0;k<m;++k){\n     Complex v[5];for(int t=0;t<radix;++t)v[t]=dest[k+t*m];\n     for(int j=0;j<radix;++j){\n       int inc=(k+j*m)*stride,phase=0;Complex s=v[0];\n       for(int t=1;t<radix;++t){phase+=inc;if(phase>=960)phase-=960;\n         const auto c=roots[phase];s.r+=v[t].r*c.r-v[t].i*c.i;s.i+=v[t].r*c.i+v[t].i*c.r;}\n       dest[k+j*m]=s;\n     }\n   }\n }\n bool check(const float* pcm){\n   bool hot=false;\n   for(int start=0;start<3840;start+=960){\n     for(int i=0;i<960;++i)input[i]=pcm[start+i]*window[i];\n     transform(out,960,1,input);\n     float a=0,u=0;\n     for(int i=10;i<75;++i)a+=out[i].r*out[i].r+out[i].i*out[i].i;\n     for(int i=90;i<225;++i)u+=out[i].r*out[i].r+out[i].i*out[i].i;\n     a/=65;u/=135;\n     if(warm<10){++warm;bg[0]+=(a-bg[0])/warm;bg[1]+=(u-bg[1])/warm;continue;}\n     float ar=(a+1.e-12f)/(bg[0]+1.e-12f),ur=(u+1.e-12f)/(bg[1]+1.e-12f);\n     hot|=ur>=3.235937f && (ar<1.995262f || ur>=ar*3.981072f);\n     bg[0]+=.024690088f*(a-bg[0]);bg[1]+=.024690088f*(u-bg[1]);\n   }\n   return hot;\n }\n};\nstd::atomic<Audible*> audible{nullptr};\nvoid clear(){warmE=0;for(auto& b:bands)b.z1=b.z2=0;\n if(auto p=audible.load()){p->warm=0;p->bg[0]=p->bg[1]=0;}}\n}\n\nconstexpr unsigned DEFAULT_PASS=8; // low two bits active, next two shadow (0=off,1=legacy,2=evolved,3=audible for shadow); active 0=legacy,1=evolved,2=audible\nstd::atomic<unsigned> desiredPass{DEFAULT_PASS}, appliedPass{DEFAULT_PASS};\nstd::atomic<unsigned> passWindows{0},shadowHot{0},activeHot{0},shadowOnly{0},lastPassUs{0},maxPassUs{0};\nunsigned eventPass=DEFAULT_PASS;bool eventShadow=false;\nconst char* passName(unsigned n){return n==0?\"legacy\":n==1?\"evolved\":\"audible\";}\nbool preparePass(unsigned cfg){\n if((cfg&3)>2 || cfg>14 || (cfg>>2)==(cfg&3)+1)return false;\n if(((cfg&3)==2 || (cfg>>2)==3) && !FirstPass::audible.load()){\n   auto* p=new(std::nothrow) FirstPass::Audible;\n   if(!p)return false;\n   FirstPass::audible.store(p);\n }\n return true;\n}\nbool requestPass(unsigned cfg){\n if(!preparePass(cfg))return false;desiredPass.store(cfg);return true;\n}\nvoid passStatus(char* buf,size_t n){\n unsigned cfg=appliedPass.load(),want=desiredPass.load();\n snprintf(buf,n,\"NZRT FIRST_PASS version=PASS-1 active=%s shadow=%s requested_active=%s requested_shadow=%s supported=legacy,evolved,audible windows=%u active_hot=%u shadow_hot=%u shadow_only=%u last_us=%u worst_us=%u\",\n passName(cfg&3),(cfg>>2)?passName((cfg>>2)-1):\"off\",passName(want&3),(want>>2)?passName((want>>2)-1):\"off\",\n passWindows.load(),activeHot.load(),shadowHot.load(),shadowOnly.load(),lastPassUs.load(),maxPassUs.load());\n}\nunsigned passCurrent(){return appliedPass.load();}\nbool passApplied(unsigned cfg){return appliedPass.load()==cfg;}\n\n"
+   ],
+   [
+    95,
+    95,
+    " e.passConfig=eventPass;e.shadowMatched=eventShadow;\n"
+   ],
+   [
+    113,
+    114,
+    "   bool legacyHot=relative>=1.8f;\n   unsigned cfg=appliedPass.load();\n   if(!active && cfg!=desiredPass.load()\n#ifndef NZRT_HOST_TEST\n       && !WildlifeML::passCaptureBusy()\n#endif\n   ){\n     cfg=desiredPass.load();FirstPass::clear();appliedPass.store(cfg);\n   }\n   unsigned selected=cfg&3, shadow=cfg>>2;\n#ifndef NZRT_HOST_TEST\n   uint32_t started=esp_timer_get_time();\n#endif\n   bool hits[3]={legacyHot,false,false};\n   if(selected==1 || shadow==2)hits[1]=FirstPass::evolved(pcmWindow);\n   if(selected==2 || shadow==3)hits[2]=FirstPass::audible.load()->check(pcmWindow);\n   bool hot=hits[selected],shadowHit=shadow && hits[shadow-1];\n   ++passWindows;if(hot)++activeHot;if(shadowHit)++shadowHot;if(shadowHit&&!hot)++shadowOnly;\n#ifndef NZRT_HOST_TEST\n   unsigned dt=uint32_t(esp_timer_get_time()-started);lastPassUs.store(dt);\n   if(dt>maxPassUs.load())maxPassUs.store(dt);\n#endif\n"
+   ],
+   [
+    116,
+    117,
+    "        active=true;eventPass=cfg;eventShadow=false;firstOn=t-20;eventPeak=relative;scorer.reset();\n"
+   ],
+   [
+    125,
+    125,
+    "     eventShadow|=shadowHit;\n"
+   ],
+   [
+    136,
+    137,
+    "   if(!legacyHot&&relative<1.4f)noise+=0.003f*(rms-noise);\n"
+   ],
+   [
+    158,
+    158,
+    " FirstPass::clear();\n"
+   ],
+   [
+    179,
+    179,
+    " FirstPass::clear();\n"
+   ]
+  ]
+ }
+}
