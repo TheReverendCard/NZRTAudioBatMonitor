@@ -1,0 +1,23 @@
+{
+  "evolved": {
+    "bat_kept": 68,
+    "bat_total": 69,
+    "noise_suppressed": 4874,
+    "noise_total": 5641,
+    "known_miss_recovered": false
+  },
+  "audible": {
+    "bat_kept": 69,
+    "bat_total": 69,
+    "noise_suppressed": 3121,
+    "noise_total": 5641,
+    "known_miss_recovered": true
+  },
+  "either": {
+    "bat_kept": 69,
+    "bat_total": 69,
+    "noise_suppressed": 3056,
+    "noise_total": 5641,
+    "known_miss_recovered": true
+  }
+}
