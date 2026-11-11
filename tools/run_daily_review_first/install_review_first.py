@@ -261,7 +261,28 @@ def model_patch(src):
     src=change(src," ns=ap.parse_args(args);root", " ap.add_argument('--score-only',action='store_true')\n ns=ap.parse_args(args);root")
     src=change(src,"  report(root,ns.open)","  if not ns.score_only:report(root,ns.open)")
     marker=" p=root/'Daily_Run_Reports'/night/'receipt.json'"
-    return change(src,marker,marker+"\n candidate=p.with_name('review_first_receipt.json')\n if candidate.is_file() and (not p.exists() or candidate.stat().st_mtime_ns>p.stat().st_mtime_ns):p=candidate")
+    src=change(src,marker,marker+"\n candidate=p.with_name('review_first_receipt.json')\n if candidate.is_file() and (not p.exists() or candidate.stat().st_mtime_ns>p.stat().st_mtime_ns):p=candidate")
+    src=change(src,"<section><h2>Weekly verified counts and review completeness</h2>","<section><h2>Daily model performance</h2><p class=\"note\">Each point is one recording night with saved predictions and enough human reviewed labels to calculate the metric. Missing points have no measurable rate. Choose how many recent scored nights to show.</p><label>Scored nights <select id=\"dailyRange\"><option value=\"14\">14</option><option value=\"30\">30</option><option value=\"all\" selected>All</option></select></label><div class=\"plots\" id=\"dailyCharts\"></div></section>\n<section><h2>Weekly verified counts and review completeness</h2>")
+    anchor="document.getElementById('charts').innerHTML=[['BMP','recall','BMP · bat recall','% (0–100)'],['BMP','fp_per_1000_negatives','BMP · false alarms','FP / 1000 negatives'],['WAV','recall','WAV · bat recall','% (0–100)'],['WAV','fp_per_1000_negatives','WAV · false alarms','FP / 1000 negatives']].map(a=>makePlot(...a)).join('');"
+    script="""function makeDailyPlot(family,metric,title,axisLabel,nightKeys){
+ const series=ids.filter(k=>families[k]===family),w=900,h=300,x0=58,y0=28,wide=810,tall=205;
+ let max=metric==='recall'?100:0;
+ for(const night of nightKeys)for(const model of series){const value=days[night]?.[model]?.[metric];if(value!==null&&value!==undefined)max=Math.max(max,metric==='recall'?value*100:value)}
+ max=metric==='recall'?100:Math.max(5,Math.ceil(max/5)*5);
+ const y=value=>y0+tall-(value/max)*tall,x=i=>x0+(nightKeys.length>1?wide*i/(nightKeys.length-1):wide/2);
+ let body='<rect x="'+x0+'" y="'+y0+'" width="'+wide+'" height="'+tall+'" fill="white" stroke="#d5e1e7"/>';
+ for(let k=0;k<=4;k++){const value=max*k/4;body+='<line x1="'+x0+'" y1="'+y(value)+'" x2="'+(x0+wide)+'" y2="'+y(value)+'" stroke="#e9eff3"/><text x="'+(x0-8)+'" y="'+(y(value)+4)+'" text-anchor="end" font-size="11" fill="#506577">'+value.toFixed(metric==='recall'?0:1)+'</text>'}
+ const stride=Math.max(1,Math.ceil(nightKeys.length/14));
+ for(let i=0;i<nightKeys.length;i+=stride){const d=nightKeys[i];body+='<text x="'+x(i)+'" y="'+(y0+tall+20)+'" text-anchor="middle" font-size="10" fill="#506577">'+esc(d.slice(4,6)+'/'+d.slice(6))+'</text>'}
+ if(nightKeys.length>1&&((nightKeys.length-1)%stride)!==0){const i=nightKeys.length-1,d=nightKeys[i];body+='<text x="'+x(i)+'" y="'+(y0+tall+20)+'" text-anchor="middle" font-size="10" fill="#506577">'+esc(d.slice(4,6)+'/'+d.slice(6))+'</text>'}
+ for(const model of series){let segment=[];const emit=()=>{if(segment.length>1)body+='<polyline fill="none" stroke="'+colors[model]+'" stroke-width="2.4" points="'+segment.join(' ')+'"/>';segment=[]};for(let i=0;i<nightKeys.length;i++){const night=nightKeys[i],rec=days[night]?.[model],value=rec?.[metric];if(value===null||value===undefined){emit();continue}const plotted=metric==='recall'?value*100:value;segment.push(x(i)+','+y(plotted));body+='<circle cx="'+x(i)+'" cy="'+y(plotted)+'" r="4" fill="'+colors[model]+'"><title>'+esc(labels[model])+' · '+esc(night)+' · '+plotted.toFixed(2)+' '+esc(axisLabel)+' · n='+rec.n+' (bat='+rec.positive+'; noise='+rec.negative+')</title></circle>'}emit()}
+ body+='<text x="12" y="14" font-size="11" fill="#506577">'+esc(axisLabel)+'</text>';
+ const legend=series.map(model=>'<span><i class="dot" style="background:'+colors[model]+'"></i>'+esc(labels[model])+'</span>').join(' &nbsp; ');
+ return '<div class="plot"><h3>'+esc(title)+'</h3><svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+esc(title)+'">'+body+'</svg><div class="legend">'+legend+'</div></div>';
+}
+function renderDailyCharts(){const selection=document.getElementById('dailyRange').value,visible=selection==='all'?dates:dates.slice(-Number(selection));document.getElementById('dailyCharts').innerHTML=[['BMP','recall','BMP · nightly bat recall','% (0–100)'],['BMP','fp_per_1000_negatives','BMP · nightly false alarms','FP / 1000 negatives'],['WAV','recall','WAV · nightly bat recall','% (0–100)'],['WAV','fp_per_1000_negatives','WAV · nightly false alarms','FP / 1000 negatives']].map(config=>makeDailyPlot(...config,visible)).join('')}
+document.getElementById('dailyRange').onchange=renderDailyCharts;renderDailyCharts();"""
+    return change(src,anchor,anchor+"\n"+script)
 
 
 def pilot_patch(src):

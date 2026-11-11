@@ -1,0 +1,3 @@
+Bat Daily Review First v2.0.4
+
+Added daily model performance graphs to the offline Model_Trials page. BMP and WAV bat recall and false alarm rates plot by recording night for every currently available scored night. A selector limits the plot to the latest 14 or 30 nights. Missing rates are left blank. Hover details show the night and reviewed sample counts. Weekly graphs, weekly review tables, nightly comparison, and frozen snapshots are retained. Run Daily regenerates field summaries from cached per-recording predictions and the latest human labels.
