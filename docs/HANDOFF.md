@@ -1,5 +1,11 @@
 # Shared development log and handoff
 
+## 2026-11-14 (NZDT):  GUARD-1 compiled on the owner's Windows PC; field unit unchanged
+
+The owner reported that the GUARD-1 build-only launcher completed the full PlatformIO bench build without flashing a board (`GUARD1_Bench_20261113T200748635881Z`).  The private project contains `guard_build_receipt.json`; the receipt and image hash were not independently inspected for this entry.  Next firmware gate: controlled test on physical RT hardware with microphone, radio, journal and receiver active, including disconnect/reconnect.  No hardware, field or promotion pass is implied.
+
+Baseline night of 13–14 November: the owner reported more similar Xiao SD and RT activity with the RT first-pass shadow off.  This was pre-GUARD-1 and describes one night.  The screenshot shows a grade-4/5 AR4 recording around 02:48 NZDT, an SD recording bar near the same plotted time with no bat-present grade there, and no obvious matching RT bar.  Track as AR4 reviewed positive, SD acoustic match unresolved, RT detection/coverage unresolved.  Use the original AR4/SD media, corrected clip intervals and same-session RT health before attributing a shared miss or changing thresholds.  The first-pass shadow setting does not by itself specify the downstream MLP setting.
+
 ## 2026-11-13:  RT GUARD-1 resilience bench candidate
 
 [Behaviour, build and rollback](../firmware/meshcore_wildlife/rt_guard/README.md), [emulator receipts](../firmware/meshcore_wildlife/rt_guard/evidence/emulator.json) and [Windows build-only archive](../releases/rt/NZRT_GUARD1_Bench.zip).  Baseline rt-pass1-com8 commit 4803df3.  Candidate sheds costly first-pass shadow work under pressure, distinguishes incomplete comparisons, and supervises reader, DSP, detector windows and reporter separately.  S3 fault tests include a real software restart and preservation of the reason; received field firmware remains PASS-1.  Next owner gate: full PlatformIO build, bench timing under wireless/storage load, disconnect/reconnect test and a co-located comparison night.  Receiver dead-man alarm and mandatory repository branch protection are not implemented here.
