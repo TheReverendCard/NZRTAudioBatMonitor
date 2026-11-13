@@ -1,5 +1,20 @@
 # Shared development log and handoff
 
+## 2026-11-14 NZDT:  first GUARD-2 loaded RT comparison, audio-loss criterion failed
+
+Owner-supplied serial transcript SHA-256 `648ce7c77faf2aaeeda511e785af98bd84bbf99abf4c534fbf1a1dd3fd849ff4`, one session `7E7263A9`.  Run 1 entered scheduled daytime standby; `test on` resumed capture as run 2 at uptime 132 s.  No unexpected reboot or sustained stall evident before the transcript ended near 3,860 s.  The distinct profile counts below exclude the two boot-run candidates.  The 1,981 s MIC sample before the switch and 2,041 s sample after the switch have identical cumulative drop/gap counters, so the loss attribution does not rely on assuming an exact switch time.
+
+| Run 2, about 31 min per profile | Candidate records | WAV ACKs matched by session/run/seq | DSP blocks dropped | DSP stream gaps |
+|---|---:|---:|---:|---:|
+| Legacy, assist off | 84 | 61 | +833 | +624 |
+| Evolved assist, first-pass shadow off | 17 | 13 | +20 | +13 |
+
+Final MIC sample at uptime 3,843 s:  853 drops / 637 gaps, processed blocks still advancing, read errors and short reads zero, legacy RX overflow stayed at its prior value of five.  The final ~17 s lack a further MIC sample.  The queue high-water mark reached 48.  Summed missing block payload alone is about 4.55 s; this excludes filter settling and is not a count of missed calls.  The two phases had different event and upload loads.  Neither the difference in drop counts nor the absence of a sustained stall establishes a causal fix or field sensitivity.
+
+Last assist health snapshot:  87,747 fully ready and 1,702 fallback windows (98.10% of these windows), 274 budget overruns, no evolved-only hot window by that snapshot.  Of 17 assist candidate records, 16 had trigger mask 1 and one (#91) had mask 3, with journal save and WAV ACK.  No evolved-only event observed.  Bench WAV records say scoring=bypassed; these are not downstream MLP results or verified bat counts.
+
+Two journal readback errors during the legacy phase, two active-segment quarantine messages, then a verified new write.  Event buffer cumulative flash write failures reached six with no reported RAM oldest-drop; all 84 legacy records and 16 of 17 assist records have save receipts, with the transcript ending at the last candidate.  WAV #28 failed and later ACKed on attempt 3.  No reason to erase the journal.  Status: hardware boot and linked WAV transfer confirmed; loaded uninterrupted-audio gate failed.  Next bench step is the existing serial compare prepare/capture/score/send/stop sequence to collect timing and drop deltas before attributing loss to the detector, storage or WiFi.  Leave field promotion pending.
+
 ## 2026-11-14 NZDT:  GUARD-2 confirmed running on the owner's RT
 
 Owner serial status at 15 s uptime, session `7E7263A9`, run 1:  `NZRT-J4-GUARD-2`, NTP time, DSP and capture ON, MONITORING.  Supervisor online, safe mode off, current/previous guard fault 0.  PASS-2 applied legacy, first-pass shadow off, assist off; 479 eligible windows, 0 hot.  Downstream built-in WAV MLP enabled separately in shadow; WAV on, no completions, ACKs or upload failures.  JOURNAL-4 reports no fault or errors; detector reported zero input gaps and zero lost event records.  MLP history gaps=1; the history also clears during detector reset, so this alone is not evidence of missing DMA audio.  This confirms the installed build and a functioning acquisition path at startup.  It does not verify sustained processing under load, WAV delivery, real-world detection or overnight stability.  Next:  save separate legacy and evolved-assist serial transcripts spanning at least 30 minutes each under comparable monitoring/WAV load.  Check cumulative MIC DSP drops/gaps, guard status, selected coverage and linked event/journal/WAV evidence.
