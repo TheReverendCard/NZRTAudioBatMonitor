@@ -35,6 +35,8 @@ jobs:
         run: |
           set -e
           . "$IDF_PATH/export.sh" >/dev/null
+          python test_controls.py
+          python test_stage.py
           python test_acceptance.py
           python test_gate.py
           python run_emulator.py /tmp/guard-results --emu "$(find /tmp/guard-tools -type f -name esp-emu -print -quit)"

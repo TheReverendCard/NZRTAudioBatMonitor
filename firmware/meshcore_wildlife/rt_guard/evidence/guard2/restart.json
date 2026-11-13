@@ -1,0 +1,10 @@
+{
+  "marker": "NZRT_RESTART_GUARD_PASS retained_reason=DSP repeated_stall_no_reboot=1",
+  "emulator": "esp-emu 0.50.0",
+  "emulator_sha256": "6f1ce7b01f497176b644259a5e78fd6077926e0c30bc79d75518fef1e26f0f15",
+  "image_sha256": "003f6e8db79112fa63c34edce87f7805234698278e591db075b3765ccec39b7a",
+  "uart_sha256": "5f14b99e33b80ec065cef18539647e35fe963966c62975a16380ad9c359e9c8d",
+  "full_platformio_build": false,
+  "board_tested": false,
+  "method": "Recompiled candidate translation units; relinked cached IDF v5.4.2 ESP32-S3 libraries."
+}

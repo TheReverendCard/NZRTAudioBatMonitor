@@ -50,7 +50,9 @@ static bool detector(unsigned shadow,bool pressure){
  require(e.shadowIncomplete==(shadow!=0 && pressure),"missing optional coverage");
  require(!WildlifeDetector::pop(e),"extra event");return true;
 }
+#include "recall_probe.inc"
 extern "C" int guard_suite(){
+ recall();
  supervisor();
  require(!RtWatch::pressure(3,8)&&RtWatch::pressure(4,8)&&RtWatch::pressure(24,48),"queue watermark");
  detector(0,false);unsigned base=RtWatch::val(RtWatch::sig().held);

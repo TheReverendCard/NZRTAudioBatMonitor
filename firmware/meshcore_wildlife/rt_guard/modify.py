@@ -7,7 +7,7 @@ def digest(t):return hashlib.sha256(t.encode()).hexdigest()
 def one(s,a,b):
     if s.count(a)!=1:raise ValueError('release source anchor differs: '+a[:60])
     return s.replace(a,b)
-def transform(name,s):
+def guard1(name,s):
     if digest(s)!=BASE[name]:raise ValueError('unknown PASS-1 source: '+name)
     s=s.replace('NZRT-J4-PASS-1','NZRT-J4-GUARD-1')
     if name=='WildlifeDetector.cpp':
@@ -91,3 +91,7 @@ static bool measureScore=false;''')
         s=one(s,'bool command(const char* line){','bool command(const char* line){\n if(RtWatch::sig().forceLegacy.load())return false;')
         s=one(s,'bool wantsNetwork(){','bool wantsNetwork(){\n if(RtWatch::sig().forceLegacy.load())return false;')
     return s
+
+def transform(name,s):
+    from guard2 import upgrade
+    return upgrade(name,guard1(name,s))

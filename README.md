@@ -4,6 +4,8 @@ On-device recording and detection of New Zealand pekapeka (bat) activity, starti
 
 The project will collect original ultrasonic recordings, compare detections with a co-located AR4 processed through AviaNZ, and build a traceable dataset for improving small detection models.  The eventual monitor will aggregate bat activity into the Bat Data Collection 2026 workflow.
 
+**Latest RT bench candidate:**  [GUARD-2 Windows build package](releases/rt/NZRT_GUARD2_Bench.zip) and [implementation, evidence and owner test](firmware/meshcore_wildlife/rt_guard/README.md).  Field deployment pending.
+
 ## Current status
 
 **Capture prototypes validated; field recorder and classifier still in development.**

@@ -1,0 +1,1264 @@
+{
+  "own": {
+    "scope": "Decoded PCM; unlimited compute, per-file calibration, no real-time or species accuracy guarantee. File hits are not localised pulse matches.",
+    "preroll": "own first 250 ms repeated for 4 s; first 250 ms excluded from scored segment",
+    "reference_sha256": null,
+    "clips": [
+      {
+        "clip": "event_20261028T134259Z_00020(1).wav",
+        "wav_sha256": "6fdfb95880b34d7e7e3228746059f1ad06ca94a1a5d59c81ba44ef6c2dfdb948",
+        "grade": "2",
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 1200,
+              "end_ms": 1240,
+              "mask": 1
+            },
+            {
+              "start_ms": 2440,
+              "end_ms": 2460,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 1200,
+              "end_ms": 1220,
+              "mask": 4
+            },
+            {
+              "start_ms": 2120,
+              "end_ms": 2140,
+              "mask": 4
+            },
+            {
+              "start_ms": 2440,
+              "end_ms": 2480,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 1200,
+              "end_ms": 1240,
+              "mask": 1
+            },
+            {
+              "start_ms": 2440,
+              "end_ms": 2460,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 1200,
+              "end_ms": 1240,
+              "mask": 5
+            },
+            {
+              "start_ms": 2120,
+              "end_ms": 2140,
+              "mask": 4
+            },
+            {
+              "start_ms": 2440,
+              "end_ms": 2480,
+              "mask": 5
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T154009Z_00018.wav",
+        "wav_sha256": "761f6c89e2451dbfea5d11d06ce52459e660aef23d5cc687dc3f6097e3cef50b",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 480,
+              "end_ms": 520,
+              "mask": 1
+            },
+            {
+              "start_ms": 2200,
+              "end_ms": 3460,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 480,
+              "end_ms": 520,
+              "mask": 1
+            },
+            {
+              "start_ms": 2200,
+              "end_ms": 3460,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 520,
+              "mask": 1
+            },
+            {
+              "start_ms": 2200,
+              "end_ms": 3460,
+              "mask": 1
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T160505Z_00024.wav",
+        "wav_sha256": "fcb436cbb195fcea3d1b23875aa0008fe658516aa983595c29724ad55301e024",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 1
+            },
+            {
+              "start_ms": 1320,
+              "end_ms": 3460,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 1520,
+              "end_ms": 1540,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 1
+            },
+            {
+              "start_ms": 1320,
+              "end_ms": 3460,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 1
+            },
+            {
+              "start_ms": 1320,
+              "end_ms": 3460,
+              "mask": 5
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T161055Z_00026.wav",
+        "wav_sha256": "e7239af992230582644d29dd4176ee954b07b08c52d151061e097ded5c5ae374",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 480,
+              "end_ms": 520,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 480,
+              "end_ms": 520,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 520,
+              "mask": 1
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T172309Z_00053.wav",
+        "wav_sha256": "1947114f6d727182eea2fd565ec215e1d6ba4d92a7238f73e7cecb2875e468b3",
+        "grade": "1",
+        "events": {
+          "legacy": [],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 1500,
+              "end_ms": 1520,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 1500,
+              "end_ms": 1520,
+              "mask": 4
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T172318Z_00054.wav",
+        "wav_sha256": "7acb49cfb13d2f317117643b08d99307288423bf9cbbfa14be150b3d2e7dac01",
+        "grade": null,
+        "events": {
+          "legacy": [],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 4
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261105T123240Z_00116.wav",
+        "wav_sha256": "66110ad0263502b11a7b37bdc7927a86ff7c72c5d77c7ed02da037d509bb9c72",
+        "grade": "5",
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 700,
+              "end_ms": 1080,
+              "mask": 1
+            },
+            {
+              "start_ms": 1380,
+              "end_ms": 1400,
+              "mask": 1
+            },
+            {
+              "start_ms": 1600,
+              "end_ms": 1640,
+              "mask": 1
+            }
+          ],
+          "evolved": [
+            {
+              "start_ms": 480,
+              "end_ms": 1080,
+              "mask": 2
+            },
+            {
+              "start_ms": 1380,
+              "end_ms": 1400,
+              "mask": 2
+            },
+            {
+              "start_ms": 1600,
+              "end_ms": 1640,
+              "mask": 2
+            },
+            {
+              "start_ms": 2060,
+              "end_ms": 2080,
+              "mask": 2
+            }
+          ],
+          "audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 4
+            },
+            {
+              "start_ms": 700,
+              "end_ms": 860,
+              "mask": 4
+            },
+            {
+              "start_ms": 1060,
+              "end_ms": 1080,
+              "mask": 4
+            },
+            {
+              "start_ms": 1380,
+              "end_ms": 1640,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 480,
+              "end_ms": 1080,
+              "mask": 3
+            },
+            {
+              "start_ms": 1380,
+              "end_ms": 1400,
+              "mask": 3
+            },
+            {
+              "start_ms": 1600,
+              "end_ms": 1640,
+              "mask": 3
+            },
+            {
+              "start_ms": 2060,
+              "end_ms": 2080,
+              "mask": 2
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 4
+            },
+            {
+              "start_ms": 700,
+              "end_ms": 1080,
+              "mask": 5
+            },
+            {
+              "start_ms": 1380,
+              "end_ms": 1640,
+              "mask": 5
+            }
+          ]
+        },
+        "grade_source": "Matching SD-derived BMP basename; archived BatDailyReview grade 5. Local primary sidecar lacks this grade."
+      },
+      {
+        "clip": "event_20261107T141237Z_00947.wav",
+        "wav_sha256": "36efa18a2f064fc0c08d93bd65f1d7a4a98c81e44dcca03f6704cd7da025efd4",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 720,
+              "end_ms": 740,
+              "mask": 1
+            },
+            {
+              "start_ms": 960,
+              "end_ms": 980,
+              "mask": 1
+            },
+            {
+              "start_ms": 1180,
+              "end_ms": 1200,
+              "mask": 1
+            },
+            {
+              "start_ms": 1420,
+              "end_ms": 1460,
+              "mask": 1
+            },
+            {
+              "start_ms": 1860,
+              "end_ms": 1880,
+              "mask": 1
+            },
+            {
+              "start_ms": 2100,
+              "end_ms": 2120,
+              "mask": 1
+            }
+          ],
+          "evolved": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 2
+            },
+            {
+              "start_ms": 700,
+              "end_ms": 740,
+              "mask": 2
+            },
+            {
+              "start_ms": 940,
+              "end_ms": 980,
+              "mask": 2
+            },
+            {
+              "start_ms": 1180,
+              "end_ms": 1220,
+              "mask": 2
+            },
+            {
+              "start_ms": 1420,
+              "end_ms": 1880,
+              "mask": 2
+            },
+            {
+              "start_ms": 2080,
+              "end_ms": 2120,
+              "mask": 2
+            },
+            {
+              "start_ms": 2320,
+              "end_ms": 2340,
+              "mask": 2
+            }
+          ],
+          "audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 4
+            },
+            {
+              "start_ms": 700,
+              "end_ms": 740,
+              "mask": 4
+            },
+            {
+              "start_ms": 940,
+              "end_ms": 980,
+              "mask": 4
+            },
+            {
+              "start_ms": 1180,
+              "end_ms": 1200,
+              "mask": 4
+            },
+            {
+              "start_ms": 1420,
+              "end_ms": 1640,
+              "mask": 4
+            },
+            {
+              "start_ms": 1860,
+              "end_ms": 1880,
+              "mask": 4
+            },
+            {
+              "start_ms": 2080,
+              "end_ms": 2120,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 2
+            },
+            {
+              "start_ms": 700,
+              "end_ms": 740,
+              "mask": 3
+            },
+            {
+              "start_ms": 940,
+              "end_ms": 980,
+              "mask": 3
+            },
+            {
+              "start_ms": 1180,
+              "end_ms": 1220,
+              "mask": 3
+            },
+            {
+              "start_ms": 1420,
+              "end_ms": 1880,
+              "mask": 3
+            },
+            {
+              "start_ms": 2080,
+              "end_ms": 2120,
+              "mask": 3
+            },
+            {
+              "start_ms": 2320,
+              "end_ms": 2340,
+              "mask": 2
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 480,
+              "end_ms": 500,
+              "mask": 4
+            },
+            {
+              "start_ms": 700,
+              "end_ms": 740,
+              "mask": 5
+            },
+            {
+              "start_ms": 940,
+              "end_ms": 980,
+              "mask": 5
+            },
+            {
+              "start_ms": 1180,
+              "end_ms": 1200,
+              "mask": 5
+            },
+            {
+              "start_ms": 1420,
+              "end_ms": 1640,
+              "mask": 5
+            },
+            {
+              "start_ms": 1860,
+              "end_ms": 1880,
+              "mask": 5
+            },
+            {
+              "start_ms": 2080,
+              "end_ms": 2120,
+              "mask": 5
+            }
+          ]
+        }
+      },
+      {
+        "clip": "periodic_20261028T132956Z_00015.wav",
+        "wav_sha256": "a2b68e2a2af23c46c0a314e8df2aaf52fd8806d3094a81bfc969897ac0ce2a67",
+        "grade": "1",
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 9120,
+              "end_ms": 10000,
+              "mask": 1
+            }
+          ],
+          "evolved": [
+            {
+              "start_ms": 9920,
+              "end_ms": 9940,
+              "mask": 2
+            }
+          ],
+          "audible": [],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 9120,
+              "end_ms": 10000,
+              "mask": 3
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 9120,
+              "end_ms": 10000,
+              "mask": 1
+            }
+          ]
+        }
+      }
+    ],
+    "rejected": [
+      {
+        "clip": "event_20261028T130939Z_00002.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "event_20261028T131015Z_00004.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "event_20261028T152903Z_00001.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "event_20261028T152922Z_00002.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "periodic_20261028T133456Z_00017.wav",
+        "reason": "file does not start with RIFF id"
+      }
+    ]
+  },
+  "ref": {
+    "scope": "Decoded PCM; unlimited compute, per-file calibration, no real-time or species accuracy guarantee. File hits are not localised pulse matches.",
+    "preroll": "first 4 s of reference (repeat if shorter)",
+    "reference_sha256": "a2b68e2a2af23c46c0a314e8df2aaf52fd8806d3094a81bfc969897ac0ce2a67",
+    "clips": [
+      {
+        "clip": "event_20261028T134259Z_00020(1).wav",
+        "wav_sha256": "6fdfb95880b34d7e7e3228746059f1ad06ca94a1a5d59c81ba44ef6c2dfdb948",
+        "grade": "2",
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 1210,
+              "end_ms": 1250,
+              "mask": 1
+            },
+            {
+              "start_ms": 2450,
+              "end_ms": 2470,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 1210,
+              "end_ms": 1230,
+              "mask": 4
+            },
+            {
+              "start_ms": 2110,
+              "end_ms": 2130,
+              "mask": 4
+            },
+            {
+              "start_ms": 2450,
+              "end_ms": 2470,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 1210,
+              "end_ms": 1250,
+              "mask": 1
+            },
+            {
+              "start_ms": 2450,
+              "end_ms": 2470,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 1210,
+              "end_ms": 1250,
+              "mask": 5
+            },
+            {
+              "start_ms": 2110,
+              "end_ms": 2130,
+              "mask": 4
+            },
+            {
+              "start_ms": 2450,
+              "end_ms": 2470,
+              "mask": 5
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T154009Z_00018.wav",
+        "wav_sha256": "761f6c89e2451dbfea5d11d06ce52459e660aef23d5cc687dc3f6097e3cef50b",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 2210,
+              "end_ms": 3470,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 2210,
+              "end_ms": 3470,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 2210,
+              "end_ms": 3470,
+              "mask": 1
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T160505Z_00024.wav",
+        "wav_sha256": "fcb436cbb195fcea3d1b23875aa0008fe658516aa983595c29724ad55301e024",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 1310,
+              "end_ms": 3470,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 1510,
+              "end_ms": 1530,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 1310,
+              "end_ms": 3470,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 1310,
+              "end_ms": 3470,
+              "mask": 5
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T161055Z_00026.wav",
+        "wav_sha256": "e7239af992230582644d29dd4176ee954b07b08c52d151061e097ded5c5ae374",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 490,
+              "end_ms": 530,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 530,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 530,
+              "mask": 1
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T172309Z_00053.wav",
+        "wav_sha256": "1947114f6d727182eea2fd565ec215e1d6ba4d92a7238f73e7cecb2875e468b3",
+        "grade": "1",
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            }
+          ],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 1510,
+              "end_ms": 1530,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 1510,
+              "end_ms": 1530,
+              "mask": 4
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261028T172318Z_00054.wav",
+        "wav_sha256": "7acb49cfb13d2f317117643b08d99307288423bf9cbbfa14be150b3d2e7dac01",
+        "grade": null,
+        "events": {
+          "legacy": [],
+          "evolved": [],
+          "audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 4
+            }
+          ]
+        }
+      },
+      {
+        "clip": "event_20261105T123240Z_00116.wav",
+        "wav_sha256": "66110ad0263502b11a7b37bdc7927a86ff7c72c5d77c7ed02da037d509bb9c72",
+        "grade": "5",
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 1
+            },
+            {
+              "start_ms": 710,
+              "end_ms": 850,
+              "mask": 1
+            },
+            {
+              "start_ms": 1050,
+              "end_ms": 1070,
+              "mask": 1
+            },
+            {
+              "start_ms": 1390,
+              "end_ms": 1410,
+              "mask": 1
+            },
+            {
+              "start_ms": 1610,
+              "end_ms": 1630,
+              "mask": 1
+            }
+          ],
+          "evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 850,
+              "mask": 2
+            },
+            {
+              "start_ms": 1050,
+              "end_ms": 1070,
+              "mask": 2
+            },
+            {
+              "start_ms": 1390,
+              "end_ms": 1410,
+              "mask": 2
+            },
+            {
+              "start_ms": 1610,
+              "end_ms": 1630,
+              "mask": 2
+            },
+            {
+              "start_ms": 2050,
+              "end_ms": 2090,
+              "mask": 2
+            }
+          ],
+          "audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 4
+            },
+            {
+              "start_ms": 710,
+              "end_ms": 850,
+              "mask": 4
+            },
+            {
+              "start_ms": 1050,
+              "end_ms": 1070,
+              "mask": 4
+            },
+            {
+              "start_ms": 1390,
+              "end_ms": 1410,
+              "mask": 4
+            },
+            {
+              "start_ms": 1610,
+              "end_ms": 1630,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 850,
+              "mask": 3
+            },
+            {
+              "start_ms": 1050,
+              "end_ms": 1070,
+              "mask": 3
+            },
+            {
+              "start_ms": 1390,
+              "end_ms": 1410,
+              "mask": 3
+            },
+            {
+              "start_ms": 1610,
+              "end_ms": 1630,
+              "mask": 3
+            },
+            {
+              "start_ms": 2050,
+              "end_ms": 2090,
+              "mask": 2
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 5
+            },
+            {
+              "start_ms": 710,
+              "end_ms": 850,
+              "mask": 5
+            },
+            {
+              "start_ms": 1050,
+              "end_ms": 1070,
+              "mask": 5
+            },
+            {
+              "start_ms": 1390,
+              "end_ms": 1410,
+              "mask": 5
+            },
+            {
+              "start_ms": 1610,
+              "end_ms": 1630,
+              "mask": 5
+            }
+          ]
+        },
+        "grade_source": "Matching SD-derived BMP basename; archived BatDailyReview grade 5. Local primary sidecar lacks this grade."
+      },
+      {
+        "clip": "event_20261107T141237Z_00947.wav",
+        "wav_sha256": "36efa18a2f064fc0c08d93bd65f1d7a4a98c81e44dcca03f6704cd7da025efd4",
+        "grade": null,
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 710,
+              "end_ms": 750,
+              "mask": 1
+            },
+            {
+              "start_ms": 950,
+              "end_ms": 970,
+              "mask": 1
+            },
+            {
+              "start_ms": 1190,
+              "end_ms": 1210,
+              "mask": 1
+            },
+            {
+              "start_ms": 1430,
+              "end_ms": 1650,
+              "mask": 1
+            },
+            {
+              "start_ms": 1850,
+              "end_ms": 1870,
+              "mask": 1
+            },
+            {
+              "start_ms": 2090,
+              "end_ms": 2110,
+              "mask": 1
+            }
+          ],
+          "evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 2
+            },
+            {
+              "start_ms": 710,
+              "end_ms": 750,
+              "mask": 2
+            },
+            {
+              "start_ms": 950,
+              "end_ms": 970,
+              "mask": 2
+            },
+            {
+              "start_ms": 1190,
+              "end_ms": 1210,
+              "mask": 2
+            },
+            {
+              "start_ms": 1430,
+              "end_ms": 1650,
+              "mask": 2
+            },
+            {
+              "start_ms": 1850,
+              "end_ms": 1870,
+              "mask": 2
+            },
+            {
+              "start_ms": 2090,
+              "end_ms": 2110,
+              "mask": 2
+            },
+            {
+              "start_ms": 2330,
+              "end_ms": 2350,
+              "mask": 2
+            }
+          ],
+          "audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 4
+            },
+            {
+              "start_ms": 710,
+              "end_ms": 750,
+              "mask": 4
+            },
+            {
+              "start_ms": 950,
+              "end_ms": 990,
+              "mask": 4
+            },
+            {
+              "start_ms": 1190,
+              "end_ms": 1210,
+              "mask": 4
+            },
+            {
+              "start_ms": 1430,
+              "end_ms": 1650,
+              "mask": 4
+            },
+            {
+              "start_ms": 1850,
+              "end_ms": 1870,
+              "mask": 4
+            },
+            {
+              "start_ms": 2090,
+              "end_ms": 2130,
+              "mask": 4
+            }
+          ],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 2
+            },
+            {
+              "start_ms": 710,
+              "end_ms": 750,
+              "mask": 3
+            },
+            {
+              "start_ms": 950,
+              "end_ms": 970,
+              "mask": 3
+            },
+            {
+              "start_ms": 1190,
+              "end_ms": 1210,
+              "mask": 3
+            },
+            {
+              "start_ms": 1430,
+              "end_ms": 1650,
+              "mask": 3
+            },
+            {
+              "start_ms": 1850,
+              "end_ms": 1870,
+              "mask": 3
+            },
+            {
+              "start_ms": 2090,
+              "end_ms": 2110,
+              "mask": 3
+            },
+            {
+              "start_ms": 2330,
+              "end_ms": 2350,
+              "mask": 2
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 490,
+              "end_ms": 510,
+              "mask": 4
+            },
+            {
+              "start_ms": 710,
+              "end_ms": 750,
+              "mask": 5
+            },
+            {
+              "start_ms": 950,
+              "end_ms": 990,
+              "mask": 5
+            },
+            {
+              "start_ms": 1190,
+              "end_ms": 1210,
+              "mask": 5
+            },
+            {
+              "start_ms": 1430,
+              "end_ms": 1650,
+              "mask": 5
+            },
+            {
+              "start_ms": 1850,
+              "end_ms": 1870,
+              "mask": 5
+            },
+            {
+              "start_ms": 2090,
+              "end_ms": 2130,
+              "mask": 5
+            }
+          ]
+        }
+      },
+      {
+        "clip": "periodic_20261028T132956Z_00015.wav",
+        "wav_sha256": "a2b68e2a2af23c46c0a314e8df2aaf52fd8806d3094a81bfc969897ac0ce2a67",
+        "grade": "1",
+        "events": {
+          "legacy": [
+            {
+              "start_ms": 9130,
+              "end_ms": 9990,
+              "mask": 1
+            }
+          ],
+          "evolved": [
+            {
+              "start_ms": 9910,
+              "end_ms": 9930,
+              "mask": 2
+            }
+          ],
+          "audible": [],
+          "legacy_plus_evolved": [
+            {
+              "start_ms": 9130,
+              "end_ms": 9990,
+              "mask": 3
+            }
+          ],
+          "legacy_plus_audible": [
+            {
+              "start_ms": 9130,
+              "end_ms": 9990,
+              "mask": 1
+            }
+          ]
+        }
+      }
+    ],
+    "rejected": [
+      {
+        "clip": "event_20261028T130939Z_00002.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "event_20261028T131015Z_00004.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "event_20261028T152903Z_00001.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "event_20261028T152922Z_00002.wav",
+        "reason": "incomplete or too short"
+      },
+      {
+        "clip": "periodic_20261028T133456Z_00017.wav",
+        "reason": "file does not start with RIFF id"
+      }
+    ]
+  }
+}
