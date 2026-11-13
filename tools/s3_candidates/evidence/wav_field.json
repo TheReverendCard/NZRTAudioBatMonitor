@@ -1,0 +1,120 @@
+{
+  "profile": "wav_mlp",
+  "source_model": "497ff930552797bb0d2d43ab701f8ffdfe4960dd8d336e2d73ec039c7913d7c4",
+  "bundle_sha256": "4f8ed72689ea14d979b80aa23f9957eaa3d6790c0a7ceefc0e1d45abe3533ebb",
+  "pack_sha256": "02c9f3600e2aa25a970b4b64b75ae8f705b3f86bc5896d070133a63b3fd5d046",
+  "status": "partial_coverage",
+  "inputs": [
+    {
+      "source": "event_20261105T123240Z_00116.wav",
+      "status": "ready",
+      "cases": 3
+    },
+    {
+      "source": "event_20261107T141237Z_00947.wav",
+      "status": "ready",
+      "cases": 3
+    },
+    {
+      "source": "event_20261028T130939Z_00002.wav",
+      "status": "unscorable",
+      "reason": "truncated or invalid RIFF"
+    },
+    {
+      "source": "periodic_20261028T133456Z_00017.wav",
+      "status": "unscorable",
+      "reason": "file does not start with RIFF id"
+    }
+  ],
+  "cases": [
+    {
+      "source": "event_20261105T123240Z_00116.wav",
+      "offset": 0,
+      "bytes": 768000,
+      "expected": 0.9996955730540359,
+      "start_input_sample": 0,
+      "input_samples": 192000,
+      "rt_pcm_samples": 384000,
+      "emulated": 0.999695659,
+      "error": 8.594596412336841e-08,
+      "decision": "candidate",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "event_20261105T123240Z_00116.wav",
+      "offset": 768000,
+      "bytes": 768000,
+      "expected": 0.9760293147574588,
+      "start_input_sample": 192000,
+      "input_samples": 192000,
+      "rt_pcm_samples": 384000,
+      "emulated": 0.976029098,
+      "error": 2.1675745875970875e-07,
+      "decision": "below_threshold",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "event_20261105T123240Z_00116.wav",
+      "offset": 1536000,
+      "bytes": 415232,
+      "expected": 0.765238503089895,
+      "start_input_sample": 384000,
+      "input_samples": 103808,
+      "rt_pcm_samples": 207616,
+      "emulated": 0.765236139,
+      "error": 2.364089895068311e-06,
+      "decision": "below_threshold",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "event_20261107T141237Z_00947.wav",
+      "offset": 1951232,
+      "bytes": 768000,
+      "expected": 0.9997301119794114,
+      "start_input_sample": 0,
+      "input_samples": 192000,
+      "rt_pcm_samples": 384000,
+      "emulated": 0.999730051,
+      "error": 6.097941140925656e-08,
+      "decision": "candidate",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "event_20261107T141237Z_00947.wav",
+      "offset": 2719232,
+      "bytes": 768000,
+      "expected": 0.9627294222716801,
+      "start_input_sample": 192000,
+      "input_samples": 192000,
+      "rt_pcm_samples": 384000,
+      "emulated": 0.962729216,
+      "error": 2.062716800699249e-07,
+      "decision": "below_threshold",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "event_20261107T141237Z_00947.wav",
+      "offset": 3487232,
+      "bytes": 429568,
+      "expected": 0.4192576499087852,
+      "start_input_sample": 384000,
+      "input_samples": 107392,
+      "rt_pcm_samples": 214784,
+      "emulated": 0.419256002,
+      "error": 1.6479087852072638e-06,
+      "decision": "below_threshold",
+      "agrees": true,
+      "within_tolerance": true
+    }
+  ],
+  "promotion_ready": false,
+  "image_sha256": "6872d04a9f4409e992ee0a753374768158786cf8ed9c043b6ec00433bb954b97",
+  "uart_sha256": "6f456694c3f78053ce31f15845aeb1b267d18dcca0b5998c66f40bd10455ca6b",
+  "max_abs_error": 2.364089895068311e-06,
+  "emulator_sha256": "6f1ce7b01f497176b644259a5e78fd6077926e0c30bc79d75518fef1e26f0f15"
+}

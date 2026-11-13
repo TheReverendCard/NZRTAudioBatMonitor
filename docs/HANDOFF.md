@@ -1,5 +1,13 @@
 # Shared development log and handoff
 
+## 2026-11-13:  Emulator tests and trainer coverage (v2, PR #48)
+
+[Install, operate and reproduce](../tools/s3_candidates/EMULATION.md).  [Test receipts](../tools/s3_candidates/evidence).  [Windows installer archive](../releases/tools/Bat_S3_Emulator_Training_Guard_v2.zip).  New: known trainer BATs guard frozen inputs, Daily/exports report prediction coverage, optional WSL worker verifies S3 builds; digest-bounded first-pass replay with gap/reset tests.  Two genuine trained models tested on supplied media; four other trained-family adapters tested with fixtures.  Existing desktop fail cases and RT drop telemetry are recorded separately.  Windows/WSL owner installation and live RT timing still unverified.  Production firmware and selected detectors remain unchanged.  Next: new frozen nights, capture replay on a spare RT under radio/storage load, and separate board acceptance before promotion.
+
+## 2026-11-13:  ESP32-S3 candidate outputs
+
+[Installer, scope and rollback](../tools/s3_candidates/README.md) and [verification evidence](../tools/s3_candidates/VALIDATION.md).  A local install exports existing and future model runs and records readiness in Daily_Run_Reports/S3_Exports/index.json.  Six model families and seven first-pass, event-ranking and replay profiles have S3 source exports.  Only a compatible WAV MLP has the receiver's weights format.  The reported device selection remains legacy active / first-pass shadow off.  This revision was not flashed or installed on the owner's PC.  Next: link the diagnostic projects, run matched board/field comparisons, then review any shadow or active change separately.
+
 ## 2026-10-17:  project baseline
 
 ### Agreed direction

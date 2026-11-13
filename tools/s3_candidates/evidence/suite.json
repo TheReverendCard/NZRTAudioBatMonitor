@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "run": "20261113T083947451618Z",
+  "complete": true,
+  "scope": "all",
+  "index_sha256": "b934876e2c60ff3af41ff5f2a771d5bc868f500c1f09bf9685e5ab6bb1036d02",
+  "rows": [
+    {
+      "profile": "legacy",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "8b6dcef8904a3b9d976170c72262481d314fedb8faecc5abaf66020816d118c5",
+        "profile": "legacy",
+        "tests": 331,
+        "max_abs_error": 0.0,
+        "image_sha256": "fab828bf386d91e98923cd24370c547d8ee2f48db668f29ae618cb2521da7d5e",
+        "uart_sha256": "6904da93c5956b869e9e9edc29f4517f8029a815108c35db4ccb79e78d949b31",
+        "promotion_ready": false,
+        "tested_utc": "20261113T083952056944Z"
+      },
+      "source": "exported rule"
+    },
+    {
+      "profile": "audible",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "e3eb5ef26a8857bd71259554c0b415e8aa07567ebdbd5781f65c1667260935d4",
+        "profile": "audible",
+        "tests": 331,
+        "max_abs_error": 0.0,
+        "image_sha256": "2788cfc4e87723ebbd043b253760da5a5e0e35e24c47d1436c841dea1489f67a",
+        "uart_sha256": "54f59f21497b7b1c3893316e30a33f7d15c553826f12029d61ad011e4ca208e8",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084001225330Z"
+      },
+      "source": "exported rule"
+    },
+    {
+      "profile": "ultrasound_rise",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "cbab7e1283437f33e2e0f84eb1039d67267854c9bf85673d49a1a4cf0548a560",
+        "profile": "ultrasound_rise",
+        "tests": 331,
+        "max_abs_error": 0.0,
+        "image_sha256": "4d7b46023237b9945ef3279c3e5ffbb3fdfaa9254f8e4e22ebbd51c534a71b57",
+        "uart_sha256": "2599635a8e20d80e0075cc5f43aee29e47596682feb874fa10e9d220b5021623",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084011021071Z"
+      },
+      "source": "exported rule"
+    },
+    {
+      "profile": "low_side_check",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "b9c66969686de50d804873494ab92e976bf15a72689ac40b513fd04bdc274e4e",
+        "profile": "low_side_check",
+        "tests": 331,
+        "max_abs_error": 0.0,
+        "image_sha256": "71015c1ef3ed4ff6ed6ae33da19f205f0dffa7cf2292345afd7b4cf2b9d4e89e",
+        "uart_sha256": "5f5aadd22a7967a0e013338705ee04553525ea4478432b74d2eef908193cfbd2",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084020993570Z"
+      },
+      "source": "exported rule"
+    },
+    {
+      "profile": "both_checks",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "f961d325672d743329b9528227fdc3cf06e47308d419bb26c2c2423ccce9b85d",
+        "profile": "both_checks",
+        "tests": 331,
+        "max_abs_error": 0.0,
+        "image_sha256": "f971bdc02044edceb252a9bf590c92bc68384e0585c830e1bfed32af4b2cb163",
+        "uart_sha256": "bb5554674c2a55aeb7d405aeef57fd54ab3ef90e6749a0f17b4b712290753695",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084031309742Z"
+      },
+      "source": "exported rule"
+    },
+    {
+      "profile": "rt_score1",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "8b9519b443c8cba04e2c6bd69c4ea48e4a533cd7474755515bb6ae2a49b6a4c1",
+        "profile": "rt_score1",
+        "tests": 9,
+        "max_abs_error": 0.0,
+        "image_sha256": "0ce2cf10eaea8c6c41b2ac720a7d15fdcaa0763e6460e40fa80943981acf901c",
+        "uart_sha256": "bc3b2ed528cafc6182c318972ed21243a990c0b003a23e5d212ec7a52773f5fb",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084036461883Z"
+      },
+      "source": "exported rule"
+    },
+    {
+      "profile": "evolved",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "5d0ab44c2f534681904657c7452b848ffa6235edc4dc1e4f973308f93fea42fa",
+        "profile": "evolved",
+        "tests": 331,
+        "max_abs_error": 0.0,
+        "image_sha256": "f16faed0387e0e952e1a5538abf2e7fb3ed2ff86c417a7a55fc1071c99b6707a",
+        "uart_sha256": "820f1fe0100cb0906272f2c0cf6d3884419544d03c8f7d9bf0496d3aef8f5fe1",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084041345018Z"
+      },
+      "source": "exported rule"
+    },
+    {
+      "profile": "bmp_lr",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "cbb23ed995ef99a6be4884719b8a6b3021df56147c324de50d68295fd31504c6",
+        "profile": "bmp_lr",
+        "tests": 4,
+        "max_abs_error": 5.999999996841865e-08,
+        "image_sha256": "edccb4f79bd255c6e631367693d7dc7916b8ba9ddf2679ace0befe09a81a33e1",
+        "uart_sha256": "a5fdf6c19fecc5ba6d37d72a2e184282a5bf039b1be341608e2833552b1cf310",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084044754523Z"
+      },
+      "source": "fitted fixture"
+    },
+    {
+      "profile": "bmp_shared_lr",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "0d93181e5de23d8aec3d1cd8e1862368826bec45cbe4b4801ea1a2565937cd82",
+        "profile": "bmp_shared_lr",
+        "tests": 4,
+        "max_abs_error": 5.999999996841865e-08,
+        "image_sha256": "39881c5899c27949404c7e5bc9314c94827a0e01e58c42b6ed6e94aff43f91fe",
+        "uart_sha256": "63dc9d64f0a67c0ddca8336f9bc8afb3272d687b126a831235e1245ee00bb950",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084047911565Z"
+      },
+      "source": "fitted fixture"
+    },
+    {
+      "profile": "bmp_cnn",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "31e8625d32c063540596ba21bca0c98cb768aece8e587b34d1d4a060f2c52d57",
+        "profile": "bmp_cnn",
+        "tests": 1,
+        "max_abs_error": 1.139999999821839e-05,
+        "image_sha256": "aa5a242a08d135173c1e9258e45c78c132686799b11afa7e00e236e9f4b0d15f",
+        "uart_sha256": "754d1b8d2838eab6b71b554cde8988a72175c1f65a6b87975968b1f5f0c04cbb",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084051577424Z"
+      },
+      "source": "trained checkpoint"
+    },
+    {
+      "profile": "bmp_mlp",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "05c14a6cfb1bcd52c13db4475c33f50dbdd46230949fed6884c6bc208e4bf5cc",
+        "profile": "bmp_mlp",
+        "tests": 4,
+        "max_abs_error": 6.009999997669269e-08,
+        "image_sha256": "22c3783d7c1eebb54d33baeb66acee03d503819e9f32ab9fd941d6be16002c53",
+        "uart_sha256": "6d6cc2e995dcb42666ca1bf36fd90201ab1bcd3837622fac6f8745fc891fc90b",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084054993455Z"
+      },
+      "source": "fitted fixture"
+    },
+    {
+      "profile": "wav_mlp",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "4f8ed72689ea14d979b80aa23f9957eaa3d6790c0a7ceefc0e1d45abe3533ebb",
+        "profile": "wav_mlp",
+        "tests": 4,
+        "max_abs_error": 3.7499999980261656e-09,
+        "image_sha256": "a144a8171624544082bdc3e65e33ac5e67d1dcfcae18712e795d2d729e471668",
+        "uart_sha256": "0d426efdab6fa76fe20ce4476b54ecd85e342be9836aaab3085429f0cd1cb18e",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084058251015Z"
+      },
+      "source": "trained checkpoint"
+    },
+    {
+      "profile": "wav_lr",
+      "status": "passed",
+      "receipt": {
+        "status": "passed",
+        "bundle_sha256": "c902de63760bf922acd3dae03df2b3e6fc27776be1ba74e99f56ada9d9c4c158",
+        "profile": "wav_lr",
+        "tests": 4,
+        "max_abs_error": 5.999999996841865e-08,
+        "image_sha256": "cc27a9d4b7a7b1fe1caca2e59cd788b4875e9a7d81072ffe3b9233c4cfa85fd6",
+        "uart_sha256": "e259890110c59edef33343d482cc5ae842ba1a2de7d947c0b3f58f3d9b43d773",
+        "promotion_ready": false,
+        "tested_utc": "20261113T084101409301Z"
+      },
+      "source": "fitted fixture"
+    }
+  ],
+  "environment": {
+    "esp_emu": "esp-emu 0.50.0",
+    "emulator_sha256": "6f1ce7b01f497176b644259a5e78fd6077926e0c30bc79d75518fef1e26f0f15",
+    "idf": "ESP-IDF v5.4.2",
+    "dsp_commit": "3c8ac0fdfec83740b783e200862c8d0c056de0ad",
+    "compiler": "14.2.0",
+    "test_sha256": "dc9a1734b110eb20f85bd35101aadcf87c19f2df5ae05146704aa04ac9b6a8e5"
+  },
+  "promotion_ready": false,
+  "status": "passed"
+}

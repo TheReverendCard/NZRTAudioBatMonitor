@@ -2,6 +2,10 @@
 
 **Status: Approved objective and proposed implementation, NOT installed or tested in the owner's BatDailyTool/RT firmware.**  Recorded 2026-11-08.  Supersedes the local machine-short-tailed exclusion and long-tailed-only BMP target in the earlier planning text of issue #14.  Coordinates with #13 and #27.  This document is a design contract, not evidence of a working retraining scheduler.
 
+## Implementation update:  2026-11-13
+
+The [S3 exporter](../tools/s3_candidates/README.md) implements the candidate-creation part of stage 10 for the six known trained scorer families, plus the first-pass filters, RT-SCORE-1 event ranking and offline replay filters.  Historical checkpoints are backfilled.  Each bundle records its original input contract, dependency/kernel identity, hashes and export status.  Only compatible WAV MLPs have receiver-format weights.  BMP image scoring still requires the matching frontend.  Firmware integration, capture-load timing and field promotion are separate gates.  See the [validation record](../tools/s3_candidates/VALIDATION.md).  This does not change the training scheduler, AviaNZ reference or deployed model.
+
 ## Agreed objective
 
 Primary binary target: **IS BAT?**  Minimise missed genuine bat recordings while keeping false positives and review burden low.  Record bat presence, source provenance and uncertainty independently of species identity.  A second-stage species classifier is optional and must use genuinely human-verified species labels.  DOC Bat Batch 01 grades are *bat presence only*; the owner did **not** verify long-tailed versus short-tailed identity.
@@ -178,3 +182,7 @@ The owner's approximate historical 15,000 original files, ~9,000 stock AviaNZ ca
 ## Handoff / coordination
 
 Source of truth for operational behaviour is the owner's Windows installation under `C:\Users\revje\Documents\Bat`, not this GitHub documentation.  The snapshots inspected here included `BatDailyTool/model_progress.py` and the Phase 1 scripts from 2026-11-08, not necessarily the latest local patches.  No scripts, firmware, fitted models, deployment settings or Daily Run jobs were changed in preparing this specification.  On implementation, document exact patched files, source and model hashes, tests run, installer/rollback instructions and installed-state validation in the relevant issues (#13, #14, #27) and `docs/HANDOFF.md`.
+
+## Emulator and data coverage gate (13 November 2026)
+
+See [training integrity, S3 execution evidence and field acceptance](../tools/s3_candidates/EMULATION.md).  A valid emulator result certifies the tested numerical decision only.  Track reviewed positives below threshold, eligible recordings without scores, and recorder intervals with DSP loss separately.  Keep new, untouched night/site evaluations and a physical S3 load test before considering promotion.

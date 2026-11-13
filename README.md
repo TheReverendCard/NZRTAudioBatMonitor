@@ -1,5 +1,7 @@
 # NZRTAudioBatMonitor
 
+**ESP32-S3 model exports (2026-11-13):**  [Windows installer ZIP](releases/tools/Bat_S3_Pipeline_Exports_v1.zip), [pipeline coverage and usage](tools/s3_candidates/README.md), [validation and remaining board checks](tools/s3_candidates/VALIDATION.md).
+
 On-device recording and detection of New Zealand pekapeka (bat) activity, starting with a Pixel 6 Pro and Echo Meter Touch 2 and progressing towards a compact ESP32-S3 monitor.
 
 The project will collect original ultrasonic recordings, compare detections with a co-located AR4 processed through AviaNZ, and build a traceable dataset for improving small detection models.  The eventual monitor will aggregate bat activity into the Bat Data Collection 2026 workflow.
