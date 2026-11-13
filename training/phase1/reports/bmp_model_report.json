@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "model_family": "bmp",
+  "algorithm": "balanced_logistic_regression_on_robust_time_frequency_features",
+  "feature_version": "band_robust32_v1",
+  "seed": 20261105,
+  "threshold": 0.695262170103552,
+  "threshold_source": "validation_recall_target",
+  "intended_purpose": "EXPERIMENTAL DESKTOP benchmark, NOT AviaNZ .h5, NOT ESP32 firmware",
+  "created_utc": "2026-11-04T21:26:03.176291+00:00",
+  "input_manifest": "C:\\Users\\revje\\Documents\\Bat\\Daily_Run_Reports\\Training_Phase1\\spectrogram_candidates.csv",
+  "input_manifest_sha256": "540e5c5dd1c7db3e24d08e2982ca5b084a1e65d881201d56e85bb6cdf784efa9",
+  "night_splits_file": "C:\\Users\\revje\\Documents\\Bat\\Daily_Run_Reports\\Training_Phase1\\night_splits.json",
+  "night_splits_sha256": "fe0fcaffe4936c3eff9c3290e4f4ccb4933f05aea3d62ce2dac861e0067530f6",
+  "sample_counts": {
+    "train": {
+      "positive": 94,
+      "negative": 752
+    },
+    "validation": {
+      "positive": 28,
+      "negative": 192
+    },
+    "test": {
+      "negative": 683,
+      "positive": 16
+    }
+  },
+  "selected": 1765,
+  "duplicate_files_skipped": [
+    {
+      "recording": "20261023/AR420261023/20261023_010605.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_010605.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_010623.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_010623.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_010639.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_010639.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_010645.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_010645.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_010805.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_010805.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_010820.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_010820.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_022450.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_022450.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_022710.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_022710.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_025852.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_025852.bmp",
+      "split": "train",
+      "first_split": "train"
+    },
+    {
+      "recording": "20261023/AR420261023/20261023_030501.bmp",
+      "duplicate_of": "20261022/AR420261022/20261023_030501.bmp",
+      "split": "train",
+      "first_split": "train"
+    }
+  ],
+  "source_validation_failures": [],
+  "feature_failures": [],
+  "sample_weight_note": "Legacy confirmed labels receive downweighted sample_weight; grades 1..5 are not probabilities.",
+  "waveband_note": "WAV model uses only 8-45 kHz time-frequency content at 96 kHz analysis rate, including for 192 kHz source.",
+  "recording_level_limitation": "Labels mark recording presence; not every frame in a positive recording is a bat call.",
+  "metrics": {
+    "train": {
+      "n": 846,
+      "positive": 94,
+      "negative": 752,
+      "tp": 90,
+      "fp": 4,
+      "tn": 748,
+      "fn": 4,
+      "recall": 0.9574,
+      "precision": 0.9574,
+      "false_positive_rate": 0.0053,
+      "specificity": 0.9947
+    },
+    "validation": {
+      "n": 220,
+      "positive": 28,
+      "negative": 192,
+      "tp": 27,
+      "fp": 1,
+      "tn": 191,
+      "fn": 1,
+      "recall": 0.9643,
+      "precision": 0.9643,
+      "false_positive_rate": 0.0052,
+      "specificity": 0.9948
+    },
+    "test": {
+      "n": 699,
+      "positive": 16,
+      "negative": 683,
+      "tp": 14,
+      "fp": 59,
+      "tn": 624,
+      "fn": 2,
+      "recall": 0.875,
+      "precision": 0.1918,
+      "false_positive_rate": 0.0864,
+      "specificity": 0.9136
+    }
+  },
+  "model_sha256": "4f92db5888798a2bd865d91c3b1f184d92086991229abc18a49ba0ec8a34519b"
+}

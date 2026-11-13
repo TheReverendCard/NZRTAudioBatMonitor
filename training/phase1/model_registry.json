@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "registry_status": "development_candidate_only",
+  "last_updated_nz": "2026-11-06",
+  "source": {
+    "training_script": "training/phase1/train_baseline_models.py",
+    "sha256": "27ea228bb979c6bd3de4ff653f3f3ee0e800c033460e3aa7e0c3951eb8eee923",
+    "feature_version": "band_robust32_v1",
+    "frozen_night_splits_sha256": "fe0fcaffe4936c3eff9c3290e4f4ccb4933f05aea3d62ce2dac861e0067530f6"
+  },
+  "models": [
+    {
+      "family": "bmp",
+      "target": "AviaNZ desktop second opinion",
+      "source_name": "baseline.joblib",
+      "published_artifact": "training/phase1/models/bmp_v0.1.joblib",
+      "artifact_sha256": "4f92db5888798a2bd865d91c3b1f184d92086991229abc18a49ba0ec8a34519b",
+      "artifact_committed": false,
+      "report": "training/phase1/reports/bmp_model_report.json",
+      "created_utc": "2026-11-04T21:26:03.176291+00:00",
+      "threshold": 0.695262170103552,
+      "feature_count": 165,
+      "held_out": {
+        "true_positive": 14,
+        "false_negative": 2,
+        "false_positive": 59,
+        "true_negative": 624
+      },
+      "approval": "candidate_not_approved"
+    },
+    {
+      "family": "wav",
+      "target": "XiaoRT shadow mode candidate",
+      "source_name": "baseline(1).joblib",
+      "published_artifact": "training/phase1/models/wav_v0.1.joblib",
+      "artifact_sha256": "c63c748334315bf243d1dd3013d19834299b235ea375c676ba534eb291e72ae9",
+      "artifact_committed": false,
+      "report": "training/phase1/reports/wav_model_report.json",
+      "created_utc": "2026-11-04T21:27:08.813355+00:00",
+      "threshold": 0.9903633348800894,
+      "feature_count": 165,
+      "analysis_band_khz": [
+        8,
+        45
+      ],
+      "held_out": {
+        "true_positive": 8,
+        "false_negative": 1,
+        "false_positive": 2,
+        "true_negative": 662
+      },
+      "approval": "candidate_not_approved"
+    }
+  ],
+  "policies": {
+    "artifact_immutability": "Never replace a previous model version in place. Commit every new candidate under unique version/hash path.",
+    "no_media_upload": "Do not commit WAV, BMP, annotations, site locations, reviewer paths, credentials or training dataset.",
+    "retrain_trigger": "Future opt-in daily scheduler; currently NOT automatically retraining or publishing.",
+    "model_promotion": "No automatic champion replacement. Review validation, held-out night stability, shadow field tests, and human approval first.",
+    "device_delivery": "Model-only Wi-Fi OTA is a future firmware feature, not present in current RT or SD firmware. Require device/runtime compatibility, signed manifest, SHA-256 verification, A/B atomic activation, and rollback.",
+    "unsafe_format": "joblib is Python pickle-based; only trusted model artifacts should be loaded. For ESP32 generate a restricted numeric representation, not pickle.",
+    "training_data": "Original human annotations stay local. A versioned dataset hash/manifest can be published without the recordings."
+  }
+}
