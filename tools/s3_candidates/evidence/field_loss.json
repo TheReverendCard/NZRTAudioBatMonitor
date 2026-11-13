@@ -1,0 +1,14 @@
+{
+  "totals": {
+    "reported_gap": 31,
+    "reported_dsp_drop_delta_sum": 4165,
+    "observed": 7,
+    "separations_over_90s": 4
+  },
+  "bad_rows": 0,
+  "conflicts": 0,
+  "coverage": "partial_observations",
+  "inferred_missed_calls": null,
+  "source_zip_sha256": "e3c5593c29b730cd1b9b53b18881d299524d4731cc7a9685390161007520df54",
+  "scope": "Only uploaded 13-Nov journal fragments; not an entire night or proof of missed bat calls."
+}

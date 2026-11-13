@@ -1,0 +1,84 @@
+{
+  "profile": "bmp_cnn",
+  "source_model": "82da9a581eb1fe0b613843c5623d07d8ba7a761d083e81eb4efaecdd5ab53a76",
+  "bundle_sha256": "31e8625d32c063540596ba21bca0c98cb768aece8e587b34d1d4a060f2c52d57",
+  "pack_sha256": "66fc859580526f4957da2ada7819a17c6a86aae81ff7f1fcc5d8bc3c02b9fb7d",
+  "status": "passed",
+  "inputs": [
+    {
+      "source": "20261028_015341.bmp",
+      "status": "ready",
+      "cases": 1
+    },
+    {
+      "source": "20261106_204727.bmp",
+      "status": "ready",
+      "cases": 1
+    },
+    {
+      "source": "20261108_031059.bmp",
+      "status": "ready",
+      "cases": 1
+    },
+    {
+      "source": "event_20261105T123240Z_00116.bmp",
+      "status": "ready",
+      "cases": 1
+    }
+  ],
+  "cases": [
+    {
+      "source": "20261028_015341.bmp",
+      "offset": 0,
+      "bytes": 1179648,
+      "expected": 0.41425514221191406,
+      "windows": 8,
+      "emulated": 0.414255142,
+      "error": 2.1191404186993168e-10,
+      "decision": "candidate",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "20261106_204727.bmp",
+      "offset": 1179648,
+      "bytes": 1179648,
+      "expected": 0.4134614169597626,
+      "windows": 8,
+      "emulated": 0.413461328,
+      "error": 8.895976255640647e-08,
+      "decision": "candidate",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "20261108_031059.bmp",
+      "offset": 2359296,
+      "bytes": 1179648,
+      "expected": 0.4142449200153351,
+      "windows": 8,
+      "emulated": 0.41424495,
+      "error": 2.998466491765939e-08,
+      "decision": "candidate",
+      "agrees": true,
+      "within_tolerance": true
+    },
+    {
+      "source": "event_20261105T123240Z_00116.bmp",
+      "offset": 3538944,
+      "bytes": 1179648,
+      "expected": 0.8457241058349609,
+      "windows": 8,
+      "emulated": 0.845724106,
+      "error": 1.6503909350262802e-10,
+      "decision": "candidate",
+      "agrees": true,
+      "within_tolerance": true
+    }
+  ],
+  "promotion_ready": false,
+  "image_sha256": "5fe48b5ea045da52757e6b3a6cad07a1c65af8407b54306c0c11709f5ec7eabe",
+  "uart_sha256": "8f857d7b2eb04926797aee589d4ff76c9569aa92e01783b8df5d038ab4368305",
+  "max_abs_error": 8.895976255640647e-08,
+  "emulator_sha256": "6f1ce7b01f497176b644259a5e78fd6077926e0c30bc79d75518fef1e26f0f15"
+}

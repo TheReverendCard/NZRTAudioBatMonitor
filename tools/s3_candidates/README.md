@@ -1,5 +1,7 @@
 # Bat Monitor: S3 candidate outputs v1
 
+**v2:** [Installer, emulator run instructions and field results](EMULATION.md). The known trainer launchers now guard inputs before fitting; Daily exports queue candidates for independent ESP32-S3 emulation.
+
 Install on the Bat PC: extract this ZIP to a separate folder. Close training and Daily, then run **Install S3 Outputs.bat**. Defaults to %USERPROFILE%\Documents\Bat. For a custom root: py -3 install.py --root "D:\Bat". The installer backs up changed files to Daily_Run_Reports/S3_Install_Backups, preserves the other Daily stages and safely refuses an unfamiliar completion anchor.  Re-running it is supported. If a later Daily update replaces that hook, rerun the installer. To undo, restore the backed-up daily/trainer launchers or copy each .before_s3 launcher's contents back over the original. The sidecar export folder can remain archived.
 
 ## What is produced

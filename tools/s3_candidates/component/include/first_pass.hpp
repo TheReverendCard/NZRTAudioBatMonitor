@@ -66,7 +66,8 @@ template<ReplayRule rule> struct alignas(16) Replay : Audible {
    float low=0,mid=0,peak=-1;int bin=90;
    if(rule!=ReplayRule::Ultrasound){
     for(int i=90;i<225;i++){float e=buf[2*i]*buf[2*i]+buf[2*i+1]*buf[2*i+1];
-     if(i<120)low+=e;if(i>=135 && i<165)mid+=e;
+     if(i<120){low+=e;}
+     if(i>=135 && i<165){mid+=e;}
      if(e>peak){peak=e;bin=i;}}
     low/=30.f*2048*2048;mid/=30.f*2048*2048;
    }
@@ -95,7 +96,8 @@ struct alignas(16) Evolved {
     for(int i=0;i<1920;i++){float v=x[start+i]*coef[k][0],y=v+z[k][0];z[k][0]=z[k][1]-coef[k][1]*y;z[k][1]=-v-coef[k][2]*y;filtered[i]=y;}
     float en=dot(filtered,filtered,1920)/1920.f;
     if(warm<5){bg[k]+=(en-bg[k])/(warm+1);continue;}float v=std::min(8.f,en/(bg[k]+1.e-12f))-1;
-    for(int j=0;j<3;j++)h[j]+=weights[k][j]*v;bg[k]+=.05f*(en-bg[k]);}
+    for(int j=0;j<3;j++){h[j]+=weights[k][j]*v;}
+    bg[k]+=.05f*(en-bg[k]);}
    if(warm<5){++warm;continue;}hot|=std::max(0.f,h[0])+std::max(0.f,h[1])-std::max(0.f,h[2])>threshold;}
   return hot;}
 };

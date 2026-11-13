@@ -22,11 +22,11 @@ def project(bundle,dst):
             p.write_text(p.read_text().replace('bat_s3::Audible audible','bat_s3::Replay<bat_s3::ReplayRule::'+rule+'> audible').replace('AUDIBLE synthetic',name+' synthetic'))
         return
     if name=='rt_score1':
-        code='#include "score1.hpp"\nstatic bat_s3_score1::Analyzer obj;alignas(16) static float x[3840];\n'
-        job='if(!bat_s3::fft_init())return INFINITY;for(int i=0;i<3840;i++)x[i]=(i%8<4)?.2f:-.2f;obj.window(x,x,.02f,true);obj.window(x,x,.02f,false);obj.window(x,x,.02f,true);auto f=obj.finish(4);return obj.valid() && f.pulses==2?0.f:1.f;'
+        code='#include "score1.hpp"\nalignas(16) static float x[3840];\n'
+        job='static bat_s3_score1::Analyzer obj;if(!bat_s3::fft_init())return INFINITY;for(int i=0;i<3840;i++)x[i]=(i%8<4)?.2f:-.2f;obj.window(x,x,.02f,true);obj.window(x,x,.02f,false);obj.window(x,x,.02f,true);auto f=obj.finish(4);return obj.valid() && f.pulses==2?0.f:1.f;'
     elif name=='evolved':
-        code='#include "winner.hpp"\nstatic bat_s3::Evolved obj;alignas(16) static float x[3840];\n'
-        job='x[0]=1;return obj.check(x,evolved::weights,evolved::bias,evolved::threshold)?1.f:0.f;'
+        code='#include "winner.hpp"\nalignas(16) static float x[3840];\n'
+        job='static bat_s3::Evolved obj;x[0]=1;return obj.check(x,evolved::weights,evolved::bias,evolved::threshold)?1.f:0.f;'
     elif name=='legacy':
         code='static bat_s3::Legacy obj;alignas(16) static float x[3840];\n';job='for(int i=0;i<3840;i++)x[i]=i%7*.02f;obj.prime(x,3840);obj.prime(x,3840);obj.prime(x,1920);for(int j=0;j<150;j++)if(obj.check(x))return 1.f;for(float& v:x)v*=10;return obj.check(x)?0.f:1.f;'
     elif name=='bmp_cnn':

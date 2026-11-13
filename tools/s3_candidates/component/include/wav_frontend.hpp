@@ -50,6 +50,7 @@ inline bool compute(const int16_t* audio,size_t n,float* work,float out[165],voi
  }
  double mean=sum/(BINS*frames);out[160]=float(mean);out[161]=float(sqrt(std::max(0.,ss/(BINS*frames)-mean*mean)));
  out[162]=quantile(spec,BINS*frames,.99);out[163]=mx;out[164]=float(log1p(double(frames)));
- for(int i=0;i<165;++i)if(!std::isfinite(out[i]))return false;return true;
+ for(int i=0;i<165;++i){if(!std::isfinite(out[i]))return false;}
+ return true;
 }
 }

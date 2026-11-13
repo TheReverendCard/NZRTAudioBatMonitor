@@ -182,3 +182,7 @@ The owner's approximate historical 15,000 original files, ~9,000 stock AviaNZ ca
 ## Handoff / coordination
 
 Source of truth for operational behaviour is the owner's Windows installation under `C:\Users\revje\Documents\Bat`, not this GitHub documentation.  The snapshots inspected here included `BatDailyTool/model_progress.py` and the Phase 1 scripts from 2026-11-08, not necessarily the latest local patches.  No scripts, firmware, fitted models, deployment settings or Daily Run jobs were changed in preparing this specification.  On implementation, document exact patched files, source and model hashes, tests run, installer/rollback instructions and installed-state validation in the relevant issues (#13, #14, #27) and `docs/HANDOFF.md`.
+
+## Emulator and data coverage gate (13 November 2026)
+
+See [training integrity, S3 execution evidence and field acceptance](../tools/s3_candidates/EMULATION.md).  A valid emulator result certifies the tested numerical decision only.  Track reviewed positives below threshold, eligible recordings without scores, and recorder intervals with DSP loss separately.  Keep new, untouched night/site evaluations and a physical S3 load test before considering promotion.
