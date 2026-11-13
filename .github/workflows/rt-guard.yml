@@ -1,0 +1,48 @@
+name: RT firmware resilience
+on:
+  pull_request:
+    paths:
+      - 'firmware/meshcore_wildlife/**'
+      - 'releases/rt/**'
+      - '.github/workflows/rt-guard.yml'
+  push:
+    paths:
+      - 'firmware/meshcore_wildlife/**'
+      - 'releases/rt/**'
+      - '.github/workflows/rt-guard.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fault-injection:
+    runs-on: ubuntu-24.04
+    container: espressif/idf:v5.4.2
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: firmware/meshcore_wildlife/rt_guard
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned S3 emulator
+        run: |
+          set -eu
+          curl -fsSL --retry 3 https://github.com/espressif/esp-emulator/releases/download/v0.50.0/esp-emu-0.50.0-x86_64-unknown-linux-gnu.tar.gz -o /tmp/emulator.tar.gz
+          echo '3f388f44ae38e829c74d637a68f4d80a136c375ff4d7d168acf87c8d274f0075  /tmp/emulator.tar.gz' | sha256sum -c -
+          mkdir /tmp/guard-tools
+          tar -xzf /tmp/emulator.tar.gz -C /tmp/guard-tools
+      - name: Test detector and restart behaviour
+        run: |
+          set -e
+          . "$IDF_PATH/export.sh" >/dev/null
+          python test_acceptance.py
+          python test_gate.py
+          python run_emulator.py /tmp/guard-results --emu "$(find /tmp/guard-tools -type f -name esp-emu -print -quit)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rt-guard-evidence
+          path: |
+            /tmp/guard-results/receipt.json
+            /tmp/guard-results/*/uart.log
+            /tmp/guard-results/*/build.log

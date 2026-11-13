@@ -1,5 +1,10 @@
 # Shared development log and handoff
 
+## 2026-11-13:  RT GUARD-1 resilience bench candidate
+
+[Behaviour, build and rollback](../firmware/meshcore_wildlife/rt_guard/README.md), [emulator receipts](../firmware/meshcore_wildlife/rt_guard/evidence/emulator.json) and [Windows build-only archive](../releases/rt/NZRT_GUARD1_Bench.zip).  Baseline rt-pass1-com8 commit 4803df3.  Candidate sheds costly first-pass shadow work under pressure, distinguishes incomplete comparisons, and supervises reader, DSP, detector windows and reporter separately.  S3 fault tests include a real software restart and preservation of the reason; received field firmware remains PASS-1.  Next owner gate: full PlatformIO build, bench timing under wireless/storage load, disconnect/reconnect test and a co-located comparison night.  Receiver dead-man alarm and mandatory repository branch protection are not implemented here.
+
+
 ## 2026-10-17:  project baseline
 
 ### Agreed direction

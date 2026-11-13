@@ -1,0 +1,18 @@
+{
+  "ready_to_deploy": false,
+  "emulator": "esp-emu 0.50.0",
+  "emulator_sha256": "6f1ce7b01f497176b644259a5e78fd6077926e0c30bc79d75518fef1e26f0f15",
+  "cases": {
+    "detector": {
+      "result": "NZRT_GUARD_PASS checks=898",
+      "image_sha256": "57f568847a20e6ae95d929032009e948fec4fc8a13d0797031afc83e8fea43cf",
+      "uart_sha256": "8ea68089ad37d6362d8eb97dc968d6a318312cb4d879beb6fbefe1924f24fb24"
+    },
+    "restart": {
+      "result": "NZRT_RESTART_GUARD_PASS retained_reason=DSP repeated_stall_no_reboot=1",
+      "image_sha256": "205e8cac493a6a2904345d66c3ef69422d33d91c372760c7bde4bf70c99271f3",
+      "uart_sha256": "b6dd4922231f66fd7c09000fc81100942d29d9e7ab50d8cf7a4d18cff858bf87"
+    }
+  },
+  "status": "passed"
+}
