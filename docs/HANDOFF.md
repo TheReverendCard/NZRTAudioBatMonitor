@@ -1,5 +1,16 @@
 # Shared development log and handoff
 
+## 2026-11-14 (NZDT):  GUARD-1 compiled on the owner's Windows PC; field unit unchanged
+
+The owner reported that the GUARD-1 build-only launcher completed the full PlatformIO bench build without flashing a board (`GUARD1_Bench_20261113T200748635881Z`).  The private project contains `guard_build_receipt.json`; the receipt and image hash were not independently inspected for this entry.  Next firmware gate: controlled test on physical RT hardware with microphone, radio, journal and receiver active, including disconnect/reconnect.  No hardware, field or promotion pass is implied.
+
+Baseline night of 13–14 November:  the owner reported more similar Xiao SD and RT activity with the RT first-pass shadow off.  This was pre-GUARD-1 and describes one night.  The 20261113 timeline records AR4 `20261114_024729.bmp` as human grade 5 (bat present, species unconfirmed) with no stock AviaNZ bat candidate.  Its provisionally clock-corrected interval is 02:47:43–02:47:47 NZDT on 14 November (+14 s, not acoustically verified).  The nearby Xiao SD bar was `periodic_20261113T134518Z_00034.wav`, 02:45:18–02:45:28 NZDT: grade 1, reviewed by the owner as background only.  Its end was 135 s before the AR4 start.  No overlapping SD clip, RT candidate or RT WAV appears in the timeline.  In RT session 361DB8A8, run 3, consecutive retained candidate seq 365 (02:23:36) and 366 (03:13:10) bracket the pass.  Count as an AR4-only reviewed pass in the observed outputs.  No SD listening spans and a partial RT collection mean microphone coverage and the cause are unverified.  The periodic is a separate noise recording, not a matched negative for that pass.  First-pass shadow and downstream MLP settings are separate.
+
+## 2026-11-13:  RT GUARD-1 resilience bench candidate
+
+[Behaviour, build and rollback](../firmware/meshcore_wildlife/rt_guard/README.md), [emulator receipts](../firmware/meshcore_wildlife/rt_guard/evidence/emulator.json) and [Windows build-only archive](../releases/rt/NZRT_GUARD1_Bench.zip).  Baseline rt-pass1-com8 commit 4803df3.  Candidate sheds costly first-pass shadow work under pressure, distinguishes incomplete comparisons, and supervises reader, DSP, detector windows and reporter separately.  S3 fault tests include a real software restart and preservation of the reason; received field firmware remains PASS-1.  Next owner gate: full PlatformIO build, bench timing under wireless/storage load, disconnect/reconnect test and a co-located comparison night.  Receiver dead-man alarm and mandatory repository branch protection are not implemented here.
+
+
 ## 2026-10-17:  project baseline
 
 ### Agreed direction
