@@ -1,0 +1,5 @@
+dependencies:
+  espressif/esp-dsp:
+    git: https://github.com/espressif/esp-dsp.git
+    version: 3c8ac0fdfec83740b783e200862c8d0c056de0ad
+    require: public
