@@ -1,5 +1,9 @@
 # Shared development log and handoff
 
+## 2026-11-14 NZDT:  GUARD-2 serial comparison runner
+
+Run 3 of session 7E7263A9 produced a continuous two-second diagnostic clip (384,000 samples, no zero fill, matching HTTP acknowledgement).  The owner stopped before capture END, so score/send were not run and there are no stage timing/delta measurements.  Later UNAVAILABLE was expected in daytime standby; the cumulative standby counters were flat at 857 DSP drops / 639 gaps.  Added [Windows comparison runner](../releases/rt/GUARD2_RT_Compare.zip) and [source, instructions and tests](../tools/rt_compare/README.md) to sequence capture/score/send from the board responses and retain the transcript/summary.  Host simulation verified busy retries, early/late ACKs, incomplete output, wrong-sequence rejection and cleanup.  No firmware change or flash.  Next: owner's first physical run; field promotion remains pending.
+
 ## 2026-11-14 NZDT:  first GUARD-2 loaded RT comparison, audio-loss criterion failed
 
 Owner-supplied serial transcript SHA-256 `648ce7c77faf2aaeeda511e785af98bd84bbf99abf4c534fbf1a1dd3fd849ff4`, one session `7E7263A9`.  Run 1 entered scheduled daytime standby; `test on` resumed capture as run 2 at uptime 132 s.  No unexpected reboot or sustained stall evident before the transcript ended near 3,860 s.  The distinct profile counts below exclude the two boot-run candidates.  The 1,981 s MIC sample before the switch and 2,041 s sample after the switch have identical cumulative drop/gap counters, so the loss attribution does not rely on assuming an exact switch time.
