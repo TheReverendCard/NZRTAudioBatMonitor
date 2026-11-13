@@ -1,0 +1,10 @@
+{
+  "marker": "NZRT_GUARD_PASS checks=1526",
+  "emulator": "esp-emu 0.50.0",
+  "emulator_sha256": "6f1ce7b01f497176b644259a5e78fd6077926e0c30bc79d75518fef1e26f0f15",
+  "image_sha256": "a4007cc8b5d560947ef79700b5aaa210ded8857d1322e0bab6902ed4efb4ba34",
+  "uart_sha256": "4806253a900c33ae7ca923f4e95b25a8a3008ed2fc5fdb953184a3bc8bdec939",
+  "full_platformio_build": false,
+  "board_tested": false,
+  "method": "Recompiled candidate translation units; relinked cached IDF v5.4.2 ESP32-S3 libraries."
+}

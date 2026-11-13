@@ -1,5 +1,9 @@
 # Shared development log and handoff
 
+## 2026-11-14 NZDT:  GUARD-2 higher-recall RT candidate; not deployed
+
+[Windows build-only package](../releases/rt/NZRT_GUARD2_Bench.zip) · [build, use and rollback](../firmware/meshcore_wildlife/rt_guard/README.md) · [qualification and field-audio replay](../firmware/meshcore_wildlife/rt_guard/evidence/guard2/README.md).  Based on the GUARD-1 branch at 5e57bf1.  Change scope: RT first-pass scheduling, audible FFT, opt-in union selection, event attribution, coverage telemetry, bench and optional receiver controls.  No trained weights, SD, timeline, or field board were changed.  Machine-accepted candidate hits remain unverified.  The preceding GUARD-1 owner compile does not validate GUARD-2.  Next: owner PlatformIO compile, supervised 30-minute baseline and evolved-assist board runs, then paired overnight with listening coverage, reviewed detection and false-alert rates.  Do not auto-promote.  The unobserved Nov 14 pass remains unexplained.
+
 ## 2026-11-14 (NZDT):  GUARD-1 compiled on the owner's Windows PC; field unit unchanged
 
 The owner reported that the GUARD-1 build-only launcher completed the full PlatformIO bench build without flashing a board (`GUARD1_Bench_20261113T200748635881Z`).  The private project contains `guard_build_receipt.json`; the receipt and image hash were not independently inspected for this entry.  Next firmware gate: controlled test on physical RT hardware with microphone, radio, journal and receiver active, including disconnect/reconnect.  No hardware, field or promotion pass is implied.
