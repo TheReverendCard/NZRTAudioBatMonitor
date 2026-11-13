@@ -1,5 +1,19 @@
 # Shared development log and handoff
 
+## 2026-11-14 NZDT:  GUARD-2 automated comparison completed on the physical RT
+
+The Windows runner completed capture, score, and send in session E8B0E547 (GUARD-2, first pass evolved assist, first-pass shadow off; separate MLP in shadow, WAV on).  All three 20 s measured intervals processed every block received.  No measured DSP drops/gaps, DMA overflows, short reads, or read errors.  Diagnostic clips 1/2/3 were each 384,000 samples, continuous, zero filled=0, and acknowledged with matching HTTP responses.  The capture and score clip ACKs occurred **after** their stage END, and the send clip ACK occurred **before** END.  Final bench OFF/periodic OFF and scheduled daytime standby were observed.
+
+| Stage | Blocks received and processed | Queue peak / 48 | Worst DSP block | Blocks over budget | Longest journal operation |
+|---|---:|---:|---:|---:|---:|
+| Capture | 3,750 | 13 | 9.111 ms | 58 | 182.956 ms |
+| Score | 3,744 | 25 | 38.070 ms | 51 | 183.271 ms |
+| Send | 3,746 | 27 | 39.280 ms | 99 | 189.198 ms |
+
+The 20 s deltas are distinct from cumulative MIC telemetry (session high-water 47/48 by uptime 120 s; no per-operation timing correlation).  Test probes verify the diagnostic capture/transport path.  All measured intervals had candidates=0 and pulse_score_us=0.  Two run-2 candidates #4/#5 were emitted by the score-stage transition before its measured deltas; both journaled with clip_request=compare_probe_only.  They are not reviewed bats.  Preparation bypasses the normal trigger-to-clip path, including downstream inference on those candidate clips.  The previous longer session's gaps remain unresolved; do not infer WiFi, flash or the model is the cause from these timings alone.
+
+Next discriminating comparison: same repeated trigger input in normal monitoring, evolved assist and downstream shadow fixed, WAV uploads OFF and ON.  Allow pending uploads to drain before toggling, compare per-interval MIC drop/gap and done deltas, candidate rates, completions and queue/journal evidence; restore WAV on and automatic schedule.  Short quiet tests do not qualify the field firmware.  No firmware, model or settings were changed by this documentation update.
+
 ## 2026-11-14 NZDT:  GUARD-2 serial comparison runner
 
 Run 3 of session 7E7263A9 produced a continuous two-second diagnostic clip (384,000 samples, no zero fill, matching HTTP acknowledgement).  The owner stopped before capture END, so score/send were not run and there are no stage timing/delta measurements.  Later UNAVAILABLE was expected in daytime standby; the cumulative standby counters were flat at 857 DSP drops / 639 gaps.  Added [Windows comparison runner](../releases/rt/GUARD2_RT_Compare.zip) and [source, instructions and tests](../tools/rt_compare/README.md) to sequence capture/score/send from the board responses and retain the transcript/summary.  Host simulation verified busy retries, early/late ACKs, incomplete output, wrong-sequence rejection and cleanup.  No firmware change or flash.  Next: owner's first physical run; field promotion remains pending.
