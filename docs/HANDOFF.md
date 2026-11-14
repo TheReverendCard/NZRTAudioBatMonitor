@@ -1,5 +1,23 @@
 # Shared development log and handoff
 
+## 2026-11-15 NZDT:  completed host report confirms GUARD-3 watchdog reset, qualification failed
+
+Owner supplied serial(3).txt (173,592 bytes, SHA-256 `3c76439766e6cfa923a3be9232672426cff9b3eaa1147379f2a8a24203abb66d`) and summary(6).json (67,613 bytes, SHA-256 `754e4db6c55ac0d8331aae9734049440c2c4e979468610af7690989cbb41086d`).  These extend the previous partial capture.  Summary explicitly reports measurements_complete=false, qualification_pass=false, settings_restored=false and session-change error.  This was a real firmware watchdog abort during load11, not a stopwatch error or successful four-phase completion.
+
+Crash evidence: task_wdt at old uptime 2,193,960 ms reports IDLE0 failed to service watchdog, CPU0 currently ipc0, CPU1 IDLE1, then abort and reboot.  Test start was uptime 1,017,234 ms, so crash was approximately 19m37s into test.  It follows `NZRT JOURNAL RECOVERY active_quarantined=1`.  Last journal failure 1,274,174 ms plus 900,000 ms circuit delay = 2,174,174 ms; watchdog occurred ~19.8 s after that retry became eligible.  Strong lead is flash/journal maintenance resuming during listening; this sequence is not by itself a decoded proof of exact failing callsite.  Exact matching owner firmware.elf would be needed to symbolicate the supplied backtrace (ELF hash prefix f8be407254e4ff35).
+
+Three completed phases:
+- load00: 30/30 forced probes, 366 DSP drops, 284 gaps, 3 readback errors, journal peak operation 1.991 s; circuit opened.
+- load01: 22/29 probes acquired and all 22 test WAV ACKs received; 7 busy, zero new drops/gaps while journal circuit remained open.
+- load10: 9/30 probes acquired/scored; 21 busy, zero new drops/gaps while journal circuit remained open.  Median full scoring elapsed 27.999 s, model-only median 0.054934 s; feature extraction plus waits dominates.
+- load11 partial: 6 completed probe scores and 7 test WAV ACKs in host result before reboot.  No final phase counters.  Do not score incomplete phase as pass.
+
+Last pre-crash event backlog pending64, ram_dropped_oldest34, flash_write_failures496.  These repeated append-unavailable attempts are not 496 independent corruption incidents; live reporting had ACKed115 candidates with live_dropped0.  Implausible journal start offset 1,647,208,303 (0x622e676f), beyond filesystem capacity, remains a correctness lead, not proof of which memory/FS component caused it.
+
+Reboot session 1B74C79C reports reset_reason6, load0/bench0, inference1/wav1/mode shadow matching initial persistent controls.  Runner detects new session and sends load stop, but cannot verify normal cleanup in its original session.  Do not report settings_restored=true; post-reset automatic daytime standby was not captured before EOF.  No model promotion.
+
+Next engineering priorities: prevent journal repair/rotation/reclamation in the listening path after faults, validate all FS sizes/offsets before writes, preserve bounded RAM/live delivery with explicit overflow evidence, and inspect actual flash stalls.  Optimise feature extraction and scheduling against exact feature parity; replacing the ~55 ms MLP alone will not remove ~28 s clip service latency.  Correct test-runner post-reset reporting/diagnostic collection separately without mixing session counters.  Keep this build unqualified; no unchanged repeat or field-ready claim.  No new firmware was produced or flashed during this results review.
+
 ## 2026-11-15 NZDT:  first GUARD-3 loaded-test log is partial and already exposes faults
 
 Read owner-supplied serial(2).txt, 166,908 bytes, SHA-256 `bdcedbcdefda3e0bba57f3d38a6a237eb84569b9fde7aa51c23fd50769b7ef54`.  Runtime confirms NZRT-J5-GUARD-3 / JOURNAL-5, session 349F773D, evolved assist on, first-pass shadow off, downstream MLP shadow.  Test began at 10:38:01 NZDT; file ends near 10:56:54, about 18m53s later.  load00, load01 and load10 have final counters; load11 has started but has no finish/stop/restoration record.  This is a partial snapshot, not evidence the complete runner failed or stopped.  Ask for final serial.txt and summary.json after the existing run finishes.
