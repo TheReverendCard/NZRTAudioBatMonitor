@@ -1,0 +1,88 @@
+
+    ╻ ╻ ╻ ╻
+   ┏┻━┻━┻━┻┓    ┏━╸┏━┓┏━┓   ┏━╸┏┳┓╻ ╻
+  ━┫       ┣━   ┣╸ ┗━┓┣━┛╺━╸┣╸ ┃┃┃┃ ┃
+  ━┫ ESP32 ┣━   ┗━╸┗━┛╹     ┗━╸╹ ╹┗━┛
+  ━┫       ┣━
+   ┗┳━┳━┳━┳┛    ESP32 series emulator · v0.50.0
+    ╹ ╹ ╹ ╹     https://github.com/espressif/esp-emulator
+
+[INFO  esp_emu] Loaded firmware: 241136 bytes
+[INFO  machine] WiFi SoftAP: WPA2/WPA3 transition enabled (PWE Both) for SSID 'myssid'
+[INFO  esp_emu] TAP auto-probe failed (Failed to open /dev/net/tun: No such file or directory (os error 2)); falling back to --net user
+[INFO  net_user] user-net: DNS forwarder upstream [168.63.129.16:53], restrict=false
+[INFO  net_user] user-net: backend ready (gateway 192.168.4.1, 0 hostfwd rules)
+[INFO  esp_emu] Network backend: user-mode (smoltcp NAT, 192.168.4.1 -> host loopback)
+[INFO  esp_emu] Loaded ROM ELF: <embedded esp32s3> (949552 bytes)
+[INFO  esp_emu] Booting from real ROM reset vector (use --skip-rom to bypass)
+[INFO  machine] ROM ELF: 5227 symbols loaded
+[INFO  machine] ROM ELF loaded, 10 functions patched for interception
+[INFO  machine] CPU reset at ROM entry: PC=0x40000400, SP=0x3FCEB710
+[INFO  esp_emu] Loaded application ELF /workspace/scratch/72e07293a1ff/guard4_test/s3/app.elf: 3108464 bytes
+[INFO  machine] DWARF line info loaded from application ELF #1
+[INFO  esp_emu] Starting emulation (chip=esp32s3, batch_size=50000)
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2810,len:0x1564
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xd24
+load:0x403cb700,len:0x2ed4
+entry 0x403c8928
+I (3) boot: ESP-IDF v5.4.2 2nd stage bootloader
+I (3) boot: compile time Nov 13 2026 09:06:52
+I (3) boot: Multicore bootloader
+I (3) boot: chip revision: v0.0
+I (4) boot: efuse block revision: v1.0
+I (4) boot.esp32s3: Boot SPI Speed : 80MHz
+I (4) boot.esp32s3: SPI Mode       : SLOW READ
+I (4) boot.esp32s3: SPI Flash Size : 2MB
+I (4) boot: Enabling RNG early entropy source...
+I (4) boot: Partition Table:
+I (4) boot: ## Label            Usage          Type ST Offset   Length
+I (4) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+I (4) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+I (4) boot:  2 factory          factory app      00 00 00010000 00100000
+I (4) boot: End of partition table
+I (5) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=07eb8h ( 32440) map
+I (7) esp_image: segment 1: paddr=00017ee0 vaddr=3fc91000 size=02710h ( 10000) load
+I (8) esp_image: segment 2: paddr=0001a5f8 vaddr=40374000 size=05a20h ( 23072) load
+I (10) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=137d4h ( 79828) map
+I (15) esp_image: segment 4: paddr=000337fc vaddr=40379a20 size=075ach ( 30124) load
+I (18) esp_image: segment 5: paddr=0003adb0 vaddr=600fe000 size=0001ch (    28) load
+I (20) boot: Loaded app from partition at offset 0x10000
+I (20) boot: Disabling RNG early entropy source...
+[INFO  machine] App guard_test 1 from flash offset 0x10000 records no ELF SHA-256; using application ELF #1 unverified
+[INFO  machine] DWARF line info loaded from application ELF #1
+[INFO  periph::ble_hci] BLE: no VHCI symbols found (firmware may not use Bluetooth)
+[INFO  periph::thread_radio] Thread: no IEEE 802.15.4 symbols found (firmware may not use Thread)
+[INFO  machine] Panic intercept: 'esp_system_abort' at 0x403793F4
+[INFO  machine] Panic intercept: 'abort' at 0x4037F04C
+[INFO  machine] Panic intercept: 'esp_panic_handler' at 0x42001D9C
+I (21) cpu_start: Multicore app
+I (29) cpu_start: Pro cpu start user code
+I (29) cpu_start: cpu freq: 160000000 Hz
+I (29) app_init: Application information:
+I (29) app_init: Project name:     guard_test
+I (29) app_init: App version:      1
+I (29) app_init: Compile time:     Nov 13 2026 09:06:48
+I (29) app_init: ELF file SHA256:  000000000...
+I (29) app_init: ESP-IDF:          v5.4.2
+I (29) efuse_init: Min chip rev:     v0.0
+I (29) efuse_init: Max chip rev:     v0.99 
+I (29) efuse_init: Chip rev:         v0.0
+I (29) heap_init: Initializing. RAM available for dynamic allocation:
+I (29) heap_init: At 3FC9DF48 len 0004B7C8 (301 KiB): RAM
+I (30) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM
+I (30) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM
+I (30) heap_init: At 600FE01C len 00001FCC (7 KiB): RTCRAM
+I (30) spi_flash: detected chip: gd
+I (30) spi_flash: flash io: dio
+I (30) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (30) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (40) main_task: Started on CPU0
+I (40) main_task: Calling app_main()
+GUARD4_S3_PASS fir=24576 quantiles=12 cancellation=1 lease=1 spool_wraps=1000
+[INFO  esp_emu] Exit-on string 'GUARD4_S3_PASS' found in output

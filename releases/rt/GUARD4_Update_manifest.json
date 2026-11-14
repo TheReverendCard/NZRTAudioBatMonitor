@@ -1,0 +1,20 @@
+{
+  "candidate": "NZRT-J6-GUARD-4",
+  "journal": "JOURNAL-6",
+  "date_nz": "2026-11-15",
+  "status": "prepared_requires_owner_build_and_hardware_test",
+  "parent": "NZRT-J5-GUARD-3",
+  "parent_commit": "03b3ab37658aa952f5bf059f110098c2c927f53b",
+  "zip": "NZRT_GUARD4_Update.zip",
+  "sha256": "62a2d8751a1fcf875d72e54442c5802018b2083dbd1afc41e99c90657cbab8bb",
+  "bytes": 177774,
+  "kit_files": 79,
+  "source_folder": "firmware/meshcore_wildlife/rt_guard4",
+  "physical_board_tested": false,
+  "full_owner_project_build": false,
+  "real_arduino_integration_harness": "passed_with_time_day_test_doubles_no_meshcore",
+  "s3_emulator_policy_fir_probe": "passed",
+  "host_cpp_cases": 5,
+  "host_python_tests": 18,
+  "auto_promote": false
+}
