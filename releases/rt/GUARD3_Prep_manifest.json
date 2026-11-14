@@ -1,0 +1,10 @@
+{
+  "candidate": "NZRT-J5-GUARD-3",
+  "date_nz": "2026-11-15",
+  "status": "prepared_not_hardware_verified",
+  "zip": "NZRT_GUARD3_Prep.zip",
+  "sha256": "41104eec7789b774d5ef8f9524e5e39d61a8cb21d525b2f58259f6fd41e9b356",
+  "bytes": 147128,
+  "full_platformio_build": false,
+  "physical_board_test": false
+}
