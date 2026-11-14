@@ -101,7 +101,7 @@ class SerialTests(unittest.TestCase):
             (project/'guard3_receipt.json').write_text(json.dumps({'status':'compiled_not_hardware_verified','sources':{},'configuration':{},'image_sha256':uploader.sha(image)}))
             fake_serial = types.ModuleType('serial'); fake_tools = types.ModuleType('serial.tools')
             fake_tools.list_ports = types.SimpleNamespace(comports=lambda: [])
-            with patch.dict(sys.modules, {'serial':fake_serial,'serial.tools':fake_tools}), patch.object(sys,'argv',['upload_candidate.py','--project',td,'--port','COM8']), patch.object(uploader,'check_board',side_effect=ValueError('not confirmed')), patch.object(uploader.subprocess,'run') as flash:
+            with patch.dict(sys.modules, {'serial':fake_serial,'serial.tools':fake_tools}), patch.object(sys,'argv',['upload_candidate.py','--project',td,'--port','COM8']), patch.object(uploader,'ensure_merge_script',return_value={'status':'already_fixed'}), patch.object(uploader,'check_board',side_effect=ValueError('not confirmed')), patch.object(uploader.subprocess,'run') as flash:
                 with self.assertRaises(ValueError): uploader.main()
                 flash.assert_not_called()
 

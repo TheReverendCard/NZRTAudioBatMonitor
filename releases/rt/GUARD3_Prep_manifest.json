@@ -1,18 +1,19 @@
 {
   "candidate": "NZRT-J5-GUARD-3",
   "date_nz": "2026-11-15",
-  "package_revision": 2,
-  "updater_revision": "GUARD3-UPLOADER-2",
+  "package_revision": 3,
+  "updater_revision": "GUARD3-UPLOADER-3",
   "status": "prepared_not_hardware_verified",
   "zip": "NZRT_GUARD3_Prep.zip",
-  "sha256": "a4359cebccdac8973571f730ce85b20fd464d263423b1830932c85113d6cb929",
-  "bytes": 156899,
-  "serial_fix": {
-    "zip": "NZRT_GUARD3_Serial_Fix.zip",
-    "sha256": "be9a40225092188e18c4db9ec15b0499bc6f648216295c8058c52cbf76eaaec0",
-    "bytes": 19726
+  "sha256": "bd6a5d6b9ea9cb5b60d4e65f542e54a31773d8df394c1f8f623260780ad689f6",
+  "bytes": 164639,
+  "combined_upload_fix": {
+    "zip": "NZRT_GUARD3_Upload_Fix_v3.zip",
+    "sha256": "4c9e5a63fb86c3d2d01fdb3682f989610f1d79ee8c16c22d793ae59a9f87c64d",
+    "bytes": 21809,
+    "includes_serial_fix": true
   },
-  "firmware_source_changed_by_revision_2": false,
+  "firmware_source_changed_by_revision_3": false,
   "full_platformio_build": false,
   "physical_board_test": false
 }

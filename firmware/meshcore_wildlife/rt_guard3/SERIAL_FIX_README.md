@@ -1,5 +1,7 @@
 # GUARD-3 USB identity fix
 
+**Superseded by the combined NZRT_GUARD3_Upload_Fix_v3.zip.**  Use that package and Apply Upload Fix.cmd once to fix both serial identity and the merge-bin.py nobuild import failure.  The instructions below describe the earlier serial-only repair.
+
 This fixes the updater's command line ending.  The older RT parser requires CR, while the original updater sent LF only.  No firmware was uploaded when the identity check stopped.
 
 1. Extract `NZRT_GUARD3_Serial_Fix.zip` to a new folder.

@@ -38,6 +38,14 @@ class InstallTests(unittest.TestCase):
             with patch.object(fix, 'OLD', old), self.assertRaises(ValueError): fix.apply(target, payload)
             self.assertEqual((target/'upload_candidate.py').read_bytes(), b'old\r\n')
             self.assertFalse((target/'Tool_Backups').exists())
+    def test_new_helper_installed_and_reported_as_new(self):
+        with tempfile.TemporaryDirectory() as td:
+            target, payload, old = self.fixture(Path(td))
+            name = 'merge_upload_fix.py'; (target/name).unlink(); old[name] = None
+            with patch.object(fix, 'OLD', old): backup = fix.apply(target, payload)
+            self.assertEqual((target/name).read_bytes(), b'new\n')
+            receipt = json.loads((backup/'receipt.json').read_text())
+            self.assertIsNone(receipt['files'][name]['before_sha256'])
     def test_second_write_failure_restores_first(self):
         with tempfile.TemporaryDirectory() as td:
             target, payload, old = self.fixture(Path(td))

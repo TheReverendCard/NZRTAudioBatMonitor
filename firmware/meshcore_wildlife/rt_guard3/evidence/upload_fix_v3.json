@@ -1,0 +1,13 @@
+{
+  "revision": "GUARD3-UPLOADER-3",
+  "python_tests_passed": 19,
+  "scons_version": "4.8.1",
+  "scons_import_failure_reproduced": true,
+  "scons_dry_upload_dispatch_after_fix": true,
+  "platformio_env_methods_adapted": true,
+  "original_zip_install_verified": true,
+  "serial_patched_zip_install_verified": true,
+  "firmware_source_changed": false,
+  "windows_usb_tested": false,
+  "device_flashed": false
+}

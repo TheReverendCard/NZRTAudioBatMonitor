@@ -1,4 +1,4 @@
-"""Back up and update only the two GUARD-3 serial uploader scripts. No flashing."""
+"""Combined GUARD-3 serial and nobuild upload repair. No flashing by this installer."""
 import argparse
 import hashlib
 import json
@@ -10,8 +10,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OLD = {
-    'upload_candidate.py': 'be2ddd2cb1b877fe30e3ae9365b76c4d8140ef07b3f84ed1012c3c276494da05',
+    'upload_candidate.py': ('be2ddd2cb1b877fe30e3ae9365b76c4d8140ef07b3f84ed1012c3c276494da05',
+                            '65ec580d4ef81bc730c722ca4914dec0e06f65ec2a165a5e89a416d260418c8b'),
     'serial_link.py': '563d590f0bbf0d70a1552d1acb3716c08a4069dbab6d3df5619e5d8d40824928',
+    'merge_upload_fix.py': None,
 }
 
 def digest(data):
@@ -38,19 +40,21 @@ def apply(target, payload=HERE):
         replacement[name] = src.read_bytes()
         if digest(replacement[name]) != manifest['files'][name]:
             raise ValueError('Fix package checksum failed: ' + name)
-        previous[name] = dst.read_bytes()
-        if digest(previous[name]) not in (old, manifest['files'][name]):
+        previous[name] = dst.read_bytes() if dst.exists() else None
+        allowed = old if isinstance(old, tuple) else (old,)
+        before_hash = digest(previous[name]) if previous[name] is not None else None
+        if before_hash not in (*allowed, manifest['files'][name]):
             raise ValueError('Unrecognised installed script: ' + name + '. Nothing changed.')
-    changed = [n for n in OLD if digest(previous[n]) != digest(replacement[n])]
+    changed = [n for n in OLD if previous[n] is None or digest(previous[n]) != digest(replacement[n])]
     if not changed:
-        print('Serial fix already installed. Run Backup and Upload.cmd from:', target)
+        print('Combined upload fix already installed. Run Backup and Upload.cmd from:', target)
         return None
-    backup = target/'Tool_Backups'/('serial_fix_'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ'))
+    backup = target/'Tool_Backups'/('upload_fix_'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ'))
     backup.mkdir(parents=True, exist_ok=False)
     receipt = {'status':'backed_up', 'target':str(target), 'files':{}}
     for name in changed:
-        (backup/name).write_bytes(previous[name])
-        receipt['files'][name] = {'before_sha256':hashlib.sha256(previous[name]).hexdigest(),
+        if previous[name] is not None: (backup/name).write_bytes(previous[name])
+        receipt['files'][name] = {'before_sha256':hashlib.sha256(previous[name]).hexdigest() if previous[name] is not None else None,
                                 'after_sha256':hashlib.sha256(replacement[name]).hexdigest()}
     rp = backup/'receipt.json'
     rp.write_text(json.dumps(receipt, indent=2)+'\n', encoding='utf8')
@@ -68,15 +72,17 @@ def apply(target, payload=HERE):
             done.append(name)
     except (Exception, KeyboardInterrupt):
         for name in done:
-            shutil.copy2(backup/name, target/name)
+            if previous[name] is None: (target/name).unlink()
+            else: shutil.copy2(backup/name, target/name)
         receipt['status'] = 'rolled_back'
         rp.write_text(json.dumps(receipt, indent=2)+'\n', encoding='utf8')
         raise
     receipt['status'] = 'installed'
     rp.write_text(json.dumps(receipt, indent=2)+'\n', encoding='utf8')
-    print('Serial fix installed.  Backup:', backup)
+    print('Combined upload fix installed.  Backup:', backup)
     print('Reuse your existing compiled candidate.  No rebuild or Install.cmd needed.')
     print('Run Backup and Upload.cmd from:', target)
+    print('That uploader will also back up and repair the compiled project merge-bin.py before connecting.')
     return backup
 
 def main():

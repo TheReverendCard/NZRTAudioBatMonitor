@@ -4,6 +4,7 @@ from datetime import datetime,timezone
 from pathlib import Path
 from prepare_build import HERE,ENV,sha
 from serial_link import Link,identify,IdentityError
+from merge_upload_fix import ensure_merge_script
 
 def check_board(serial_module, port, folder):
  """Record every attempt, including open/transport failures, before any flash tool."""
@@ -38,6 +39,7 @@ def main():
    if sha(project/name)!=h:raise ValueError('Source/config changed since build: '+name)
  image=project/'.pio'/'build'/ENV/'firmware.bin'
  if sha(image)!=r['image_sha256']:raise ValueError('Firmware image differs from build receipt.')
+ merge_fix=ensure_merge_script(project)
  import serial
  from serial.tools import list_ports
  for p in list_ports.comports():print(p.device,p.description)
@@ -49,10 +51,17 @@ def main():
  with (folder/'backup.log').open('wb') as log:
   subprocess.run([sys.executable,'-m','esptool','--chip','esp32s3','--port',port,'--baud','460800','read_flash','0','8388608',str(backup)],stdout=log,stderr=subprocess.STDOUT,check=True)
  if backup.stat().st_size!=8388608:raise ValueError('Incomplete flash backup; nothing uploaded.')
- deploy={'status':'backed_up','port':port,'identity':identity,'backup':str(backup),'backup_sha256':sha(backup),'candidate_sha256':sha(image),'hardware_verified':False}
+ deploy={'status':'backed_up','port':port,'identity':identity,'merge_script':merge_fix,'backup':str(backup),'backup_sha256':sha(backup),'candidate_sha256':sha(image),'hardware_verified':False}
  receipt=folder/'deployment.json';receipt.write_text(json.dumps(deploy,indent=2)+'\n')
- with (folder/'upload.log').open('wb') as log:
-  subprocess.run([sys.executable,'-m','platformio','run','-d',str(project),'-e',ENV,'-t','nobuild','-t','upload','--upload-port',port],stdout=log,stderr=subprocess.STDOUT,check=True)
+ try:
+  with (folder/'upload.log').open('wb') as log:
+   subprocess.run([sys.executable,'-m','platformio','run','-d',str(project),'-e',ENV,'-t','nobuild','-t','upload','--upload-port',port],stdout=log,stderr=subprocess.STDOUT,check=True)
+ except subprocess.CalledProcessError as e:
+  deploy.update(status='upload_failed',returncode=e.returncode,upload_log=str(folder/'upload.log'))
+  receipt.write_text(json.dumps(deploy,indent=2)+'\n')
+  print('\nUpload log (last 40 lines):',flush=True)
+  print('\n'.join((folder/'upload.log').read_text(encoding='utf8',errors='replace').splitlines()[-40:]),flush=True)
+  raise RuntimeError('Upload failed. Full log: '+str(folder/'upload.log')+'. Keep the flash backup and check the log before retrying.') from e
  deploy['status']='uploaded_requires_board_test';receipt.write_text(json.dumps(deploy,indent=2)+'\n')
  print('Uploaded. Run the new receiver, then Run Loaded Test.cmd.');print('Private deployment receipt:',receipt)
  print('Rollback, same board only:');print(f'"{sys.executable}" -m esptool --chip esp32s3 --port {port} write_flash 0 "{backup}"')

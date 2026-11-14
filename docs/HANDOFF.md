@@ -1,5 +1,15 @@
 # Shared development log and handoff
 
+## 2026-11-15 NZDT:  combined uploader repair v3 for missing projenv
+
+Owner then reached the PlatformIO upload step and supplied `Import of non-existent variable 'projenv'` at candidate `merge-bin.py` line 7.  This log fails before the upload action; the earlier full-flash backup had completed.  The script imports projenv without using it, but PlatformIO's nobuild path does not create that build variable.  Removing only the unused import preserves env and the mergebin custom target.
+
+Implemented a hash-checked, byte-preserving backup and one-line candidate merge-script repair in `merge_upload_fix.py`, called by the updater after source/image checks and before serial connection.  Unknown scripts stop untouched; already-repaired scripts are accepted.  Repair receipt is included in deployment.json.  Upload subprocess failures now record upload_failed and print the final 40 upload.log lines.  Firmware code, model, source pinning, compiled binary and build receipt are unchanged by this repair; no rebuild needed.
+
+**One combined patch only:** [NZRT_GUARD3_Upload_Fix_v3.zip](../releases/rt/NZRT_GUARD3_Upload_Fix_v3.zip), SHA-256 `4c9e5a63fb86c3d2d01fdb3682f989610f1d79ee8c16c22d793ae59a9f87c64d` (21,809 bytes).  Includes the CRLF/retry/identity repair and accepts original or serial-only-patched tools.  Extract to a new folder, run Apply Upload Fix.cmd against existing GUARD3_Tools, then run its Backup and Upload.cmd on COM8.  Installer backs up PC scripts and adds the helper; next upload invocation backs up/repairs the candidate merge script.  Existing last_candidate.txt, environment and private compiled candidate are retained.  Full [preparation ZIP](../releases/rt/NZRT_GUARD3_Prep.zip) updated to revision 3, SHA-256 `bd6a5d6b9ea9cb5b60d4e65f542e54a31773d8df394c1f8f623260780ad689f6` (164,639 bytes).
+
+Verification:  19 Python host tests, including actual SCons 4.8.1 Import-engine reproduction and dry upload-target dispatch after repair with and without a projenv export; PlatformIO-specific environment methods were adapted, so this is not a full PlatformIO/USB integration test.  Tests preserve binary sentinel, exact LF/CRLF backups, repeat/unknown/write-failure behaviour, plus existing serial/receiver/workflow checks.  Combined repair installed against both actual original and serial-patched ZIPs, preserving the build pointer.  Original firmware-source and new ZIP hashes verified.  Evidence in evidence/upload_fix_v3.json.  Actual owner USB retry and loaded-test qualification remain pending.  No board flashed here.
+
 ## 2026-11-15 NZDT:  GUARD-3 uploader serial compatibility fix, package revision 2
 
 Owner reached COM8 upload preflight and got `GUARD-2 identity not confirmed; nothing uploaded`.  The shipped uploader sent one LF-only status command.  Recovered older MeshCore main.cpp ignores LF and dispatches on CR; the successful compare tool already used CRLF.  Host regression reproduces that failure.  The owner's failed transcript is not available, so identity/port/transport should still be checked if the correction does not resolve it.
