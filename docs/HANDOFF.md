@@ -1,5 +1,13 @@
 # Shared development log and handoff
 
+## 2026-11-15 NZDT:  owner reports successful GUARD-3 USB upload
+
+Owner ran the combined revision-3 uploader on COM8.  Supplied console output confirms the candidate merge-bin.py repair and backup, successful live pre-upload identity check for NZRT-J4-GUARD-2, and a successful PlatformIO upload return.  Private deployment receipt directory is named `20261114T210502091662Z`; it contains deployment.json and flash_before.bin.  Full backup/configuration remains on the owner's PC.  The PC-tool upload blockers are resolved in this reported run.
+
+Deployment state is now **uploaded, awaiting post-boot identity and loaded hardware test**, rather than preparation only.  Do not yet claim zero drops, journal recovery, bat recall or field qualification.  Console output does not provide the new runtime DIAG or a completed loaded-test result.  No new model promotion or overnight validation has been reported.
+
+Next owner steps:  leave RT connected to USB and close serial monitors; stop the previous receiver instance and start the GUARD3 tools' Start Receiver.cmd; run Run Loaded Test.cmd on COM8.  The runner verifies NZRT-J5-GUARD-3, then measures the four inference/WAV phases and restores prior settings plus the automatic schedule.  Expected default duration is around 20–25 minutes, longer if drainage/retries occur.  Return serial.txt and summary.json from the latest Daily_Run_Reports/RT_GUARD3_Load folder.  If it refuses existing bench/periodic activity, inspect the result rather than assuming the test ran.  The previous complete flash backup remains available for same-board rollback.
+
 ## 2026-11-15 NZDT:  combined uploader repair v3 for missing projenv
 
 Owner then reached the PlatformIO upload step and supplied `Import of non-existent variable 'projenv'` at candidate `merge-bin.py` line 7.  This log fails before the upload action; the earlier full-flash backup had completed.  The script imports projenv without using it, but PlatformIO's nobuild path does not create that build variable.  Removing only the unused import preserves env and the mergebin custom target.
