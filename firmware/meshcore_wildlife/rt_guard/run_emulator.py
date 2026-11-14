@@ -21,7 +21,7 @@ def run(out,emu):
    log=uart.read_text(errors='replace')
    pattern=r'^NZRT_GUARD_PASS checks=[1-9]\d*\s*$' if case=='detector' else r'^NZRT_RESTART_GUARD_PASS retained_reason=DSP repeated_stall_no_reboot=1\s*$'
    matches=re.findall(pattern,log,re.M)
-   if len(matches)!=1 or 'Firmware abort:' in log:raise ValueError('missing, duplicate, or faulted guest result: '+case)
+   if len(matches)!=1 or any(x in log for x in ('Firmware abort:', 'Task watchdog got triggered','Guru Meditation Error','Backtrace:', '\x00')):raise ValueError('missing, duplicate, or faulted guest result: '+case)
    rec['cases'][case]={'result':matches[0].strip(),'image_sha256':sha(img),'uart_sha256':sha(uart)}
   rec['status']='passed'
  except BaseException as e:rec['status']='failed';rec['reason']=str(e);raise

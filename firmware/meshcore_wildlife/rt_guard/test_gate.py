@@ -8,7 +8,7 @@ def prepare(dst):
         raise ValueError('PASS-1 upstream source changed; rebase the guard tests before release')
     for n in BASE:(dst/n).write_text(transform(n,(HERE/'base'/n).read_text()))
     for n in ('GuardPolicy.h','GuardSignals.h'):shutil.copy2(HERE/n,dst/n)
-    for n in ('WildlifeScoring.h','probe.cpp'):shutil.copy2(HERE/'test'/n,dst/n)
+    for n in ('WildlifeScoring.h','probe.cpp','recall_probe.inc'):shutil.copy2(HERE/'test'/n,dst/n)
 def host(cxx):
     with tempfile.TemporaryDirectory() as td:
         d=Path(td);prepare(d)
