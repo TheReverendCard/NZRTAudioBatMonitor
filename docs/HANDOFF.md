@@ -1,5 +1,15 @@
 # Shared development log and handoff
 
+## 2026-11-15 NZDT:  first GUARD-3 loaded-test log is partial and already exposes faults
+
+Read owner-supplied serial(2).txt, 166,908 bytes, SHA-256 `bdcedbcdefda3e0bba57f3d38a6a237eb84569b9fde7aa51c23fd50769b7ef54`.  Runtime confirms NZRT-J5-GUARD-3 / JOURNAL-5, session 349F773D, evolved assist on, first-pass shadow off, downstream MLP shadow.  Test began at 10:38:01 NZDT; file ends near 10:56:54, about 18m53s later.  load00, load01 and load10 have final counters; load11 has started but has no finish/stop/restoration record.  This is a partial snapshot, not evidence the complete runner failed or stopped.  Ask for final serial.txt and summary.json after the existing run finishes.
+
+Observed first phase (inference off, WAV off): 366 DSP drops, 284 gaps, three journal readback failures, journal operation peak 1,991,045 us; error circuit opened.  Last diagnostic expected_bytes=1,647,208,704 / offset=1,647,208,303 versus observed_bytes=401 is implausible for this filesystem and needs investigation; do not infer a proven root cause or defective hardware.  load01 and load10 show zero new drops/gaps, but journal circuit remained open throughout, so this is not an unconfounded claim that inference/upload causes no loss.  RAM event backlog eventually filled (64), last report ram_dropped_oldest=32; live reporting remained active.  Do not count repeated deferred flash_write_failures as that many new readback-corruption incidents.
+
+load01 has 22 forced-probe score/skip records and 22 matched test-WAV ACK records; probe_busy grew by 7.  load10 has nine completed forced-probe scores, 27.67–28.35 s elapsed each, model portion median ~54.9 ms; probe_busy grew by 21.  Partial load11 has six completed probe scores (26.56–29.65 s elapsed) and seven test-WAV ACKs, including work still scoring.  Elapsed inference includes feature extraction/waits and is not continuous deafness.  No bat labels or recall conclusions from these forced equipment probes.
+
+Status: firmware boot verified and useful hardware evidence obtained, but qualification is not passed and restoration is not established by this file.  Let an ongoing run finish automatically rather than restart it for stopwatch timing.  Keep board available for follow-up after final results; journal correctness/latency and feature throughput remain unresolved.
+
 ## 2026-11-15 NZDT:  owner reports successful GUARD-3 USB upload
 
 Owner ran the combined revision-3 uploader on COM8.  Supplied console output confirms the candidate merge-bin.py repair and backup, successful live pre-upload identity check for NZRT-J4-GUARD-2, and a successful PlatformIO upload return.  Private deployment receipt directory is named `20261114T210502091662Z`; it contains deployment.json and flash_before.bin.  Full backup/configuration remains on the owner's PC.  The PC-tool upload blockers are resolved in this reported run.
