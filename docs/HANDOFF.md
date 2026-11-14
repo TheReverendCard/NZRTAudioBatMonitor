@@ -1,5 +1,15 @@
 # Shared development log and handoff
 
+## 2026-11-15 NZDT:  GUARD-3 uploader serial compatibility fix, package revision 2
+
+Owner reached COM8 upload preflight and got `GUARD-2 identity not confirmed; nothing uploaded`.  The shipped uploader sent one LF-only status command.  Recovered older MeshCore main.cpp ignores LF and dispatches on CR; the successful compare tool already used CRLF.  Host regression reproduces that failure.  The owner's failed transcript is not available, so identity/port/transport should still be checked if the correction does not resolve it.
+
+Updated `serial_link.py` and `upload_candidate.py` to send CRLF, retry read-only status for up to 45 seconds, require an exact live GUARD-2 DIAG and complete session ID, preserve boot output, and write `before_serial.txt` plus `identity.json` on failure/success.  Selected COM port only; existing DTR/RTS false retained.  Unknown firmware, heartbeat-only and no-output cases stop before backup/upload.  Source/image checks and the full 8 MB flash backup remain required.
+
+[Small repair ZIP](../releases/rt/NZRT_GUARD3_Serial_Fix.zip), SHA-256 `be9a40225092188e18c4db9ec15b0499bc6f648216295c8058c52cbf76eaaec0` (19,726 bytes).  Extract and run Apply Serial Fix.cmd against the existing tools folder, then rerun Backup and Upload.cmd on COM8.  The installer verifies known old/current script hashes, backs up exact bytes, rolls back completed writes on failure, and preserves last_candidate.txt, dependencies and the private compiled project.  No rebuild needed.  [Complete preparation ZIP](../releases/rt/NZRT_GUARD3_Prep.zip) replaced with corrected revision 2, SHA-256 `a4359cebccdac8973571f730ce85b20fd464d263423b1830932c85113d6cb929` (156,899 bytes).  Original source pinning, firmware implementation, weights, generated build identity and emulator evidence are unchanged.
+
+Validation:  14 Python host tests pass, including nine new serial/installer regressions for CR-only and CR/LF dispatch, delayed/fragmented replies, rejection, failure receipts, no flash-tool invocation on identity failure, backup/repeat/version rejection/rollback.  Repair installation against the actual original ZIP passed.  Firmware/source hashes compared against original package and ZIP contents verified.  Real Windows USB backup/upload and hardware qualification remain pending; no board flashed here.  If the owner's retry fails, inspect the newly printed identity.json and before_serial.txt, not the private full-flash image.
+
 ## 2026-11-15 NZDT:  GUARD-3 source and loaded-test package prepared, not installed
 
 [Download package](../releases/rt/NZRT_GUARD3_Prep.zip) · [source, Windows workflow, controls and rollback](../firmware/meshcore_wildlife/rt_guard3/README.md) · [change record](../firmware/meshcore_wildlife/rt_guard3/CHANGELOG.md).  ZIP SHA-256 `41104eec7789b774d5ef8f9524e5e39d61a8cb21d525b2f58259f6fd41e9b356` (147,128 bytes).  Based on GUARD-2 source, not an unseen owner source folder.  Identity NZRT-J5-GUARD-3, JOURNAL-5; PASS-2, recogniser weights and first-pass policies preserved.
