@@ -1,0 +1,11 @@
+{
+  "host_tests": [
+    "GUARD3_FEATURE_PASS compared=990 cancellations=3 lease_orders=2 circuit_wrap=1",
+    "GUARD3_JOURNAL_PASS corruption_circuit=1 no_writes_while_open=1 pressure_deferral=1 recovery=1 ram_diagnostics=1",
+    "GUARD3_WORKER_PASS early_wav=1 no_early_reuse=1 pressure_fallback=1 inference_off_wav_on=1 incomplete_rejected=1 settings_restore=1"
+  ],
+  "workflow_tests": "passed",
+  "hardware_tested": false,
+  "full_platformio_build": false,
+  "s3_speedup_claimed": false
+}

@@ -1,0 +1,9 @@
+{
+  "revision": "GUARD3-UPLOADER-3",
+  "date_nz": "2026-11-15",
+  "files": {
+    "upload_candidate.py": "f10050bae26e306180fef1dfef9c6e5187fc86e798f849b4a8ad3cbba1727c38",
+    "serial_link.py": "12da4749c14c6bc340533eb65c160fbf2b33dc1a0db420066b2c6f1945fca1d7",
+    "merge_upload_fix.py": "6f4509408c3b6dc81ceab44b3376bd9dca830a14335c473c65f93da23ad87997"
+  }
+}

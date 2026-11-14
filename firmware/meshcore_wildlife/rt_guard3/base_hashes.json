@@ -1,0 +1,11 @@
+{
+  "GuardPolicy.h": "82213d1de584fe8766c374a694b8ff09defa7a08f6947ad5ee2cf199951d16e6",
+  "GuardSignals.h": "644c615a2a1efc08ca46540b1522d67006a61e842aa5716814be708f10a8c453",
+  "RTFeatures.h": "512f9b0fc46068e91af36adbed264ae4e31caa04309af0a6cf25ff68f03508c4",
+  "WildlifeDetector.cpp": "fc24bef98fc96c24bf614162c87e400814314644a55bfed92e295e35d867fac6",
+  "WildlifeDetector.h": "1fcf76ba909b5a7cada55982141a3ab939aa89dfdfc5f6b7e7ee5c03486f2633",
+  "WildlifeJournal.h": "846ea7c4bab4e9cb6dae48087623204f136d966ed52b6c441c357799e7114c12",
+  "WildlifeML.cpp": "30986b34bf552fedd2b0126180eb6f3fd0f1d494e304a591bca7c4e3dedda74f",
+  "WildlifeMic.cpp": "52d01bbbb7a9e6e5b2ddabdb0cac633ff06a634fe36ec803521199be2809821a",
+  "WildlifeUpload.h": "4f174cd89e77d3c8fc5fe070787fbed898cbc5b84b5617a8ababb6ea08e62124"
+}

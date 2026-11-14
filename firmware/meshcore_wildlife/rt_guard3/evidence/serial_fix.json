@@ -1,0 +1,9 @@
+{
+  "revision": "GUARD3-UPLOADER-2",
+  "host_tests_passed": 14,
+  "new_regression_tests": 9,
+  "original_zip_install_verified": true,
+  "firmware_source_changed": false,
+  "windows_usb_tested": false,
+  "device_flashed": false
+}
