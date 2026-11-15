@@ -1,5 +1,14 @@
 # Shared development log and handoff
 
+## 2026-11-15 NZDT:  architectural alternatives reviewed, streaming comparison proposed
+
+Owner asked whether more fundamental streaming/raw-waveform approaches had been considered.  [Research and proposed comparison](RT_STREAMING_ARCHITECTURE_REVIEW_20261115.md) documents primary sources, S3 bird benchmarks, raw-waveform bioacoustics, runtime separation, training/export requirements and power limitations.
+
+Recommendation is to compare a small causal streaming spectral model against a constrained raw-waveform model and a cheap pulse-feature baseline on the same recordings and held-out nights.  Streaming inference and raw-waveform input are separate choices.  Replacing the present per-clip median/quantile representation requires matched training/preprocessing and a new model/schema; it is not a switch for existing MLP weights.  Optional WAV acquisition must not gate classification.  Preserve sensitive first-pass coverage and distinguish sample gaps from model rejections.  No new recogniser has been trained or flashed; installed GUARD-4 and its hardware qualification status are unchanged.
+
+BioDCASE-Tiny 2026 publishes ESP32-S3 bird-classifier total times around 0.60–0.66 seconds for specific systems, including preprocessing.  Its 24 kHz three-second bird inputs are not comparable to our ultrasonic workload.  microWakeWord supplies a concrete incremental inference reference; SincNet/LEAF establish learned-front-end feasibility but do not prove an energy advantage here.  Evaluate end-to-end latency, missed passes, false alerts/hour and whole-device energy before choosing or promoting.  Keep current firmware as monitored baseline while testing the new architecture.
+
+
 ## 2026-11-15 NZDT:  prioritised remaining RT work after GUARD-4 hardware test
 
 Owner requested an enumerated issue/fix list.  This is proposed work, not additional implemented firmware.  GUARD-4 remains installed and the measured result immediately below remains authoritative.  Scope is RT firmware, qualification and its associated reporting.
