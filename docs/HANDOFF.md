@@ -1,5 +1,33 @@
 # Shared development log and handoff
 
+## 2026-11-15 NZDT:  GUARD-4 installed; four-phase hardware test completed, throughput qualification still fails
+
+**Current owner-installed RT is NZRT-J6-GUARD-4 / JOURNAL-6.**  The uploader first confirmed the previous NZRT-J5-GUARD-3 session 506ECE13, then reported successful upload on COM8.  Owner project: `C:\Users\revje\Documents\Bat\Firmware\GUARD4\20261115T020150309923Z`.  Private deployment receipt: `RT_Build_Receipts\20261115T020926566042Z\deployment.json` beneath that project, with same-board flash_before.bin rollback.  The attached loaded-test serial independently confirms the new build, session B5A1DDAF.  Keep the existing GUARD-3 receiver.  Release ZIP and prepared source commit remain unchanged.
+
+Evidence:  summary(7).json, 110,746 bytes, SHA-256 `889b95d870a054e42439ad16f0d2a85960e7a35161ca87ab322cbac50c7078b8`; serial(4).txt, 130,221 bytes, SHA-256 `61d4a6695185d12b110be3a09c95186d02286899431fc027f6530b3ea2dd2ca2`.  Run 2026-11-15 02:26:39.129844 to 02:47:15.303030 UTC (15:26:39 to 15:47:15 NZDT), host elapsed 1,236.172 seconds.  One session throughout.  measurements_complete=true, settings_restored=true, **qualification_pass=false**.  No watchdog/reboot in this capture.
+
+First-pass setting at entry:  PASS-2 active=evolved, shadow=off, assist=1.  This is separate from downstream builtin-wav-mlp-v01 inference=1, mode=shadow, wav=1.  The runner restored downstream inference=1/wav=1/shadow, load=0, bench=0, periodic=0, idle=1 and automatic schedule at exit.  No model was promoted.
+
+| Phase | Forced probes captured | Probe buffer busy | Valid probe NN scores | Test WAV ACKs | Median full scoring |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| load00, inference off/WAV off | 30/30 | 0 | disabled | not requested | not run |
+| load01, inference off/WAV on | 30/30 | 0 | disabled | 30/30 | not run |
+| load10, inference on/WAV off | 26/30 | 4 | 26 | not requested | 11.0946705 s |
+| load11, inference on/WAV on | 24/30 | 6 | 24 | 24/24 | 12.2485845 s |
+
+Every phase reports zero new DSP drops, stream gaps, DMA overflows, read errors and short reads.  Queue peaks were 5, 7, 4 and 6 of 48 blocks.  DSP over-budget counts remain 533, 3,736, 547 and 2,883 respectively: occasional execution overruns still exist, but buffering absorbed them during this test.  Do not equate these with zero DSP work or a proven hard deadline guarantee.  decode_us/analysis_us/pulse_score_us are all zero in the loaded timing output despite processing; these sub-totals are not useful cost measurements and merit an instrumentation check before relying on them.
+
+Journal errors/circuit/latch remained zero.  flash_ops stayed 5 throughout listening, showing no new journal flash appends during the test.  RAM ready=1; rejected, ram_evicted and unconfirmed_lost remained zero.  ram_ack increased 2 to 134; queued retained RAM ended at 70,464 bytes.  Main-loop enqueue peak per phase was 54, 55, 73 and 58 microseconds, versus a previous GUARD-3 flash operation peak of 1.991 seconds.  This changes where work happens; it is not a measurement of faster physical flash.  Five idle flash transactions had already verified before testing.  The capture ends immediately after schedule restoration, so post-test spool-to-flash draining and extended idle/offline/reboot recovery remain unobserved.
+
+GUARD-3 load10 median was 27.998857 s.  GUARD-4 load10 is about 2.52 times faster (60.4% less elapsed time), with unchanged model/schema and the same reported first-pass settings, although ambient inputs differ.  Feature median is 11.0404495 s without WAV and 12.1932905 s with WAV.  Model-only medians are 0.053909 s and 0.0542645 s; explicit cooperative wait medians 1.6585225 s and 1.8143045 s.  Full score ranges 10.771434–11.366608 s and 10.367941–14.148443 s.  Elapsed inference includes waiting/pre-emption and is not microphone-deaf time.
+
+The only runner qualification failures are four and six forced captures unable to obtain a clip buffer.  The 10-second arrival rate exceeds sustained inference throughput.  All 50 acquired inference-phase probes completed valid scores.  In addition, 14 ordinary detector candidates were logged during the test; three had clip_request=busy under this artificial load.  Their first-pass detection/report records were retained, but no separate clip was obtained for those requests.  This is a genuine optional clip/NN coverage limit, not merely a cosmetic test failure or proof that those candidates were bats.
+
+Three transient Wi-Fi association failures appear (two LIVE attempts and one optional-network attempt).  Later LIVE status shows pending=0, acked=14, dropped=0; event queue pending=0, ram_dropped_oldest=0, journal_enqueue_failures=0.  All 54 acquired WAV-enabled test probes have matching ACKs.  Do not claim Wi-Fi was error-free or that all possible clips were saved, because busy requests never acquired a clip.
+
+**Next work:** preserve the successful listening/journal isolation and address feature extraction throughput plus bounded clip scheduling.  Increasing buffers alone cannot sustain an arrival rate above processing capacity.  Profile the remaining feature stages before changing schema/model semantics; retain output parity and report busy coverage explicitly.  Re-run all four phases after any change, then perform extended online/offline retention and idle-persistence checks and field recall comparisons.  Current evidence supports supervised field collection with the NN in shadow, not promotion or a hardware-qualified release.  Before any reset/update, remember that pending PSRAM journal records are volatile and a full-flash backup does not contain them.
+
+
 ## 2026-11-15 NZDT:  GUARD-4 prepared after GUARD-3 loaded-test failure
 
 Owner authorised implementation of the measured journal/feature-throughput fixes.  New candidate **NZRT-J6-GUARD-4 / JOURNAL-6**, parent **NZRT-J5-GUARD-3**.  Current installed hardware remains GUARD-3 until the owner reports a successful new upload.  No model promotion, threshold change, pin change, SD firmware change or Daily Run modification.
