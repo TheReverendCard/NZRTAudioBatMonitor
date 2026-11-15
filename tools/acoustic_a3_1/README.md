@@ -1,0 +1,6 @@
+# Acoustic pairing A3.1 (8 November 2026)
+Requires installed A3. Its clock fitter returned a NumPy boolean for clock groups with two or more independent anchors. JSON writing then threw TypeError before the nightly report was published. Single-anchor cases short-circuited to a native False and passed. The fix converts the result explicitly to Python bool. No changes to matching scores or accepted evidence.
+
+Close review and Daily Run. Extract and run Backup and Install.bat. It hash-checks A3 and backs up the local tool before writing. Then launch BatDailyTool/Retry Six Acoustic Nights.bat. It processes only the six reported nights, reuses cached comparisons, rebuilds the combined index, and holds one lock across all six. A per-night exception goes into Daily_Run_Reports/Acoustic_Retries/<UTC>.log; remaining nights continue. A successful write means the report was generated; individual matches can still be weak, ambiguous or incomplete. No classification, media edits or grade changes. Restore Previous Scripts.bat uses the installer backup to roll back.
+
+Multi-anchor serialization reproduced with A3. Host regression exercised single/multiple anchors, drift and clock jumps. Original Windows tracebacks and the six full collections are unavailable, so additional causes are possible. Do not close tracking issues pending field results.

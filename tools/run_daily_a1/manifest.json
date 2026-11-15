@@ -1,0 +1,45 @@
+{
+  "daily_pipeline.py": {
+    "old": [
+      "df49d5ddbb0b440227b30e5cc2b4e1bb6f38d4ac136a17263c4266060bd6e621"
+    ],
+    "new": "37c544e3e66e39f013c9cbefb06ffcee4a5a5b97e957cb4eb68d2d140cfb6e4d",
+    "required": true
+  },
+  "daily_timeline.py": {
+    "old": [
+      "98b29204a428240538cf3fc0bf4784e207d1ed5e766e68c41bc87b3210bc2a38"
+    ],
+    "new": "033e0e24410c36572bb1bdd2d098d86d4fda08c7cf786d3d1a5b33a47fa6443e",
+    "required": true
+  },
+  "review_unreviewed_queue.py": {
+    "old": [
+      "ebf25273730a8b0f492db1492825cbe8c77ff245a696b726ec53c84569bb3c17"
+    ],
+    "new": "54bd051210fef9005b6aed41fa770961c66224a44f9bed3b6c24fa3cf924e626",
+    "required": true
+  },
+  "rebuild_timeline.py": {
+    "old": [],
+    "new": "ef0db97e69da607d5e1015aa39510675740cf6de332a69983d0b5cbcf4849092",
+    "required": false
+  },
+  "run_integrity.py": {
+    "old": [],
+    "new": "2112fc52d0518ca8edfbc55331e79887d34c76fe0d4b72b562417f4f316884c1",
+    "required": false
+  },
+  "external_inventory.py": {
+    "required": false,
+    "old": [],
+    "new": "8eb147241651ee7ef22aa016f7fcb6e57dbad7c68f1c920b656990c3bd20db6f"
+  },
+  "annotation_care.py": {
+    "required": true,
+    "old": [
+      "7c6ec43865cb5d47e9d7a9431dad781d004160774ccbe846b27e05ea1f09ad6d"
+    ],
+    "new": "f8cd286d3f8453ba4ff663285a154ef47508cd81525ebda0caf3fa41ee93ff19"
+  }
+}
