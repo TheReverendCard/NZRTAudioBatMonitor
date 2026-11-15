@@ -1,0 +1,10 @@
+{
+  "marker": "GUARD4_S3_PASS fir=24576 quantiles=12 cancellation=1 lease=1 spool_wraps=1000",
+  "emulator": "esp-emu 0.50.0",
+  "image_sha256": "0eacc601d1ee2e8eca44a6487da593a244b43b4fd38b3a76d51a1dcd4e0e1565",
+  "emulator_sha256": "6f1ce7b01f497176b644259a5e78fd6077926e0c30bc79d75518fef1e26f0f15",
+  "target_worker_and_journal_compiled_with_test_interfaces": true,
+  "physical_board_tested": false,
+  "full_platformio_build": false,
+  "timing_or_audio_hardware_validated": false
+}

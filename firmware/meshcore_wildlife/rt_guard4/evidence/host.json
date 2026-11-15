@@ -1,0 +1,13 @@
+{
+  "host_tests": [
+    "GUARD4_FEATURE_PASS compared=4950 cancellations=3 lease_orders=2 circuit_wrap=1",
+    "GUARD4_SPOOL_PASS wrap_cycles=10000 partial_rejected=1 lost_unacked_counted=1 ack_verified=1",
+    "GUARD4_JOURNAL_PASS protected_flash_ops=0 new_file_size_bug=covered oversized_file=blocked timed_repair=disabled fault_queue_retained=1 wifi_after_fault=1",
+    "GUARD4_WORKER_PASS early_wav=1 no_early_reuse=1 pressure_fallback=1 inference_off_wav_on=1 incomplete_rejected=1 settings_restore=1",
+    "GUARD4_UPLOAD_PASS hash_mismatch_retained=1 hash_match_acked=1 no_flash=1 ml_not_starved=1"
+  ],
+  "workflow_tests": "passed",
+  "hardware_tested": false,
+  "full_platformio_build": false,
+  "s3_speedup_claimed": false
+}

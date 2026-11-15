@@ -1,0 +1,43 @@
+{
+  "status": "compiled_and_linked",
+  "platformio": "6.1.18",
+  "platform": "espressif32@6.11.0",
+  "arduino_esp32": "2.0.17",
+  "framework_package": "3.20017.241212+sha.dcc1105b",
+  "target": "seeed_xiao_esp32s3",
+  "compiler": "xtensa-esp32s3-elf GCC 8.4.0 2021r2-patch5",
+  "scope": "Actual firmware Mic, Detector, ML and Upload/Journal sources with real Arduino I2S/RTOS/HTTP/WiFi/FS/Preferences libraries; Time and Day scheduling are explicit test doubles; MeshCore is not linked. Not the full owner firmware.",
+  "physical_board_tested": false,
+  "full_owner_platformio_build": false,
+  "binary_sha256": "c5f463326c94b4c6f670396885ed5f0c4e02b4e5a4016803b3d348b278e45f59",
+  "elf_sha256": "00d1046bd4fb2f995142aa48bec8f8476b45e8734cf9351f359be3c80bfde938",
+  "sources": {
+    "GuardPolicy.h": "82213d1de584fe8766c374a694b8ff09defa7a08f6947ad5ee2cf199951d16e6",
+    "GuardSignals.h": "2ce499d02d00f82ae82d1ccae3f23f8218d8b8c53a11080901306958c7c5cc26",
+    "RTClipLease.h": "6febdc1a69aafbd9a651ad90a0bb513df3f5fde0169ca57e28414fc4ba018a22",
+    "RTFeatureControl.h": "a0170785ac031f813974707cbfdbc229fb7c3537b3419a8666a5870e347b4601",
+    "RTFeatures.h": "0e85611166b512f089ab7cbd84fde8782a4e81997bb1bdb7b11a8fdfa125db0e",
+    "RTJournalPolicy.h": "e28d3f04be1eeb45a68b939e537adfa7e267ab0ae02388423d70aa1130885365",
+    "RTLogSpool.h": "64d5559a313d36dda11de5ff433f601ce65697b9cdd0b032671e759ef69977d8",
+    "RTModel.h": "87a98378be4b70e5018d6fa737d90743319481b3890b8c374a20845cd8204a90",
+    "RTOverlapReference.h": "7cc3a24b6edc6523151cf6a5b6bb5b4efb82fbde9189b2a30a75d70ae3501a41",
+    "WildlifeDay.h": "a53539ca8c52d73e5b2e0382ed294f0512976b22e38d12131df138ef4739e2b1",
+    "WildlifeDetector.cpp": "fc24bef98fc96c24bf614162c87e400814314644a55bfed92e295e35d867fac6",
+    "WildlifeDetector.h": "1fcf76ba909b5a7cada55982141a3ab939aa89dfdfc5f6b7e7ee5c03486f2633",
+    "WildlifeJournal.h": "325c476900aefb89e71113d61b6b333cb73f9b84576989f418d60a077fc5ce52",
+    "WildlifeML.cpp": "17afece3376976425b2b048e3e3b7758a908e2cd45b40b719d09078e386e2d78",
+    "WildlifeML.h": "8d1d73a5fdd14ee96b06592682d0a351460b432d89eb4374bba145ff24f7769e",
+    "WildlifeMic.cpp": "a6672fd7f24b4c2a08dec11aa565c64586e2cd4bdfaed0c7ba709b1c6acf9b99",
+    "WildlifeMic.h": "b5e1a66513e57ba8bbf3da6329c08cf5ad08c44a82b53d58a728eb15a99465b8",
+    "WildlifeScoring.h": "5df033211dc6c749f2d02f2636d01c9d54c9d4da752dd256d1b6de26eb0d119b",
+    "WildlifeTime.h": "7c06f6b485c7324697e82d7fcef81d824dfc1635c4d07c4ac87cf38f07871fdd",
+    "WildlifeUpload.h": "ee10cdbf1d7bedee6c07b0b64b7ca47eef8d580154aab5a336d8d7ca99251d5a",
+    "WildlifeUploadConfig.h": "27f31e5fe6bc609cdbd2dcb374bc900dc885dd61f44deb0a92b2a1f09cd98146",
+    "main.cpp": "677e73409dbb38a41aa63c5fc5542512a50f9e32682b4fb39a812d1d0e9dafb2",
+    "wav_mlp_model_parameters.h": "f65bc3241cdba3de4855515ce8ac7ec36670248934057437025e28760e2e8e13"
+  },
+  "memory_lines": [
+    "RAM:   [==        ]  23.2% (used 76032 bytes from 327680 bytes)",
+    "Flash: [=         ]  12.5% (used 418789 bytes from 3342336 bytes)"
+  ]
+}
