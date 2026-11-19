@@ -1,5 +1,15 @@
 # Shared development log and handoff
 
+## 2026-11-19 NZDT: GUARD6 installed and bench-qualified
+
+Current owner-installed RT is **NZRT-J6-GUARD-6**, with the compatible receiver extension. [Source, reproducible tests and evidence](../firmware/meshcore_wildlife/rt_guard6/README.md) include the intervening GUARD5 fixes. The exact public source/receiver hashes and private tested image hash are recorded; credentials, binary images, full-flash backup and original recordings remain local.
+
+Five fixed recording slots, fair per-clip retries, bounded transfers, Wi-Fi reuse, lossless transport packing and exact feature acceleration address the observed buffer occupation and inference throughput problems. GUARD4 journal/recovery protections, detector thresholds and model weights are retained. The installed legacy receiver's PASS-1 dispatch wrapper needed a compatibility fix; both ordinary and diagnostic routes were then exercised.
+
+Final sustained test: 120/120 scheduled captures over four five-minute phases, zero busy buffers or acquisition errors, no restart, and 61/61 received WAVs verified. Median scoring: 6.54 s score-only and 5.47 s combined; median transfer: 1.08 s. Controlled HTTP failures and a stalled send recovered all 18/18 scheduled recordings. Earlier weak-signal tests failed and are preserved. The antenna was repositioned before qualification, so network improvement is partly physical.
+
+Normal schedule, evolved detector with assist, inference/WAV enabled, built-in model in shadow mode, and test modes off were verified. The normal receiver is running. Remaining work: overnight reliability and held-out biological recall comparisons; prolonged disconnection can still exceed the finite RAM queue. No promotion to active neural filtering and no AviaNZ model change is implied by this firmware qualification.
+
 ## 2026-11-15 NZDT:  architectural alternatives reviewed, streaming comparison proposed
 
 Owner asked whether more fundamental streaming/raw-waveform approaches had been considered.  [Research and proposed comparison](RT_STREAMING_ARCHITECTURE_REVIEW_20261115.md) documents primary sources, S3 bird benchmarks, raw-waveform bioacoustics, runtime separation, training/export requirements and power limitations.

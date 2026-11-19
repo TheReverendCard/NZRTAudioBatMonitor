@@ -1,0 +1,18 @@
+{
+  "build": "NZRT-J6-GUARD-6",
+  "date_local": "2026-11-19 NZDT",
+  "installed_and_bench_qualified": true,
+  "private_firmware_sha256": "4e6a4d6ab9425dbf9d51953b05d3d302a858a77cb11a002ea42f6d18fffe3c79",
+  "source_manifest": "../source_manifest.json",
+  "private_image_published": false,
+  "normal_settings_restored": true,
+  "detector": "evolved with assist",
+  "model": "builtin-wav-mlp-v01",
+  "model_mode": "shadow",
+  "sample_rate": 192000,
+  "samples_per_clip": 384000,
+  "initial_weak_signal_trial_failed": true,
+  "antenna_repositioned_before_qualifying_tests": true,
+  "overnight_reliability_verified": false,
+  "bat_recall_verified": false
+}

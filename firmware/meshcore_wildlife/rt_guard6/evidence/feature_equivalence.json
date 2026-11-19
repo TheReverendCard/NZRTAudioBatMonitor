@@ -1,0 +1,12 @@
+{
+  "comparison": {
+    "result": "MATCH",
+    "order": "old_first",
+    "old_us": "26491028",
+    "cached_us": "2862669",
+    "old_wait_us": "270240",
+    "cached_wait_us": "308978",
+    "samples": "384000"
+  },
+  "scope": "Earlier GUARD6 image with the same feature implementation; final build separately qualified under load."
+}

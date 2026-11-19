@@ -1,0 +1,53 @@
+RTPCM1 lossless transfer format
+
+The saved recording remains an ordinary mono PCM16 WAV at 192,000 Hz.
+Neither the sample values nor the capture length change. Packing applies
+only to the HTTP request body between RT and receiver.
+
+Capability: authenticated GET /rt-transport-version returns RTPCM1.
+Without a supporting receiver or fixed scratch buffer, firmware sends raw
+PCM. It also sends raw PCM when packing would not make the body smaller.
+
+Packed request headers:
+  X-PCM-Encoding: rtpcm1
+  X-PCM-Bytes: original PCM byte length
+  Content-Length: packed body length
+  X-FNV1a: hash of the original, unpacked PCM
+All other identity, timing, sample-rate and capture-valid headers retain
+their previous meaning. No credentials are stored in this document.
+
+Body:
+  Bytes 0..3: ASCII RTB1.
+  Bytes 4..7: unsigned little-endian sample count, 1..384000.
+  Blocks of up to 256 samples follow, including a partial final block.
+  Each block begins with its signed PCM16 minimum (little-endian), followed
+  by an unsigned width byte (0..16). Offsets from the minimum are packed
+  least-significant bit first. Each block ends at a byte boundary with zero
+  padding. Constant blocks use width zero and carry no offset bytes.
+
+The receiver bounds encoded and decoded lengths, validates width, sample
+range and padding, rejects trailing/truncated data, reconstructs PCM, and
+checks the original FNV before writing the WAV. Existing SHA256 receipts
+are computed over the reconstructed PCM. Repeated identical uploads remain
+idempotent. Raw uploads and the SD receiver's separate 96kHz route remain
+supported.
+
+Memory is allocated once at boot. Five 768,000-byte capture slots preserve
+independent capture, score and transfer ownership. The optional 768,000-byte
+transport buffer is allocated only with at least 512 KiB PSRAM remaining.
+No flash WAV spool or per-capture allocation was introduced.
+
+Validation includes C++ encoder / Python decoder exact roundtrips for 43
+inputs, including eight recorded clips, range extremes, constant blocks,
+partial blocks and full-size random PCM; decoder malformed-input tests;
+and receiver integration tests against the installed base receiver.
+
+Receiver integration detail: the installed base Server.serve_forever has
+an old PASS-1 wrapper that intercepts X-First-Pass uploads. The current
+extension already supplies those RT and control routes. Its serve_receiver
+helper uses the standard HTTP server loop directly, retaining the base SD
+and journal handlers while avoiding duplicate RT routing.
+
+Reference consulted for processor and Wi-Fi behaviour:
+https://docs.espressif.com/projects/esp-idf/en/v5.1/esp32s3/api-guides/performance/speed.html
+https://docs.espressif.com/projects/esp-idf/en/v4.4.5/esp32s3/api-guides/wifi.html

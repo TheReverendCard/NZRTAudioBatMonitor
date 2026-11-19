@@ -1,0 +1,3 @@
+# Preserve the exact bytes of the hardware-qualified source manifest on all hosts.
+nzrt/* -text
+receiver/receiver_extension.py -text

@@ -1,0 +1,21 @@
+[
+  "RTFeatures.h",
+  "WildlifeDetector.cpp",
+  "WildlifeJournal.h",
+  "WildlifeMic.cpp",
+  "WildlifeDetector.h",
+  "RTClipLease.h",
+  "RTFeatureControl.h",
+  "GuardPolicy.h",
+  "WildlifeUpload.h",
+  "WildlifeML.cpp",
+  "RTJournalPolicy.h",
+  "GuardSignals.h",
+  "RTLogSpool.h",
+  "RTModel.h",
+  "RTOverlapReference.h",
+  "RTPCMCodec.h",
+  "wav_mlp_model_parameters.h",
+  "WildlifeML.h",
+  "WildlifeScoring.h"
+]

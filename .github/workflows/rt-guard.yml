@@ -14,6 +14,13 @@ on:
 permissions:
   contents: read
 jobs:
+  guard6-host-and-receiver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check GUARD6 source, native policies and receiver compatibility
+        run: python3 firmware/meshcore_wildlife/rt_guard6/test_all.py
   fault-injection:
     runs-on: ubuntu-24.04
     container: espressif/idf:v5.4.2

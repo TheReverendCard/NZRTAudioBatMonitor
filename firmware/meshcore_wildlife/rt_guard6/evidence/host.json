@@ -1,0 +1,17 @@
+{
+  "platform": "Windows/MSVC C++17 and Python 3.12",
+  "date_local": "2026-11-19 NZDT",
+  "production_source_manifest_verified": true,
+  "native_tests": [
+    "features",
+    "spool",
+    "journal",
+    "worker",
+    "upload"
+  ],
+  "feature_values_compared": 4950,
+  "public_codec_generated_roundtrips": 35,
+  "python_transport_and_receiver_tests": 6,
+  "all_passed": true,
+  "scope": "No device access; hardware qualification is recorded separately."
+}

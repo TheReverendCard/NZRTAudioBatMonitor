@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+build/
+*.exe
+*.obj
+*.bin
+*.elf
+receiver_config.json
+platformio.local.ini

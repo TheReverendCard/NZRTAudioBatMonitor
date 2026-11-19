@@ -1,0 +1,106 @@
+{
+  "qualification_pass": false,
+  "measurements_complete": true,
+  "settings_restored": true,
+  "phases": {
+    "503": {
+      "pass": false,
+      "issues": [
+        "4 forced captures could not obtain a clip buffer"
+      ],
+      "probes": 10,
+      "busy": 4,
+      "valid_scores": 6,
+      "median_score_seconds": 3.4448135,
+      "captures": 6,
+      "acknowledged": 6
+    },
+    "slow": {
+      "pass": false,
+      "issues": [
+        "2 forced captures could not obtain a clip buffer"
+      ],
+      "probes": 9,
+      "busy": 2,
+      "valid_scores": 7,
+      "median_score_seconds": 3.482606,
+      "captures": 7,
+      "acknowledged": 7
+    }
+  },
+  "expected_wavs": 17,
+  "verified_wavs": 17,
+  "missing_wavs": [],
+  "invalid_wavs": [],
+  "discarded": [],
+  "successful_routes": [
+    "/rt-clip",
+    "/rt-test-clip"
+  ],
+  "median_transfer_seconds": 14.542,
+  "transfer_failures": 5,
+  "deadline_hits": 3,
+  "signal_dbm_range": [
+    -94,
+    0
+  ],
+  "median_wire_fraction": 0.48053645833333336,
+  "memory_snapshots": [
+    {
+      "uptime_ms": "52569",
+      "internal_free": "125308",
+      "internal_min": "108436",
+      "internal_largest": "102388",
+      "psram_free": "1044083",
+      "psram_min": "1039427",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "52889",
+      "internal_free": "125892",
+      "internal_min": "108436",
+      "internal_largest": "102388",
+      "psram_free": "1044083",
+      "psram_min": "1039427",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "53173",
+      "internal_free": "125520",
+      "internal_min": "108436",
+      "internal_largest": "110580",
+      "psram_free": "1044083",
+      "psram_min": "1039427",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "234678",
+      "internal_free": "124484",
+      "internal_min": "98448",
+      "internal_largest": "110580",
+      "psram_free": "1044083",
+      "psram_min": "1039427",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "234682",
+      "internal_free": "124484",
+      "internal_min": "98448",
+      "internal_largest": "110580",
+      "psram_free": "1044083",
+      "psram_min": "1039427",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "387917",
+      "internal_free": "125120",
+      "internal_min": "98448",
+      "internal_largest": "98292",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    }
+  ],
+  "error": null,
+  "scope": "Supervised bench test; no claim of overnight reliability or bat recall."
+}

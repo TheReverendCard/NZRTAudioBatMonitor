@@ -1,0 +1,149 @@
+{
+  "qualification_pass": true,
+  "measurements_complete": true,
+  "settings_restored": true,
+  "phases": {
+    "load00": {
+      "pass": true,
+      "issues": [],
+      "probes": 30,
+      "busy": 0,
+      "valid_scores": 0,
+      "median_score_seconds": null,
+      "captures": 30,
+      "acknowledged": 0
+    },
+    "load01": {
+      "pass": true,
+      "issues": [],
+      "probes": 30,
+      "busy": 0,
+      "valid_scores": 0,
+      "median_score_seconds": null,
+      "captures": 30,
+      "acknowledged": 30
+    },
+    "load10": {
+      "pass": true,
+      "issues": [],
+      "probes": 30,
+      "busy": 0,
+      "valid_scores": 30,
+      "median_score_seconds": 6.5383914999999995,
+      "captures": 30,
+      "acknowledged": 0
+    },
+    "load11": {
+      "pass": true,
+      "issues": [],
+      "probes": 30,
+      "busy": 0,
+      "valid_scores": 30,
+      "median_score_seconds": 5.4709035,
+      "captures": 30,
+      "acknowledged": 30
+    }
+  },
+  "expected_wavs": 61,
+  "verified_wavs": 61,
+  "missing_wavs": [],
+  "invalid_wavs": [],
+  "discarded": [],
+  "successful_routes": [
+    "/rt-clip",
+    "/rt-test-clip"
+  ],
+  "median_transfer_seconds": 1.083,
+  "transfer_failures": 0,
+  "deadline_hits": 0,
+  "signal_dbm_range": [
+    -73,
+    -71
+  ],
+  "median_wire_fraction": 0.487328125,
+  "memory_snapshots": [
+    {
+      "uptime_ms": "788368",
+      "internal_free": "147976",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1059019",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "790775",
+      "internal_free": "126080",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044927",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "1091118",
+      "internal_free": "125592",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "1091123",
+      "internal_free": "125800",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "1391339",
+      "internal_free": "126208",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "1391342",
+      "internal_free": "126208",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "1696659",
+      "internal_free": "126176",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "1696662",
+      "internal_free": "126176",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    },
+    {
+      "uptime_ms": "2009586",
+      "internal_free": "125596",
+      "internal_min": "98448",
+      "internal_largest": "114676",
+      "psram_free": "1044083",
+      "psram_min": "1034771",
+      "psram_largest": "1032180"
+    }
+  ],
+  "error": null,
+  "scope": "Supervised bench test; no claim of overnight reliability or bat recall."
+}
