@@ -1,5 +1,17 @@
 # Bat Daily review-first update
 
+## 23 November 2026 cumulative Windows installer
+
+Use [BatDaily_Full_Session_Review.zip](rt_import_update/BatDaily_Full_Session_Review.zip) for the field installation.  Extract the ZIP and run `Install_Full_Daily_Review.bat` after the current daily run finishes.  The installer supports the inspected installation both before and after the earlier RT update.
+
+| Change | Installer behaviour |
+| --- | --- |
+| RT receiver intake | Reuses the archive receipt index, verifies duplicate content and builds a lossless log pack per device and NZ date. |
+| Daily FastAviaNZ review | Opens all eligible recordings in one session.  Closing early saves reconciled grades and leaves the rest queued.  Standalone catch-up defaults to 150. |
+| WAV and shared-band BMP feature caching | Planned.  These training stages still extract features when they retrain. |
+
+The cumulative ZIP has SHA-256 `3e0ccdf24306b363f677b2e137cc30a73c58b2b0d3ce36a8e27c67c2110b1fd1`.  See the [RT intake replay measurements](rt_import_update/README.md) and [625-recording review and resume checks](rt_import_update/FULL_SESSION_REVIEW.md).
+
 Version 2.0.4 adds daily BMP and WAV recall and false alarm plots to the v2 field performance page. All available scored nights display by default. Select the most recent 14 or 30 nights to narrow the view. Nightly metrics with too few labeled files remain blank, and hover points for exact metrics and reviewed counts. The weekly charts and nightly comparison table remain available. Run Daily refreshes these plots from saved model predictions and current review labels.
 
 Version 2.0.3 fixes the stop after “Experimental AviaNZ review ... issues.”  Individual experimental discrepancies remain in Experimental_Review/issues.csv and appear as a warning on the daily status page.  A completed grade-to-plot audit, experimental reconciliation, and receipt publication now have separate checkpoints.  An RT log or manual clock change queues timeline work without regenerating recorder workbooks or experimental results.  On Windows the daily status and verified activity pages open after publication.  A reporting exception still exits with an error and opens the available reports with a failure notice on the daily status page.
