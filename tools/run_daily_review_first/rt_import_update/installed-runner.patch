@@ -1,0 +1,642 @@
+diff --git a/BatDailyTool/rt_daily_batch.py b/BatDailyTool/rt_daily_batch.py
+new file mode 100644
+--- /dev/null
++++ b/BatDailyTool/rt_daily_batch.py
+@@ -0,0 +1,117 @@
++"""Batch the pending RT receiver text uploads from the review-first daily queue."""
++
++import json
++import time
++from collections import Counter, defaultdict
++from datetime import timedelta
++from zoneinfo import ZoneInfo
++
++import rt_logs
++
++
++def import_pending(state, resolve_path, receiver_signature):
++    root = state.root
++    task = "rtlogs-file"
++    pending = state.pending(task)
++    groups = defaultdict(list)
++    ignored = []
++    zone = ZoneInfo("Pacific/Auckland")
++    started = time.perf_counter()
++    for rel in pending:
++        path = resolve_path(root, rel)
++        stamp = rt_logs.backup_timestamp(path)
++        if stamp is None or path.suffix.lower() != ".txt" or not path.is_file():
++            ignored.append(rel)
++            continue
++        groups[stamp.astimezone(zone).date()].append((rel, path))
++
++    def checkpoint(rels):
++        state.db.executemany("DELETE FROM jobs WHERE stage=? AND item=?",
++                             ((task, rel) for rel in rels))
++        state.db.commit()
++
++    checkpoint(ignored)
++    total = sum(map(len, groups.values()))
++    if not total:
++        print(f"XiaoRT: no timestamped text uploads in {len(pending)} queue entries.", flush=True)
++        return
++    print(f"XiaoRT: {total} uploads across {len(groups)} NZ dates. Reading archive receipts once.", flush=True)
++    index_start = time.perf_counter()
++    index = rt_logs.ReceiptIndex(root, state.db)
++    indexed = time.perf_counter()
++    print(f"XiaoRT: indexed {index.count} receipts ({index.cached} cached) in {indexed-index_start:.2f}s.", flush=True)
++    counts = Counter()
++    processed = 0
++    last_progress = indexed
++    for date, rows in sorted(groups.items()):
++        day = date.strftime("%Y%m%d")
++        paths = []
++        errors = []
++        day_counts = Counter()
++        for rel, path in sorted(rows):
++            signature = receiver_signature(path)
++            if state.blocked(rel, signature):
++                day_counts["quarantined"] += 1
++            else:
++                try:
++                    with path.open("rb") as stream:
++                        sample = stream.read(8192)
++                        data = sample + stream.read() if b"NZRT " in sample else None
++                except OSError as exc:
++                    state.reject(rel, signature, exc)
++                    day_counts["read_errors"] += 1
++                    errors.append(f"{rel}: {exc}")
++                else:
++                    if receiver_signature(path) != signature:
++                        raise RuntimeError(f"Receiver upload changed during import. Retry {rel}")
++                    if data is None:
++                        day_counts["non_nzrt"] += 1
++                    else:
++                        before = index.created
++                        archive, meta = rt_logs.import_log_bytes(root, path, data, index)
++                        day_counts["new" if index.created > before else "reused"] += 1
++                        paths.append(archive.relative_to(root).as_posix())
++                        day_counts["source_bytes"] += len(data)
++            processed += 1
++            now = time.perf_counter()
++            if now - last_progress >= 10:
++                print(f"XiaoRT: {processed}/{total} uploads checked in {now-started:.1f}s.", flush=True)
++                last_progress = now
++        receipt = root / "Daily_Run_Reports" / day / "XiaoRT" / "collection.json"
++        prior = rt_logs.read_json(receipt, {})
++        if paths:
++            history = list(prior.get("archived_logs", []))
++            if prior.get("raw_log"):
++                history.append(prior["raw_log"])
++            archives = list(dict.fromkeys(history + paths))
++            rt_logs.collection_status(root, day, "wifi_imported", raw_log=paths[-1],
++                                      sha256=meta["sha256"], complete=bool(meta["complete"]),
++                                      files_imported=len(archives), archived_logs=archives,
++                                      skipped_files=day_counts["non_nzrt"], errors=errors,
++                                      batch=dict(day_counts))
++            for offset in (-1, 0, 1):
++                target = (date + timedelta(days=offset)).strftime("%Y%m%d")
++                if (root / target).is_dir():
++                    state.put("timeline-day", target)
++                    state.put("final", "timelines")
++        elif prior.get("status") not in {"wifi_imported", "imported", "downloaded"}:
++            rt_logs.collection_status(root, day, "not_collected", searched_files=len(rows),
++                                      skipped_files=day_counts["non_nzrt"], errors=errors,
++                                      batch=dict(day_counts))
++        state.put("rt-pack-day", day)
++        # Publish the receipt and downstream work before clearing this date's jobs.
++        checkpoint(rel for rel, _ in rows)
++        counts.update(day_counts)
++    elapsed = time.perf_counter() - started
++    print(f"XiaoRT: {processed} checked, {counts['new']} newly archived, "
++          f"{counts['reused']} verified duplicates, {counts['non_nzrt']} non-NZRT, "
++          f"{counts['read_errors']} read errors, {counts['quarantined']} already quarantined, "
++          f"{elapsed:.2f}s.", flush=True)
++    detail = dict(counts)
++    detail.update(checked=processed, other_queue_entries=len(ignored), receipts_indexed=index.count,
++                  cached_receipts=index.cached, invalid_receipts=index.invalid,
++                  index_seconds=round(indexed-index_start, 3),
++                  total_seconds=round(elapsed, 3), run=state.run)
++    state.db.execute("INSERT OR REPLACE INTO notes VALUES (?,?)",
++                     ("rt-import-latest", json.dumps(detail, sort_keys=True)))
++    state.db.commit()
+diff --git a/BatDailyTool/rt_day_pack.py b/BatDailyTool/rt_day_pack.py
+new file mode 100644
+--- /dev/null
++++ b/BatDailyTool/rt_day_pack.py
+@@ -0,0 +1,110 @@
++"""Lossless per-device, NZ upload-date logs with a readable first-occurrence view."""
++import argparse
++from collections import defaultdict
++import hashlib
++import io
++import json
++import os
++from pathlib import Path
++import tempfile
++import zipfile
++from zoneinfo import ZoneInfo
++
++from rt_logs import backup_timestamp
++
++
++def sha(data):
++    return hashlib.sha256(data).hexdigest()
++
++
++def restore(lines, row):
++    crlf = set(row.get("crlf", []))
++    last = len(row["lines"]) - 1
++    data = b"".join(lines[n - 1] + (b"" if i == last and row.get("unterminated")
++                                    else b"\r\n" if i in crlf else b"\n")
++                    for i, n in enumerate(row["lines"]))
++    if len(data) != row["bytes"] or sha(data) != row["sha256"]:
++        raise ValueError("Upload reconstruction failed: " + row["file"])
++    return data
++
++
++def read_pack(path):
++    with zipfile.ZipFile(path) as bundle:
++        lines = bundle.read("daily.log").split(b"\n")[:-1]
++        rows = [json.loads(s) for s in bundle.read("uploads.jsonl").splitlines()]
++    return {row["file"]: restore(lines, row) for row in rows}
++
++
++def build(path, sources, device, day):
++    # Receiver retention can remove an old source after the first publication.
++    stored = read_pack(path) if path.is_file() else {}
++    payloads = dict(stored)
++    for src in sources:
++        data = src.read_bytes()
++        if src.name in stored and stored[src.name] != data:
++            raise ValueError(f"Receiver bytes conflict with the saved daily pack: {src}")
++        payloads[src.name] = data
++    if payloads == stored:
++        return
++    numbers, rows = {}, []
++    for name, data in sorted(payloads.items()):
++        row = {"file": name, "bytes": len(data), "sha256": sha(data), "lines": []}
++        for i, raw in enumerate(io.BytesIO(data)):
++            if raw.endswith(b"\r\n"):
++                line = raw[:-2]
++                row.setdefault("crlf", []).append(i)
++            elif raw.endswith(b"\n"):
++                line = raw[:-1]
++            else:
++                line = raw
++                row["unterminated"] = True
++            row["lines"].append(numbers.setdefault(line, len(numbers) + 1))
++        rows.append(row)
++    summary = dict(device=device, nz_receiver_date=day, files=len(rows),
++                   input_bytes=sum(r["bytes"] for r in rows),
++                   line_occurrences=sum(len(r["lines"]) for r in rows),
++                   distinct_lines=len(numbers), format_version=1)
++    path.parent.mkdir(parents=True, exist_ok=True)
++    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
++    os.close(fd)
++    try:
++        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
++            bundle.writestr("daily.log", b"".join(line + b"\n" for line in numbers))
++            bundle.writestr("uploads.jsonl", "\n".join(json.dumps(r, separators=(",", ":")) for r in rows) + "\n")
++            bundle.writestr("summary.json", json.dumps(summary, indent=2))
++        if read_pack(tmp) != payloads:
++            raise ValueError("Daily pack differs from source uploads: " + str(path))
++        os.replace(tmp, path)
++    finally:
++        Path(tmp).unlink(missing_ok=True)
++    print(f"XiaoRT {day} {device}: {len(rows)} uploads, {summary['line_occurrences']} lines, "
++          f"{len(numbers)} distinct. Verified daily log: {path}", flush=True)
++
++
++def pack_days(root, days, output=None):
++    receiver = root / "WiFi_Backup" / "RT"
++    if not receiver.is_dir():
++        return
++    groups = defaultdict(list)
++    zone = ZoneInfo("Pacific/Auckland")
++    for device in receiver.iterdir():
++        if not device.is_dir() or device.resolve() != device:
++            continue
++        for item in device.glob("*.txt"):
++            stamp = backup_timestamp(item)
++            if stamp:
++                day = stamp.astimezone(zone).strftime("%Y%m%d")
++                if (days is None or day in days) and item.resolve() == item and item.is_file():
++                    groups[device.name, day].append(item)
++    output = output or root / "Daily_Run_Reports" / "RT_Daily_Logs"
++    for (device, day), sources in sorted(groups.items()):
++        build(output / device / (day + ".zip"), sources, device, day)
++
++
++if __name__ == "__main__":
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
++    parser.add_argument("--day", action="append", help="NZ receiver date YYYYMMDD. Omit for all dates.")
++    parser.add_argument("--output", type=Path)
++    args = parser.parse_args()
++    pack_days(args.root.resolve(), set(args.day) if args.day else None, args.output)
+diff --git a/BatDailyTool/rt_logs.py b/BatDailyTool/rt_logs.py
+--- a/BatDailyTool/rt_logs.py
++++ b/BatDailyTool/rt_logs.py
+@@ -164,18 +164,87 @@
+             'unresolved': list(unresolved.values()), 'conflicts': conflicts}
+ 
+ 
+-def archive_log(root, data, method, complete, **extra):
++class ReceiptIndex:
++    """Map content hashes to receipt paths for one import. Raw bytes remain authoritative."""
++
++    def __init__(self, root, db=None):
++        self.by_digest = {}
++        self.count = 0
++        self.invalid = 0
++        self.created = 0
++        self.cached = 0
++        self.db = db
++        previous = {}
++        if db is not None:
++            db.execute("CREATE TABLE IF NOT EXISTS rt_receipt_lookup "
++                       "(name TEXT PRIMARY KEY, size INTEGER, mtime INTEGER, digest TEXT)")
++            previous = {name: (size, mtime, digest) for name, size, mtime, digest in
++                        db.execute("SELECT name,size,mtime,digest FROM rt_receipt_lookup")}
++        folder = root / 'XiaoRT_Logs' / 'Raw'
++        folder.mkdir(parents=True, exist_ok=True)
++        changed = []
++        started = last_progress = time.perf_counter()
++        with os.scandir(folder) as entries:
++            for entry in entries:
++                if not entry.name.lower().endswith('.json') or not entry.is_file(follow_symlinks=False):
++                    continue
++                path = Path(entry.path)
++                st = entry.stat(follow_symlinks=False)
++                old = previous.get(entry.name)
++                if old and old[:2] == (st.st_size, st.st_mtime_ns):
++                    digest = old[2]
++                    self.cached += 1
++                else:
++                    try:
++                        meta = read_json(path, {})
++                        digest = meta.get('sha256') if isinstance(meta, dict) else None
++                        if not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest):
++                            raise ValueError('missing or invalid SHA-256')
++                    except ValueError as exc:
++                        self.invalid += 1
++                        if self.invalid <= 5:
++                            print(f'XiaoRT: excluded invalid receipt {path.name}: {exc}', flush=True)
++                        continue
++                    changed.append((entry.name, st.st_size, st.st_mtime_ns, digest))
++                previous.pop(entry.name, None)
++                self.by_digest.setdefault(digest, []).append(path)
++                self.count += 1
++                now = time.perf_counter()
++                if now - last_progress >= 10:
++                    print(f'XiaoRT: checked {self.count} archive receipts '
++                          f'({self.cached} cached) in {now-started:.1f}s.', flush=True)
++                    last_progress = now
++        if db is not None:
++            db.executemany("DELETE FROM rt_receipt_lookup WHERE name=?", ((k,) for k in previous))
++            db.executemany("INSERT OR REPLACE INTO rt_receipt_lookup VALUES (?,?,?,?)", changed)
++            db.commit()
++        if self.invalid:
++            print(f'XiaoRT: excluded {self.invalid} invalid archive receipts.', flush=True)
++
++    def record(self, digest, path):
++        self.by_digest.setdefault(digest, []).append(path)
++        if self.db is not None:
++            st = path.stat()
++            self.db.execute("INSERT OR REPLACE INTO rt_receipt_lookup VALUES (?,?,?,?)",
++                            (path.name, st.st_size, st.st_mtime_ns, digest))
++        self.created += 1
++
++
++def archive_log(root, data, method, complete, *, receipt_index=None, **extra):
+     directory = root / 'XiaoRT_Logs' / 'Raw'
+     directory.mkdir(parents=True, exist_ok=True)
+     digest = hashlib.sha256(data).hexdigest()
+     # A duplicate download does not replace the original capture or receipt.
+-    for old in directory.glob('*.json'):
++    receipts = (directory.glob('*.json') if receipt_index is None
++                else receipt_index.by_digest.get(digest, ()))
++    for old in receipts:
+         meta = read_json(old, {})
+         existing = old.with_suffix('.txt')
+-        if (meta.get('sha256') == digest and existing.exists()
+-                and hashlib.sha256(existing.read_bytes()).hexdigest() == digest
++        if (meta.get('sha256') == digest
+                 and meta.get('complete') == bool(complete)
+-                and (complete or meta.get('method') == method)):
++                and (complete or meta.get('method') == method)
++                and existing.is_file()
++                and hashlib.sha256(existing.read_bytes()).hexdigest() == digest):
+             return existing, meta
+     stem = datetime.now(timezone.utc).strftime('capture_%Y%m%dT%H%M%SZ_') + uuid.uuid4().hex[:8]
+     path = directory / (stem + '.txt')
+@@ -184,16 +253,22 @@
+     meta = dict(captured_utc=utc_now(), method=method, complete=bool(complete),
+                 sha256=digest, bytes=len(data), **extra)
+     write_json(path.with_suffix('.json'), meta)
++    if receipt_index is not None:
++        receipt_index.record(digest, path.with_suffix('.json'))
+     return path, meta
+ 
+ 
+-def import_log(root, path):
+-    data = Path(path).read_bytes()
++def import_log(root, path, receipt_index=None):
++    return import_log_bytes(root, path, Path(path).read_bytes(), receipt_index)
++
++
++def import_log_bytes(root, path, data, receipt_index=None):
+     # A saved terminal export might have no EOF. Its records are still useful,
+     # but its completeness is explicitly unknown in the report.
+-    marker = EOF.search(data.rstrip())
+-    finished = bool(marker and marker.end() == len(data.rstrip()))
+-    return archive_log(root, data, 'saved_log_import', finished,
++    stripped = data.rstrip()
++    marker = EOF.search(stripped)
++    finished = bool(marker and marker.end() == len(stripped))
++    return archive_log(root, data, 'saved_log_import', finished, receipt_index=receipt_index,
+                        original_filename=Path(path).name)
+ 
+ 
+diff --git a/BatDailyTool/review_first_daily.py b/BatDailyTool/review_first_daily.py
+--- a/BatDailyTool/review_first_daily.py
++++ b/BatDailyTool/review_first_daily.py
+@@ -313,46 +313,28 @@
+ 
+ 
+ def import_receiver(state,kind):
++    if kind == "rtlogs":
++        from rt_daily_batch import import_pending
++        return import_pending(state, path_for, receiver_signature)
+     import sd_wifi_import as sd
+     import rt_audio_daily
+-    import rt_logs
+     root=state.root
+     task=kind+"-file"
+     files=state.pending(task)
+     pairs=defaultdict(list)
+     for rel in files:
+         path=path_for(root,rel)
+-        if kind=="rtlogs":
+-            if path.suffix.lower()==".txt" and path.is_file():
+-                pairs[path].append(rel)
+-            else:
+-                state.done(task,rel)
++        wav=path.with_suffix("") if path.name.lower().endswith(".wav.json") else path.with_suffix(".wav")
++        if wav.is_file():
++            pairs[wav].append(rel)
+         else:
+-            wav=path.with_suffix("") if path.name.lower().endswith(".wav.json") else path.with_suffix(".wav")
+-            if wav.is_file():
+-                pairs[wav].append(rel)
+-            else:
+-                state.done(task,rel)
++            state.done(task,rel)
+     rt_stats=dict(found=len(pairs),new_bmps=0,verified=0,issues=[])
+     for path,rels in pairs.items():
+         key=path.relative_to(root).as_posix()
+         sig=receiver_signature(path)
+         if not state.blocked(key,sig):
+-            if kind=="rtlogs":
+-                timestamp=rt_logs.backup_timestamp(path)
+-                if timestamp:
+-                    day=timestamp.astimezone(ZoneInfo("Pacific/Auckland")).strftime("%Y%m%d")
+-                    with patch.object(rt_logs,"find_recent_wifi_logs",lambda *_:[path]):
+-                        result=rt_logs.import_recent_wifi_backup(root,day)
+-                    if result.get("errors"):
+-                        state.reject(key,sig," | ".join(result["errors"]))
+-                    if result.get("status")=="wifi_imported":
+-                        for offset in (-1,0,1):
+-                            target=(timestamp.astimezone(ZoneInfo("Pacific/Auckland"))+timedelta(days=offset)).strftime("%Y%m%d")
+-                            if (root/target).is_dir():
+-                                state.put("timeline-day",target)
+-                                state.put("final","timelines")
+-            elif kind=="sd":
++            if kind=="sd":
+                 if sd.DEVICE.fullmatch(path.parent.parent.name) and sd.SESSION.fullmatch(path.parent.name) and sd.WAV_NAME.fullmatch(path.name):
+                     try:
+                         sd.verify_wav(path)
+@@ -537,6 +519,13 @@
+     import post_daily_sync as post
+     root=state.root
+     cfg={**daily.core.DEFAULTS,**daily.core.read_json(TOOL/"config.json",{})}
++    pack_days = state.pending("rt-pack-day")
++    if pack_days:
++        from rt_day_pack import pack_days as write_daily_logs
++        with state.timed("Verified daily RT log packs"):
++            write_daily_logs(root, set(pack_days))
++            for day in pack_days:
++                state.done("rt-pack-day", day)
+     grouped=defaultdict(list)
+     for rel in state.pending("flac"):
+         if (root/rel).is_file():
+@@ -717,6 +706,9 @@
+                 print(datetime.fromtimestamp(int(run)/1e9, ZoneInfo("Pacific/Auckland")).strftime("%Y-%m-%d %H:%M %Z"))
+                 for stage,elapsed,status in conn.execute("SELECT stage,seconds,result FROM timing WHERE run=? ORDER BY seconds DESC",(run,)):
+                     print(f"{elapsed:9.2f}s  {status:9} {stage}")
++            batch=conn.execute("SELECT value FROM notes WHERE key='rt-import-latest'").fetchone()
++            if batch:
++                print("Latest RT batch:", json.loads(batch[0]))
+             print("Quarantine (original files retained)")
+             for path,reason in conn.execute("SELECT path,reason FROM quarantine ORDER BY path"):
+                 print(path,reason)
+@@ -839,7 +831,6 @@
+                 exc.daily_reports_opened = True
+             raise
+         state.db.execute("INSERT OR REPLACE INTO notes VALUES (?,?)",("heat-calendar-v202",today))
+-        state.db.execute("INSERT INTO timing VALUES (?,?,?,?)",(state.run,"Total elapsed (includes human review)",time.perf_counter()-state.start,"complete"))
+         state.db.commit()
+         # PASS-1 daily trial, after review and reports, inside the daily lock.
+         with state.timed("RT first-pass field trial"):
+@@ -854,6 +845,8 @@
+         except (OSError, s3process.CalledProcessError) as s3err:
+             print("S3 export needs attention:", s3err, "See Daily_Run_Reports/S3_Exports/index.json.", flush=True)
+         open_report_pages(root)
++        state.db.execute("INSERT INTO timing VALUES (?,?,?,?)",(state.run,"Total elapsed (includes human review)",time.perf_counter()-state.start,"complete"))
++        state.db.commit()
+         print(f"Run Daily complete in {time.perf_counter()-state.start:.1f} seconds. Collection date {today}.")
+         print("Verified heat map:",root/"Daily_Run_Reports"/"Verified_Bat_Activity"/"index.html")
+         print("Timing and quarantine database:",home/"daily_tasks.sqlite")
+diff --git a/BatDailyTool/test_rt_batch.py b/BatDailyTool/test_rt_batch.py
+new file mode 100644
+--- /dev/null
++++ b/BatDailyTool/test_rt_batch.py
+@@ -0,0 +1,106 @@
++import json
++from pathlib import Path
++import tempfile
++import unittest
++from unittest.mock import patch
++
++from daily_state import State
++from review_first_daily import import_receiver
++import rt_day_pack
++import rt_logs
++
++
++class RTBatchTests(unittest.TestCase):
++    def setUp(self):
++        folder = tempfile.TemporaryDirectory()
++        self.addCleanup(folder.cleanup)
++        self.root = Path(folder.name).resolve()
++        self.state = State(self.root)
++        self.addCleanup(self.state.db.close)
++        self.device = self.root / "WiFi_Backup" / "RT" / "device"
++        self.device.mkdir(parents=True)
++
++    def add(self, name, data):
++        path = self.device / name
++        path.write_bytes(data)
++        self.state.put("rtlogs-file", path.relative_to(self.root).as_posix())
++        return path
++
++    def run_import(self):
++        import_receiver(self.state, "rtlogs")
++        value = self.state.db.execute("SELECT value FROM notes WHERE key='rt-import-latest'").fetchone()
++        return json.loads(value[0])
++
++    def test_date_batch_and_exact_reuse(self):
++        for day in ("20261121", "20261122", "20261123"):
++            (self.root / day).mkdir()
++        data = b"NZRT CANDIDATE seq=1\r\n"
++        self.add("1795300000_1.txt", data)
++        self.add("1795300001_2.txt", data)
++        self.add("1795300002_3.txt", data.replace(b"=1", b"=2"))
++        self.add("1795300003_4.txt", b"unrelated")
++        self.add("badname.txt", data)
++        report = self.run_import()
++        self.assertEqual([report[k] for k in ("new", "reused", "non_nzrt", "other_queue_entries")], [2, 1, 1, 1])
++        self.assertFalse(self.state.pending("rtlogs-file"))
++        self.assertEqual(len(self.state.pending("timeline-day")), 3)
++        day, = self.state.pending("rt-pack-day")
++        receipt = self.root / "Daily_Run_Reports" / day / "XiaoRT" / "collection.json"
++        self.assertEqual(len(json.loads(receipt.read_text())["archived_logs"]), 2)
++        self.add("1795300004_5.txt", b"NZRT FIELD\n")
++        self.run_import()
++        self.assertEqual(len(json.loads(receipt.read_text())["archived_logs"]), 3)
++
++    def test_damaged_raw_and_usb_method(self):
++        data = b"NZRT FIELD\n"
++        path = self.add("1795300000_1.txt", data)
++        usb, _ = rt_logs.archive_log(self.root, data, "serial", False)
++        self.assertEqual(self.run_import()["new"], 1)
++        archive, _ = rt_logs.import_log(self.root, path)
++        self.assertNotEqual(usb, archive)
++        archive.write_bytes(b"broken")
++        self.add(path.name, data)
++        self.assertEqual(self.run_import()["new"], 1)
++        self.assertEqual(archive.read_bytes(), b"broken")
++
++    def test_lookup_reconciles_edited_missing_and_malformed_receipts(self):
++        data = b"NZRT FIELD test\n"
++        source = self.add("1795300000_1.txt", data)
++        self.run_import()
++        receipt, = (self.root / "XiaoRT_Logs/Raw").glob("*.json")
++        self.add(source.name, data)
++        warm = self.run_import()
++        self.assertEqual((warm["cached_receipts"], warm["reused"]), (1, 1))
++        receipt.write_text("{broken json", encoding="utf-8")
++        self.add(source.name, data)
++        changed = self.run_import()
++        self.assertEqual((changed["cached_receipts"], changed["invalid_receipts"], changed["new"]), (0, 1, 1))
++        receipt.unlink()
++        self.add(source.name, data)
++        self.assertEqual(self.run_import()["receipts_indexed"], 1)
++
++    def test_retry_after_receipt_write_failure(self):
++        self.add("1795300000_1.txt", b"NZRT BAND a\n")
++        with patch.object(rt_logs, "collection_status", side_effect=OSError("disk busy")):
++            with self.assertRaises(OSError):
++                self.run_import()
++        self.assertEqual(len(self.state.pending("rtlogs-file")), 1)
++        self.assertEqual(self.run_import()["reused"], 1)
++
++    def test_reconstruct_pack_and_late_arrivals(self):
++        path = self.add("1795300000_1.txt", b"NZRT X\r\n\nNZRT X\nNZRT Y\xff")
++        original = path.read_bytes()
++        day = "20261122"
++        out = self.root / "packs"
++        rt_day_pack.pack_days(self.root, {day}, out)
++        pack = out / self.device.name / (day + ".zip")
++        self.assertEqual(rt_day_pack.read_pack(pack), {path.name: original})
++        path.unlink()
++        late = self.add("1795300005_2.txt", b"NZRT X\n")
++        rt_day_pack.pack_days(self.root, {day}, out)
++        self.assertEqual(rt_day_pack.read_pack(pack), {path.name: original, late.name: late.read_bytes()})
++        saved = pack.read_bytes()
++        late.write_bytes(b"changed")
++        with self.assertRaises(ValueError):
++            rt_day_pack.pack_days(self.root, {day}, out)
++        self.assertEqual(pack.read_bytes(), saved)
+diff --git a/BatDailyTool/replay_benchmark.py b/BatDailyTool/replay_benchmark.py
+new file mode 100644
+--- /dev/null
++++ b/BatDailyTool/replay_benchmark.py
+@@ -0,0 +1,66 @@
++"""Replay one completed intake on a private copy of the pre-existing archive."""
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import shutil
++import sys
++import tempfile
++import time
++
++
++def replay(live, prefix):
++    sys.path.append(str(live / "BatDailyTool"))
++    from daily_state import State
++    from review_first_daily import import_receiver
++
++    raw = live / "XiaoRT_Logs" / "Raw"
++    originals = {p.name: p for p in (live / "WiFi_Backup" / "RT").glob("*/*.txt")}
++    with tempfile.TemporaryDirectory(prefix="bat-rt-replay-") as tmp:
++        root = Path(tmp).resolve()
++        archive = root / "XiaoRT_Logs" / "Raw"
++        archive.mkdir(parents=True)
++        incoming = {}
++        for receipt in raw.glob("*.json"):
++            if receipt.name.startswith(prefix):
++                meta = json.loads(receipt.read_text(encoding="utf-8-sig"))
++                src = originals[meta["original_filename"]]
++                dest = root / src.relative_to(live)
++                dest.parent.mkdir(parents=True, exist_ok=True)
++                shutil.copyfile(src, dest)
++                assert hashlib.sha256(dest.read_bytes()).hexdigest() == meta["sha256"]
++                incoming[dest.relative_to(root).as_posix()] = meta["sha256"]
++            elif receipt.name < prefix:
++                shutil.copyfile(receipt, archive / receipt.name)
++                text = receipt.with_suffix(".txt")
++                if text.is_file():
++                    shutil.copyfile(text, archive / text.name)
++        assert incoming
++        state = State(root)
++        try:
++            for label in ("new", "reused"):
++                for rel in incoming:
++                    state.put("rtlogs-file", rel)
++                state.db.commit()
++                start = time.perf_counter()
++                import_receiver(state, "rtlogs")
++                wall = time.perf_counter() - start
++                stats = json.loads(state.db.execute(
++                    "SELECT value FROM notes WHERE key='rt-import-latest'").fetchone()[0])
++                assert stats[label] == len(incoming) and not state.pending("rtlogs-file"), stats
++                archived = set()
++                for f in (root / "Daily_Run_Reports").glob("*/XiaoRT/collection.json"):
++                    for rel in json.loads(f.read_text())["archived_logs"]:
++                        archived.add(hashlib.sha256((root / rel).read_bytes()).hexdigest())
++                assert archived == set(incoming.values())
++                print(label, "wall seconds", round(wall, 3), stats, flush=True)
++        finally:
++            state.db.close()
++
++
++if __name__ == "__main__":
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("root", type=Path)
++    parser.add_argument("capture_prefix")
++    args = parser.parse_args()
++    replay(args.root.resolve(), args.capture_prefix)
