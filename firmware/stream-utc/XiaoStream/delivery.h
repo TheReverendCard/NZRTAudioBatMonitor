@@ -11,7 +11,7 @@ static String identifier(const String& dir,const Event& e) {
     char suffix[16]; snprintf(suffix,sizeof suffix,"-%lu",(unsigned long)e.id);
     return device+"-"+dir.substring(dir.lastIndexOf('/')+1)+suffix;
 }
-static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint8_t* audio,uint32_t crc) {
+static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint8_t* audio,uint32_t crc,bool pulseSupported=false) {
     String id=identifier(dir,e);
     char hex[9]; snprintf(hex,sizeof hex,"%08lx",(unsigned long)crc);
     NetworkClient socket;
@@ -25,9 +25,10 @@ static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint
     http.addHeader("X-Uptime-Ms",String((long long)e.ms));
     http.addHeader("X-Pre-Samples",String(e.pre));
     http.addHeader("X-Score",String(e.score));
-    http.addHeader("X-Kind",e.manual?"test":"event");
+    http.addHeader("X-Kind",eventKind(e.trigger));
     http.addHeader("X-Clock",streamclock::name(clock.source));
     http.addHeader("X-Trigger-UTC-Ms",String((long long)clock.at(e.ms)));
+    if(audio && pulseSupported) http.addHeader("X-Pulse-Evidence","train-v1");
     if(audio) http.addHeader("X-WAV-CRC32",hex);
     else http.addHeader("Content-Length","0");
     int code=http.POST(audio?audio:(uint8_t*)"",audio?WAV_BYTES:0);
@@ -134,9 +135,10 @@ static void serviceDelivery(bool bulk) {
     bool timed=clock.source!=streamclock::Source::unknown;
     uint32_t crc=0;
     if(audio && (!transferBuffer || !readWav(base,crc))) {++queueErrors;scanHadPending=true;audio=false;}
+    bool pulseSupported = audio && marked(base+".p3");
     xSemaphoreGive(bus);
     if(!audio && !alert && !(needsTime && timed)) return;
-    if(!post(dir,e,clock,audio?transferBuffer:nullptr,crc)) {scanHadPending=true;return;}
+    if(!post(dir,e,clock,audio?transferBuffer:nullptr,crc,pulseSupported)) {scanHadPending=true;return;}
     if(audio) ++ackClips;
     if(alert) ++ackEvents;
     xSemaphoreTake(bus,portMAX_DELAY);

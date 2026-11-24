@@ -58,6 +58,29 @@ class FieldReceiverTest(unittest.TestCase):
         self.assertEqual(timing["estimated_clip_start_utc_us"],1795481799931000-250667)
         self.assertEqual(json.loads((self.folder/(self.ident+".wav.json")).read_text())["sha256"],hashlib.sha256(wav).hexdigest())
 
+    def test_pulse_only_event_survives_deferred_audio(self):
+        self.headers.update({"X-Kind":"pulse", "X-Score":"710"})
+        self.assertEqual(self.post()[0], 200)
+        wav = self.wav()
+        for _ in range(2):
+            self.assertEqual(self.post("/stream-clip", wav, **{"X-WAV-CRC32":f"{zlib.crc32(wav):08x}"})[0], 200)
+        meta = json.loads((self.folder / (self.ident + ".event.json")).read_text())
+        self.assertTrue((self.folder / (self.ident + ".pulse.json")).exists())
+        self.assertEqual((meta["kind"], meta["label"], meta["threshold"], meta["required_onsets"]),
+                         ("pulse", "unreviewed", 702, 3))
+
+    def test_later_pulse_evidence_for_existing_frame_event(self):
+        self.assertEqual(self.post()[0], 200)
+        wav = self.wav()
+        crc = {"X-WAV-CRC32": f"{zlib.crc32(wav):08x}"}
+        self.assertEqual(self.post("/stream-clip", wav, **crc)[0], 200)
+        evidence = self.folder / (self.ident + ".pulse.json")
+        self.assertFalse(evidence.exists())
+        for _ in range(2):
+            self.assertEqual(self.post("/stream-clip", wav, **crc, **{"X-Pulse-Evidence":"train-v1"})[0], 200)
+        self.assertTrue(json.loads(evidence.read_text())["supported"])
+        self.assertEqual(len(list(self.folder.glob("*.event.json"))), 1)
+
     def test_reject_invalid_and_conflict(self):
         self.assertEqual(self.post(Authorization="wrong")[0],401)
         self.assertEqual(self.post(**{"X-Model":"unknown"})[0],422)

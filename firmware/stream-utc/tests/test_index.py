@@ -26,6 +26,15 @@ class TestIndex(unittest.TestCase):
             row = next(csv.DictReader(io.StringIO(out.getvalue())))
             self.assertEqual((row["pre_samples"],row["score_acc"],row["receiver_wav_ack"]),("48128","1550","1"))
             self.assertTrue(row["estimated_clip_start_utc"].endswith("59.749333Z"))
+            pulse = root / "00000002_0000001000_pulse.wav"
+            pulse.touch()
+            pulse_event = struct.pack("<qIiII", 1000, 2, 720, 48128, 2)
+            pulse.with_suffix(".evt").write_bytes(pulse_event + struct.pack("<I", zlib.crc32(pulse_event)))
+            out = io.StringIO()
+            export(root, out)
+            pulse_row = list(csv.DictReader(io.StringIO(out.getvalue())))[1]
+            self.assertEqual((pulse_row["kind"], pulse_row["score_acc"], pulse_row["trigger_utc"]),
+                             ("pulse", "720", row["trigger_utc"]))
             clip.with_suffix(".evt").write_bytes(event + bytes(4))
             out = io.StringIO()
             export(root, out)
