@@ -34,6 +34,7 @@ static const char* wifiState() {
     return WiFi.status()==WL_CONNECTED?"connected":"connecting";
 }
 static const char* clockSdState() {
+    if(storageLatched) return "blocked";
     if(!sdReady) return "unavailable";
     if(anchor.source==streamclock::Source::unknown) return "waiting";
     return anchorSaved?"saved":"pending";
@@ -48,15 +49,22 @@ static void ntpCallback(struct timeval* tv) {
     streamclock::Anchor a{uptimeMs(),int64_t(tv->tv_sec)*1000+tv->tv_usec/1000,streamclock::Source::ntp};
     portENTER_CRITICAL(&ntpLock); ntpNotice=a; ntpPending=true; portEXIT_CRITICAL(&ntpLock);
 }
+static int64_t wifiDemandUntil=0, wifiBackoff=0;
+static int64_t wifiClosedMs=0, wifiStartedAt=0;
+static int64_t wifiActiveMs() { return wifiClosedMs+(wifiOn?uptimeMs()-wifiStartedAt:0); }
+static void requestWifi(int64_t now) {
+    wifiDemandUntil=now+12000;
+    if(!wifiOn && now>=wifiBackoff) nextWifi=now;
+}
 static void serviceWifi(int64_t now) {
     if(!wifiConfigured) return;
     if(!wifiOn && now>=nextWifi) {
         WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(true);
-        WiFi.begin(ssid.c_str(),key.c_str()); wifiOn=true; wifiSince=now; ntpStarted=false;
+        WiFi.begin(ssid.c_str(),key.c_str()); wifiOn=true; wifiStartedAt=wifiSince=now; ntpStarted=false;
     }
     if(!wifiOn) return;
     bool connected=WiFi.status()==WL_CONNECTED;
-    if(connected && !ntpStarted) {
+    if(connected && !ntpStarted && (anchor.source!=streamclock::Source::ntp || now-anchor.up>=HOUR_MS)) {
         esp_sntp_set_time_sync_notification_cb(ntpCallback);
         configTime(0,0,"time.cloudflare.com","pool.ntp.org","time.google.com");
         ntpStarted=true;
@@ -66,11 +74,19 @@ static void serviceWifi(int64_t now) {
     portENTER_CRITICAL(&ntpLock);
     received=ntpPending; a=ntpNotice; ntpPending=false;
     portEXIT_CRITICAL(&ntpLock);
-    if(received) acceptTime(a);
-    if(connected && reportsConfigured) wifiSince=now;
-    if((received && !reportsConfigured) || (now-wifiSince>=45000 && !(reportsConfigured && connected))) {
+    if(received) {
+        acceptTime(a);
+        if(reportsConfigured && token.length()) requestWifi(now);
+    }
+    bool legacy=reportsConfigured && !token.length();
+    bool demand=reportsConfigured && now<wifiDemandUntil;
+    if(connected && legacy) wifiSince=now;
+    if((!legacy && !demand && (received || (connected && anchor.source!=streamclock::Source::unknown && now-wifiSince>=12000))) ||
+       (now-wifiSince>=45000 && (!connected || (!legacy && !demand)))) {
+        wifiClosedMs+=now-wifiStartedAt;
         WiFi.mode(WIFI_OFF); wifiOn=false;
-        nextWifi=now+(received?HOUR_MS:RETRY_MS);
+        wifiBackoff=connected?0:now+RETRY_MS;
+        nextWifi=now+(anchor.source!=streamclock::Source::unknown?HOUR_MS:RETRY_MS);
     }
 }
 static void serviceRadio(int64_t now) {
@@ -109,7 +125,7 @@ static void serviceRadio(int64_t now) {
     if(rc!=RADIOLIB_ERR_NONE) { rx=Rx::absent; radioRetry=now+RETRY_MS; }
 }
 static void persistClock(int64_t now) {
-    if(!sdReady || anchorSaved || anchor.source==streamclock::Source::unknown || now<nextSave) return;
+    if(!sdReady || storageLatched || anchorSaved || anchor.source==streamclock::Source::unknown || now<nextSave) return;
     if(xSemaphoreTake(bus,0)!=pdTRUE) return;
     char path[64],row[112]; snprintf(path,sizeof path,"%s/clock.csv",sessionDir);
     // Leading newline isolates an interrupted append. Readers require END.

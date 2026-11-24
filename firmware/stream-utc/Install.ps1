@@ -16,7 +16,7 @@ function Find-ArduinoCli {
 try {
     $cli = Find-ArduinoCli
     $build = Join-Path $env:TEMP ('XiaoStream-build-' + [guid]::NewGuid().ToString('N'))
-    Write-Host 'Compiling Stream Trial 02 UTC for the XIAO ESP32-S3. Install RadioLib 8.0.0 in Library Manager.'
+    Write-Host 'Compiling Stream Field Trial 03 for the XIAO ESP32-S3. Install RadioLib 8.0.0 in Library Manager.'
     & $cli compile --fqbn $board --output-dir $build $sketch
     if ($LASTEXITCODE -ne 0) { throw 'Compilation failed. See the first compiler error above. Use the Espressif esp32 board package 4.0.0 in Arduino IDE Boards Manager.' }
     $app = Join-Path $build 'XiaoStream.ino.bin'
