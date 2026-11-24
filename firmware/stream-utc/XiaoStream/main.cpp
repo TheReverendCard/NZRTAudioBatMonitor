@@ -3,6 +3,12 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <HTTPClient.h>
+#include <Preferences.h>
+#include <esp_rom_crc.h>
+#include <esp_sleep.h>
+#include <algorithm>
+#include "field.h"
 #include <driver/i2s_std.h>
 #include <esp_heap_caps.h>
 #include <esp_timer.h>
@@ -12,20 +18,35 @@
 #include "scorer.h"
 #include "pdm.h"
 
-static constexpr char VERSION[]="XIAO-STREAM-02";
+static constexpr char VERSION[]="XIAO-STREAM-03";
 static constexpr int FRAME=512, HISTORY=94, CLIP=750, SLOTS=2;
 static constexpr int MIC_CLK=1,MIC_DATA=2,UNWIRED_WS=4,SD_CS=43,RADIO_CS=41;
 static constexpr int UDP_PORT=8768;
-struct Event { uint32_t id; int64_t ms; int32_t score; bool manual; };
+struct Event { int64_t ms; uint32_t id; int32_t score; uint32_t pre,manual; };
 struct Clip { Event event; int16_t* pcm; int frames,pre; };
 static Clip clips[SLOTS];
 static Scorer scorer;
 static PdmDecoder decoder;
 static int16_t *history;
-static int histPos,histCount,active=-1;
+static int histPos,histCount,slotCount;
+static bool recording[SLOTS];
+static std::atomic<bool> pauseRequested{false},capturePaused{false};
+static std::atomic<unsigned> outstanding{0};
+static int64_t awakeUntil=90000;
+static String device,token;
+static Preferences storagePrefs;
+static bool prefsReady;
+static std::atomic<bool> storageLatched{false};
+static uint32_t rescued;
+static void latchStorage() {
+    if(!storageLatched.exchange(true)) {
+        if(prefsReady) storagePrefs.putBool("blocked",true);
+        Serial.println("SD_WRITE_FAULT writes blocked; clips will try RAM to Wi-Fi");
+    }
+}
 static uint32_t bootId;
 static char sessionDir[32];
-static QueueHandle_t freeSlots,writeQueue,alerts;
+static QueueHandle_t freeSlots,writeQueue,rescueQueue,alerts;
 static i2s_chan_handle_t rxChannel;
 static volatile uint32_t rxOverflow;
 static std::atomic<uint32_t> frames{0}, gaps{0}, detections{0}, saved{0}, missedClips{0}, lostAlerts{0};
@@ -37,22 +58,26 @@ static SemaphoreHandle_t bus;
 static IPAddress destination;
 static WiFiUDP udp;
 #include "clock_service.h"
+#include "archive.h"
+#include "delivery.h"
 
 static void setupStorage() {
     // Both devices share SPI. Deselect the Wio before putting the card into SPI mode.
     pinMode(RADIO_CS,OUTPUT); digitalWrite(RADIO_CS,HIGH);
     pinMode(SD_CS,OUTPUT); digitalWrite(SD_CS,HIGH);
     SPI.begin(7,8,9,SD_CS);
+    snprintf(sessionDir,sizeof sessionDir,"/STREAM03/%08lX",(unsigned long)bootId);
     if(!SD.begin(SD_CS,SPI,10000000)) return;
-    if(!SD.exists("/STREAM02") && !SD.mkdir("/STREAM02")) return;
-    snprintf(sessionDir,sizeof sessionDir,"/STREAM02/%08lX",(unsigned long)bootId);
-    if(SD.exists(sessionDir) || !SD.mkdir(sessionDir)) return;
-    sdReady=true;
+    if(!storageLatched) {
+        sdReady=(SD.exists("/STREAM03") || SD.mkdir("/STREAM03")) && !SD.exists(sessionDir) && SD.mkdir(sessionDir);
+        if(!sdReady) latchStorage();
+    }
     File cfg=SD.open("/stream-wifi.txt",FILE_READ);
     if(!cfg) return;
     ssid=cfg.readStringUntil('\n'); key=cfg.readStringUntil('\n');
     String ip=cfg.available()?cfg.readStringUntil('\n'):"";
-    cfg.close(); ip.trim();
+    token=cfg.available()?cfg.readStringUntil('\n'):String("");
+    cfg.close(); ip.trim(); token.trim();
     if(ssid.endsWith("\r")) ssid.remove(ssid.length()-1);
     if(key.endsWith("\r")) key.remove(key.length()-1);
     wifiConfigured=ssid.length()>0;
@@ -80,39 +105,48 @@ static bool startI2S() {
         i2s_channel_reconfig_std_clock(rxChannel,&s.clk_cfg)==ESP_OK &&
         i2s_channel_enable(rxChannel)==ESP_OK;
 }
-static void startClip(const Event &event) {
-    if(!sdReady || active>=0 || !histCount) { ++missedClips; return; }
+static void startClip(Event& event) {
     int slot;
-    if(xQueueReceive(freeSlots,&slot,0)!=pdTRUE) { ++missedClips; return; }
-    Clip &c=clips[slot]; c.event=event; c.frames=c.pre=histCount;
+    if(!history || !histCount || xQueueReceive(freeSlots,&slot,0)!=pdTRUE) { ++missedClips; return; }
+    Clip &c=clips[slot]; event.pre=histCount*FRAME; c.event=event; c.frames=c.pre=histCount;
     int first=(histPos+HISTORY-histCount)%HISTORY;
     int n=min(histCount,HISTORY-first);
     memcpy(c.pcm,history+first*FRAME,n*FRAME*2);
     memcpy(c.pcm+n*FRAME,history,(histCount-n)*FRAME*2);
-    active=slot;
+    ++outstanding; recording[slot]=true;
 }
 static void captureTask(void*) {
     uint16_t raw[FRAME]; int16_t pcm[FRAME];
     uint32_t eventId=0,lastHit=0,lastOverflow=rxOverflow;
     bool haveHit=false;
     for(;;) {
+        if(pauseRequested && !outstanding.load()) {
+            i2s_channel_disable(rxChannel);
+            capturePaused=true;
+            while(pauseRequested) delay(20);
+            scorer.reset(); decoder.reset(); histCount=histPos=0; haveHit=false;
+            i2s_channel_enable(rxChannel); lastOverflow=rxOverflow;
+            capturePaused=false;
+        }
         size_t n=0;
         esp_err_t rc=i2s_channel_read(rxChannel,raw,sizeof raw,&n,500);
         uint32_t currentOverflow=rxOverflow; bool overflow=currentOverflow!=lastOverflow;
         lastOverflow=currentOverflow;
         if(rc!=ESP_OK || n!=sizeof raw || overflow) {
             ++gaps; scorer.reset(); decoder.reset(); histCount=histPos=0; haveHit=false;
-            if(active>=0) { xQueueSend(freeSlots,&active,0); active=-1; ++missedClips; }
+            for(int i=0;i<SLOTS;++i) if(recording[i]) {
+                recording[i]=false; xQueueSend(freeSlots,&i,0); --outstanding; ++missedClips;
+            }
             continue;
         }
         int ones=0;
         for(int i=0;i<FRAME;++i) { ones+=__builtin_popcount(raw[i]); pcm[i]=decoder.sample(raw[i]); }
         density=1000*ones/(FRAME*16);
         ++frames;
-        if(active>=0) {
-            Clip &c=clips[active];
+        for(int i=0;i<SLOTS;++i) if(recording[i]) {
+            Clip &c=clips[i];
             memcpy(c.pcm+c.frames*FRAME,pcm,sizeof pcm);
-            if(++c.frames==CLIP) { xQueueSend(writeQueue,&active,0); active=-1; }
+            if(++c.frames==CLIP) { recording[i]=false; xQueueSend(writeQueue,&i,0); }
         }
         if(history) {
             memcpy(history+histPos*FRAME,pcm,sizeof pcm);
@@ -124,47 +158,100 @@ static void captureTask(void*) {
         bool newHit=hit && (!haveHit || now-lastHit>=1000);
         if(hit) { haveHit=true; lastHit=now; }
         bool manual=manualClip.exchange(false);
-        if(newHit || manual) {
-            Event event={++eventId,uptimeMs(),score,manual&&!newHit};
+        if((newHit || manual) && !pauseRequested) {
+            Event event={uptimeMs(),++eventId,score,0,uint32_t(manual&&!newHit)};
             if(newHit) ++detections;
-            if(xQueueSend(alerts,&event,0)!=pdTRUE) ++lostAlerts;
             startClip(event);
+            if(xQueueSend(alerts,&event,0)!=pdTRUE) ++lostAlerts;
         }
     }
 }
 static void writeLE(uint8_t *dst,uint32_t n,int bytes) {
     for(int i=0;i<bytes;++i) dst[i]=n>>(8*i);
 }
-static bool saveClip(const Clip &c) {
-    char path[96],part[96]; const Event &e=c.event;
-    snprintf(path,sizeof path,"%s/%08lu_%010lld_%s.wav",sessionDir,(unsigned long)e.id,
-             (long long)e.ms,e.manual?"test":"event");
-    snprintf(part,sizeof part,"%s/%08lu.part",sessionDir,(unsigned long)e.id);
-    File f=SD.open(part,FILE_WRITE); if(!f) return false;
-    uint32_t bytes=c.frames*FRAME*2;
-    uint8_t header[44]={}; memcpy(header,"RIFF",4); memcpy(header+8,"WAVEfmt ",8); memcpy(header+36,"data",4);
+static void wavHeader(uint8_t* header,uint32_t bytes) {
+    memset(header,0,44); memcpy(header,"RIFF",4); memcpy(header+8,"WAVEfmt ",8); memcpy(header+36,"data",4);
     writeLE(header+4,36+bytes,4); writeLE(header+16,16,4); writeLE(header+20,1,2); writeLE(header+22,1,2);
     writeLE(header+24,192000,4); writeLE(header+28,384000,4); writeLE(header+32,2,2);
     writeLE(header+34,16,2); writeLE(header+40,bytes,4);
+}
+static bool saveClip(const Clip &c) {
+    String base=eventBase(sessionDir,c.event),part=base+".part",path=base+".wav";
+    if(!storeEvent(base,c.event) || SD.exists(path)) return false;
+    File f=SD.open(part,FILE_WRITE); if(!f) return false;
+    uint32_t bytes=c.frames*FRAME*2;
+    uint8_t header[44]; wavHeader(header,bytes);
     bool ok=f.write(header,sizeof header)==sizeof header;
     const uint8_t* src=(const uint8_t*)c.pcm;
     for(size_t pos=0;ok && pos<bytes;) {
         size_t n=min(size_t(8192),size_t(bytes-pos)); ok=f.write(src+pos,n)==n; pos+=n;
     }
     f.flush(); ok=ok && f.size()==sizeof header+bytes; f.close();
-    return ok && SD.rename(part,path);
+    if(!ok) return false;
+    File check=SD.open(part);
+    uint8_t block[4096];
+    if(!check || check.size()!=sizeof header+bytes || check.read(block,sizeof header)!=sizeof header ||
+       memcmp(block,header,sizeof header)) return false;
+    uint32_t crc=crc32buf(header,sizeof header);
+    for(size_t pos=0;pos<bytes;pos+=sizeof block) {
+        size_t n=std::min(sizeof block,size_t(bytes-pos));
+        if(check.read(block,n)!=n || memcmp(block,src+pos,n)) return false;
+        crc=crc32buf(block,n,crc);
+    }
+    check.close();
+    return publishSmall(base+".crc",&crc,sizeof crc) && SD.rename(part,path);
 }
 static void writerTask(void*) {
     int slot;
     while(true) if(xQueueReceive(writeQueue,&slot,portMAX_DELAY)==pdTRUE) {
         xSemaphoreTake(bus,portMAX_DELAY);
-        bool ok=saveClip(clips[slot]);
+        bool ok=sdReady && !storageLatched && saveClip(clips[slot]);
+        if(!ok && sdReady) latchStorage();
         xSemaphoreGive(bus);
-        if(ok) ++saved; else ++missedClips;
-        xQueueSend(freeSlots,&slot,portMAX_DELAY);
+        if(ok) ++saved;
+        else if(transferBuffer && xQueueSend(rescueQueue,&slot,0)==pdTRUE) continue;
+        else ++missedClips;
+        xQueueSend(freeSlots,&slot,portMAX_DELAY); --outstanding;
     }
 }
+// Hold only the bounded PSRAM slots while attempting emergency Wi-Fi delivery.
+static void serviceRescue() {
+    static int slot=-1; static int64_t expiry;
+    int64_t now=uptimeMs();
+    if(slot<0) {
+        if(!rescueQueue || xQueueReceive(rescueQueue,&slot,0)!=pdTRUE) return;
+        expiry=now+20000;
+    }
+    bool ok=false;
+    requestWifi(now);
+    if(online() && now>=retryHttp) {
+        Clip& c=clips[slot];
+        wavHeader(transferBuffer,WAV_BYTES-44);
+        memcpy(transferBuffer+44,c.pcm,WAV_BYTES-44);
+        ok=post(sessionDir,c.event,anchor,transferBuffer,crc32buf(transferBuffer,WAV_BYTES));
+    }
+    if(!ok && uptimeMs()<expiry) return;
+    if(ok) { ++rescued; ++ackClips; } else ++missedClips;
+    xQueueSend(freeSlots,&slot,portMAX_DELAY); --outstanding; slot=-1;
+}
+static void health(bool final=false) {
+    static int64_t next=0;
+    if(!sdReady || storageLatched || (!final && uptimeMs()<next)) return;
+    if(xSemaphoreTake(bus,0)!=pdTRUE) return;
+    File f=SD.open(String(sessionDir)+"/health.csv",FILE_APPEND);
+    char row[240];
+    int n=snprintf(row,sizeof row,"\n%lld,%lld,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%u,END\n",
+        (long long)uptimeMs(),(long long)anchor.at(uptimeMs()),(unsigned long)frames.load(),(unsigned long)gaps.load(),
+        (unsigned long)detections.load(),(unsigned long)saved.load(),(unsigned long)missedClips.load(),
+        (unsigned long)lostAlerts.load(),(unsigned long)ackEvents,(unsigned long)ackClips,(unsigned long)httpFailures,
+        (unsigned long)queueErrors,final?1:0);
+    if(!f || f.write((const uint8_t*)row,n)!=size_t(n)) ++queueErrors;
+    f.close(); xSemaphoreGive(bus); next=uptimeMs()+30*60*1000;
+}
 static void status() {
+    Serial.printf("%s phase=%s event_ack=%lu wav_ack=%lu http_fail=%lu outbox_errors=%lu slots=%d rescue_ack=%lu sd_latched=%d\n",VERSION,
+        capturePaused?"DAY_TRANSFER":"LISTENING",(unsigned long)ackEvents,(unsigned long)ackClips,
+        (unsigned long)httpFailures,(unsigned long)queueErrors,slotCount,(unsigned long)rescued,int(storageLatched.load()));
     Serial.printf("%s ready=%d clk=D0 data=D1 sd=%s clips_buffered=%d wifi=%s frames=%lu gaps=%lu pdm_ones_permille=%d events=%lu saved=%lu unsaved=%lu alert_queue_drops=%lu boot=%08lX clock=%s clock_sd=%s utc_ms=%lld lora=%s\n",
         VERSION,ready,sdReady?"mounted":"unavailable",bool(history),wifiState(),
         (unsigned long)frames.load(),(unsigned long)gaps.load(),density.load(),(unsigned long)detections.load(),
@@ -172,18 +259,26 @@ static void status() {
         streamclock::name(anchor.source),clockSdState(),(long long)anchor.at(uptimeMs()),radioState());
 }
 void setup() {
-    Serial.begin(115200); bootId=esp_random(); scorer.init(); decoder.init();
+    Serial.begin(115200);
+    char mac[16]; snprintf(mac,sizeof mac,"%012llx",(unsigned long long)(ESP.getEfuseMac()&0xffffffffffffULL));
+    device=mac; bootId=esp_random(); scorer.init(); decoder.init();
     alerts=xQueueCreate(16,sizeof(Event)); writeQueue=xQueueCreate(SLOTS,sizeof(int)); freeSlots=xQueueCreate(SLOTS,sizeof(int));
     bus=xSemaphoreCreateMutex();
     if(!alerts || !writeQueue || !freeSlots || !bus) return;
+    rescueQueue=xQueueCreate(SLOTS,sizeof(int));
+    if(!rescueQueue) return;
+    prefsReady=storagePrefs.begin("stream03",false);
+    storageLatched=prefsReady && storagePrefs.getBool("blocked",false);
     setupStorage();
-    if(sdReady) {
+    if(sdReady || (reportsConfigured && token.length())) {
         history=(int16_t*)ps_malloc(HISTORY*FRAME*2);
         for(int i=0;history && i<SLOTS;++i) {
             clips[i].pcm=(int16_t*)ps_malloc(CLIP*FRAME*2);
             if(clips[i].pcm) xQueueSend(freeSlots,&i,0);
         }
-        if(!uxQueueMessagesWaiting(freeSlots) || xTaskCreatePinnedToCore(writerTask,"sd_writer",6144,nullptr,2,nullptr,0)!=pdPASS) {
+        slotCount=uxQueueMessagesWaiting(freeSlots);
+        if(reportsConfigured && token.length()) transferBuffer=(uint8_t*)ps_malloc(WAV_BYTES);
+        if(!uxQueueMessagesWaiting(freeSlots) || xTaskCreatePinnedToCore(writerTask,"sd_writer",12288,nullptr,2,nullptr,0)!=pdPASS) {
             free(history); history=nullptr;
         }
     }
@@ -199,10 +294,19 @@ void loop() {
         if(ch=='\n' || ch=='\r') {
             cmd[used]=0;
             if(!strcmp(cmd,"status")) status();
-            if(!strcmp(cmd,"clip") && ready) manualClip=true;
+            if(!strcmp(cmd,"clip") && ready) { awakeUntil=uptimeMs()+120000; pauseRequested=false; manualClip=true; }
+            if(!strcmp(cmd,"transfer")) {
+                forceTransferUntil=uptimeMs()+120000; requestWifi(uptimeMs()); scanDirty=true;
+            }
+            if(!strcmp(cmd,"clear-sd") && storageLatched && !outstanding && prefsReady) {
+                if(storagePrefs.putBool("blocked",false)) ESP.restart();
+            }
             used=0;
         } else if(used<sizeof(cmd)-1) cmd[used++]=ch;
     }
+    replayRecent();
+    serviceRescue();
+    health();
     Event e;
     if(alerts && xQueueReceive(alerts,&e,0)==pdTRUE) {
         char line[200];
@@ -210,8 +314,47 @@ void loop() {
             VERSION,e.manual?"TEST":"CANDIDATE",(unsigned long)bootId,(unsigned long)e.id,(long long)e.ms,(long)e.score,model::cutoff,
             (long long)anchor.at(e.ms),streamclock::name(anchor.source));
         Serial.println(line);
-        if(reportsConfigured && wifiOn && WiFi.status()==WL_CONNECTED && udp.beginPacket(destination,UDP_PORT)) {
+        liveEvent(e);
+        if(reportsConfigured && !token.length() && wifiOn && WiFi.status()==WL_CONNECTED && udp.beginPacket(destination,UDP_PORT)) {
             udp.write((const uint8_t*)line,strlen(line)); udp.endPacket();
+        }
+    }
+    static int64_t daySince=0;
+    int64_t now=uptimeMs();
+    int64_t day=field::daytimeRemaining(anchor.at(now)/1000);
+    bool maintenance=day>60 && now>awakeUntil && ready && (sdReady || storageLatched);
+    pauseRequested=maintenance;
+    bool bulk=(maintenance && capturePaused) || now<forceTransferUntil;
+    if(maintenance && !daySince) {
+        daySince=now;
+        if(reportsConfigured && token.length()) requestWifi(now);
+    }
+    if(!maintenance) daySince=0;
+    if((maintenance && now-daySince<120000) || now<forceTransferUntil) {
+        if(reportsConfigured && token.length()) requestWifi(now);
+    }
+    static bool wasBulk=false;
+    if(bulk && !wasBulk) {
+        xSemaphoreTake(bus,portMAX_DELAY); queueDir.close(); queueRoot.close(); xSemaphoreGive(bus);
+        scanDirty=true; scanComplete=false; scanHadPending=false; scanAfter=0;
+    }
+    wasBulk=bulk;
+    if(!storageLatched) serviceDelivery(bulk);
+    if(maintenance && capturePaused && !outstanding && uxQueueMessagesWaiting(alerts)==0) {
+        bool configured=reportsConfigured && token.length();
+        bool clean=scanComplete && !scanHadPending && transferBuffer;
+        if((!configured || clean || now-daySince>=120000) && (anchorSaved || storageLatched || now-daySince>=120000)) {
+            int64_t nap=day-45;
+            if(configured && !clean && !storageLatched) nap=std::min<int64_t>(nap,1800);
+            if(nap>5) {
+                Serial.printf("%s DAY_SLEEP seconds=%lld transfer_scan_complete=%d\n",VERSION,(long long)nap,clean);
+                health(true);
+                xSemaphoreTake(bus,portMAX_DELAY);
+                queueDir.close(); queueRoot.close();
+                if(rx==Rx::listening || rx==Rx::sleeping) clockRadio.sleep(true);
+                SD.end(); WiFi.mode(WIFI_OFF);
+                esp_sleep_enable_timer_wakeup((uint64_t)nap*1000000ULL); esp_deep_sleep_start();
+            }
         }
     }
     delay(1);

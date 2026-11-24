@@ -1,7 +1,7 @@
-name: Build XIAO stream UTC trial
+name: Build XIAO stream field trial
 on:
   push:
-    branches: [experiment/stream-utc-trial-02]
+    branches: [experiment/stream-field-trial-03]
   pull_request:
     paths:
       - 'firmware/stream-utc/**'
@@ -22,6 +22,7 @@ jobs:
         run: |
           c++ -std=c++17 tests/test_clock.cpp -o /tmp/stream-clock
           /tmp/stream-clock
+          c++ -std=c++17 tests/test_field.cpp -o /tmp/stream-field && /tmp/stream-field
           python3 -m unittest discover -s tests
       - name: Build XIAO ESP32-S3 with OPI PSRAM
         run: |
@@ -30,3 +31,12 @@ jobs:
           arduino-cli core install esp32:esp32@4.0.0 --additional-urls "$url"
           arduino-cli lib install RadioLib@8.0.0
           arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3:PSRAM=opi,CDCOnBoot=default --output-dir /tmp/xiao-stream-build XiaoStream
+      - name: Retain Arduino images and field source
+        run: |
+          mkdir -p /tmp/field-kit/Xiao_Stream_Field_03
+          cp -r XiaoStream tests *.py *.cmd *.ps1 README.md FIELD_NOTES.md /tmp/field-kit/Xiao_Stream_Field_03/
+          cp -r /tmp/xiao-stream-build /tmp/field-kit/Xiao_Stream_Field_03/build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Xiao_Stream_Field_03
+          path: /tmp/field-kit/Xiao_Stream_Field_03/
