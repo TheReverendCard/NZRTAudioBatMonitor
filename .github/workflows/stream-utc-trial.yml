@@ -1,0 +1,32 @@
+name: Build XIAO stream UTC trial
+on:
+  push:
+    branches: [experiment/stream-utc-trial-02]
+  pull_request:
+    paths:
+      - 'firmware/stream-utc/**'
+      - '.github/workflows/stream-utc-trial.yml'
+
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firmware/stream-utc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Test clock parser and cross-boot isolation
+        run: |
+          c++ -std=c++17 tests/test_clock.cpp -o /tmp/stream-clock
+          /tmp/stream-clock
+          python3 -m unittest discover -s tests
+      - name: Build XIAO ESP32-S3 with OPI PSRAM
+        run: |
+          url=https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index --additional-urls "$url"
+          arduino-cli core install esp32:esp32@4.0.0 --additional-urls "$url"
+          arduino-cli lib install RadioLib@8.0.0
+          arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3:PSRAM=opi,CDCOnBoot=default --output-dir /tmp/xiao-stream-build XiaoStream
