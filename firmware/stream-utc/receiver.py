@@ -68,9 +68,12 @@ def parse_meta(headers):
                       estimated_clip_start_utc_us=utc*1000-round(pre*1000000/RATE) if pre else None)
     else:
         raise ValueError("clock")
+    firmware = headers.get("X-Firmware", "XIAO-STREAM-03")
+    if firmware not in {"XIAO-STREAM-03", "XIAO-STREAM-04"}:
+        raise ValueError("firmware")
     meta = dict(schema="xiao-stream-03", event_id=ident, device=match[1], boot=match[2],
                 sequence=int(match[3]), kind=kind, trigger_uptime_ms=up, pre_samples=pre,
-                score_acc=score, threshold=1404, model_sha256=MODEL, sample_rate=RATE, firmware="XIAO-STREAM-03",
+                score_acc=score, threshold=1404, model_sha256=MODEL, sample_rate=RATE, firmware=firmware,
                 label="equipment_test" if kind == "test" else "unreviewed")
     if kind == "pulse":
         meta.update(threshold=702, trigger_rule="pulse_train_v1", required_onsets=3,

@@ -1,7 +1,7 @@
 name: Build XIAO stream field trial
 on:
   push:
-    branches: [experiment/stream-field-trial-03]
+    branches: [experiment/stream-event-power-trial-04]
   pull_request:
     paths:
       - 'firmware/stream-utc/**'
@@ -23,6 +23,7 @@ jobs:
           c++ -std=c++17 tests/test_clock.cpp -o /tmp/stream-clock
           /tmp/stream-clock
           c++ -std=c++17 tests/test_field.cpp -o /tmp/stream-field && /tmp/stream-field
+          c++ -O2 -std=c++17 tests/test_power.cpp -o /tmp/stream-power && /tmp/stream-power
           python3 -m unittest discover -s tests
       - name: Build XIAO ESP32-S3 with OPI PSRAM
         run: |
@@ -33,10 +34,10 @@ jobs:
           arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3:PSRAM=opi,CDCOnBoot=default --output-dir /tmp/xiao-stream-build XiaoStream
       - name: Retain Arduino images and field source
         run: |
-          mkdir -p /tmp/field-kit/Xiao_Stream_Field_03
-          cp -r XiaoStream tests *.py *.cmd *.ps1 README.md FIELD_NOTES.md /tmp/field-kit/Xiao_Stream_Field_03/
-          cp -r /tmp/xiao-stream-build /tmp/field-kit/Xiao_Stream_Field_03/build
+          mkdir -p /tmp/field-kit/Xiao_Stream_Power_04
+          cp -r XiaoStream tests *.py *.cmd *.ps1 README.md FIELD_NOTES.md /tmp/field-kit/Xiao_Stream_Power_04/
+          cp -r /tmp/xiao-stream-build /tmp/field-kit/Xiao_Stream_Power_04/build
       - uses: actions/upload-artifact@v4
         with:
-          name: Xiao_Stream_Field_03
-          path: /tmp/field-kit/Xiao_Stream_Field_03/
+          name: Xiao_Stream_Power_04
+          path: /tmp/field-kit/Xiao_Stream_Power_04/

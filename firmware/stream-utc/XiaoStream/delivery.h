@@ -2,6 +2,8 @@
 // Called only from loop(). Capture and SD writer continue during a LAN request.
 static uint32_t ackEvents,ackClips,httpFailures,queueErrors;
 static int64_t retryHttp,scanAfter,forceTransferUntil;
+static String pendingBase;
+static bool bulkLast=false;
 static File queueRoot,queueDir;
 static bool scanComplete=false,scanHadPending=false,scanDirty=false;
 static uint8_t *transferBuffer;
@@ -11,7 +13,7 @@ static String identifier(const String& dir,const Event& e) {
     char suffix[16]; snprintf(suffix,sizeof suffix,"-%lu",(unsigned long)e.id);
     return device+"-"+dir.substring(dir.lastIndexOf('/')+1)+suffix;
 }
-static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint8_t* audio,uint32_t crc,bool pulseSupported=false) {
+static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint8_t* audio,uint32_t crc,bool pulseSupported,const char* archiveFirmware) {
     String id=identifier(dir,e);
     char hex[9]; snprintf(hex,sizeof hex,"%08lx",(unsigned long)crc);
     NetworkClient socket;
@@ -22,6 +24,7 @@ static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint
     http.addHeader("Authorization","Bearer "+token);
     http.addHeader("X-Event-ID",id);
     http.addHeader("X-Model",field::modelSha);
+    http.addHeader("X-Firmware",archiveFirmware);
     http.addHeader("X-Uptime-Ms",String((long long)e.ms));
     http.addHeader("X-Pre-Samples",String(e.pre));
     http.addHeader("X-Score",String(e.score));
@@ -36,8 +39,8 @@ static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint
     bool ok=code==200 && http.getSize()==int(expected.length()) && http.getString()==expected;
     http.end();
     if(!ok) {
-        ++httpFailures; retryHttp=uptimeMs()+30000;
-        Serial.printf("%s transfer_failed http=%d retry_s=30\n",VERSION,code);
+        ++httpFailures; retryHttp=uptimeMs()+300000;
+        Serial.printf("%s transfer_failed http=%d retry_s=300\n",VERSION,code);
     }
     return ok;
 }
@@ -49,53 +52,71 @@ static bool marked(const String& path) {
     const uint8_t ok=0xA5;
     return SD.exists(path) && exactFile(path,&ok,1);
 }
-static Event recent;
-static bool recentPending=false;
-static int64_t nextReplay=0;
-static bool online() { return reportsConfigured && token.length() && wifiOn && WiFi.status()==WL_CONNECTED; }
+// RAM gives new events priority while a station association is in progress.
+// Authenticated alerts also have the verified SD outbox for outage/reboot replay.
+struct LiveReport { Event event; bool stored; };
+static LiveReport urgent[16];
+static unsigned urgentHead=0,urgentCount=0;
+static uint32_t udpSent=0;
+static bool online() { return reportsConfigured && wifiWindow.on && WiFi.status()==WL_CONNECTED; }
 static void liveEvent(const Event& e) {
-    String base=eventBase(sessionDir,e);
     bool stored=false;
     if(sdReady && !storageLatched) {
-        xSemaphoreTake(bus,portMAX_DELAY); stored=storeEvent(base,e); xSemaphoreGive(bus);
+        xSemaphoreTake(bus,portMAX_DELAY);
+        stored=storeEvent(eventBase(sessionDir,e),e);
+        xSemaphoreGive(bus);
+        if(!stored) { ++queueErrors; latchStorage(); }
     }
-    if(!stored) { ++queueErrors; if(sdReady) latchStorage(); }
-    if(!reportsConfigured || !token.length()) return;
+    if(!reportsConfigured) return;
+    if(urgentCount==16) { ++lostAlerts; scanDirty=true; return; }
+    urgent[(urgentHead+urgentCount)%16]={e,stored};
+    ++urgentCount;
+}
+static void sendUrgent() {
+    if(!urgentCount || uptimeMs()<retryHttp) return;
     requestWifi(uptimeMs());
-    scanDirty=true;
-    if(!online() || uptimeMs()<retryHttp) {
-        recent=e; recentPending=true;
-        nextReplay=uptimeMs()+30000; return;
-    }
-    if(post(sessionDir,e,anchor,nullptr,0)) {
+    if(!online()) return;
+    const LiveReport& report=urgent[urgentHead];
+    const Event& e=report.event;
+    if(token.length()) {
+        if(!post(sessionDir,e,anchor,nullptr,0,false,VERSION)) {
+            if(report.stored) { urgentHead=(urgentHead+1)%16; --urgentCount; scanDirty=true; }
+            return;
+        }
         ++ackEvents;
-        if(stored) {
+        if(sdReady && !storageLatched) {
+            String base=eventBase(sessionDir,e);
             xSemaphoreTake(bus,portMAX_DELAY);
-            if(!mark(base+".ack") || (anchor.source!=streamclock::Source::unknown && !mark(base+".utc"))) ++queueErrors;
+            if(!mark(base+".ack") || (anchor.source!=streamclock::Source::unknown && !mark(base+".utc"))) {
+                ++queueErrors; scanDirty=true;
+            }
             xSemaphoreGive(bus);
         }
-    } else nextReplay=uptimeMs()+30000;
-}
-static void replayRecent() {
-    int64_t now=uptimeMs();
-    if(nextReplay && now>=nextReplay) {
-        requestWifi(now); scanDirty=true; nextReplay=now+300000;
+    } else {
+        // The installed Trial 02 listener filters on this prefix.
+        char line[240];
+        int n=snprintf(line,sizeof line,"XIAO-STREAM-02 %s boot=%08lX seq=%lu uptime_ms=%lld score_acc=%ld threshold=%d utc_ms=%lld clock=%s kind=%s firmware=%s",
+            e.trigger==Trigger::manual?"TEST":"CANDIDATE",(unsigned long)bootId,(unsigned long)e.id,(long long)e.ms,
+            (long)e.score,e.trigger==Trigger::pulse?pulse_train::scoreFloor:model::cutoff,(long long)anchor.at(e.ms),
+            streamclock::name(anchor.source),eventKind(e.trigger),VERSION);
+        if(!udp.beginPacket(destination,UDP_PORT) || udp.write((const uint8_t*)line,n)!=size_t(n) || !udp.endPacket()) {
+            retryHttp=uptimeMs()+300000; return;
+        }
+        ++udpSent;
     }
-    if(!recentPending || !online() || now<retryHttp) return;
-    Event e=recent; recentPending=false; liveEvent(e);
+    urgentHead=(urgentHead+1)%16; --urgentCount;
 }
 // Read one directory entry per tick. Keep enumeration cursors between calls.
 // A verified WAV doubles as the persistent upload queue, including older boots.
 static String nextEntry() {
     if(!queueRoot) {
         queueRoot=SD.open("/STREAM03");
-        if(!queueRoot) { ++queueErrors; scanHadPending=true; return ""; }
+        if(!queueRoot) { ++queueErrors; scanHadPending=true; scanComplete=true; scanAfter=uptimeMs()+300000; return ""; }
     }
     if(!queueDir) {
         queueDir=queueRoot.openNextFile();
         if(!queueDir) {
-            queueRoot.close(); scanComplete=true; scanAfter=uptimeMs()+60000;
-            if(!scanHadPending) nextReplay=0;
+            queueRoot.close(); scanComplete=true; scanAfter=uptimeMs()+300000;
             return "";
         }
         if(!queueDir.isDirectory()) queueDir.close();
@@ -115,35 +136,65 @@ static bool readWav(const String& base,uint32_t& crc) {
 }
 static void serviceDelivery(bool bulk) {
     const int64_t now=uptimeMs();
-    if(!sdReady || !online() || now<retryHttp || (now<scanAfter && !scanDirty)) return;
-    if(scanComplete || scanDirty) {
-        if(scanComplete) {scanHadPending=false; scanComplete=false;}
-        scanAfter=0; scanDirty=false;
+    if(!sdReady || storageLatched || !reportsConfigured || !token.length()) return;
+    bool bulkChanged=bulk!=bulkLast;
+    static uint32_t lastBulkSaves=0;
+    uint32_t count=saved.load();
+    if(bulkChanged || (bulk && count!=lastBulkSaves)) { bulkLast=bulk; scanDirty=true; }
+    lastBulkSaves=count;
+    if(urgentCount || now<retryHttp) {
+        if(bulkChanged && pendingBase.length()) { pendingBase=""; scanDirty=true; }
+        return;
+    }
+    if(pendingBase.length() && !bulkChanged && !online()) {
+        if(now>=wifiWindow.retryAt) requestWifi(now);
+        return;
+    }
+    if(scanComplete) {
+        if(!scanDirty && (!scanHadPending || now<scanAfter)) return;
+        scanHadPending=false; scanComplete=false; scanDirty=false;
     }
     if(xSemaphoreTake(bus,0)!=pdTRUE) return;
-    String base=nextEntry();
-    if(!base.length()) {xSemaphoreGive(bus); return;}
+    if(!pendingBase.length()) pendingBase=nextEntry();
+    if(!pendingBase.length()) { xSemaphoreGive(bus); return; }
+    String base=pendingBase;
     Event e{};
     String dir=base.substring(0,base.lastIndexOf('/'));
     bool valid=readEvent(base,e) && base==eventBase(dir,e);
     bool alert=valid && !marked(base+".ack");
     bool needsTime=valid && !marked(base+".utc");
     bool audio=bulk && valid && SD.exists(base+".wav") && !marked(base+".done");
-    if(!valid) {++queueErrors; scanHadPending=true;}
-    if(!valid || (!alert && !audio && !needsTime)) {xSemaphoreGive(bus);return;}
-    streamclock::Anchor clock=sessionClock(dir,e.ms);
+    if(!valid) { ++queueErrors; scanHadPending=true; }
+    streamclock::Anchor clock{};
+    if(alert || audio || needsTime) clock=sessionClock(dir,e.ms);
     bool timed=clock.source!=streamclock::Source::unknown;
+    if(!alert && !audio && !(needsTime && timed)) {
+        pendingBase=""; xSemaphoreGive(bus); return;
+    }
+    // Keep the cursor parked on proven work during association/backoff.
+    if(now<wifiWindow.retryAt || !online()) {
+        if(now>=wifiWindow.retryAt) requestWifi(now);
+        xSemaphoreGive(bus); return;
+    }
+    requestWifi(now);
     uint32_t crc=0;
-    if(audio && (!transferBuffer || !readWav(base,crc))) {++queueErrors;scanHadPending=true;audio=false;}
-    bool pulseSupported = audio && marked(base+".p3");
+    bool pulseSupported=false;
+    if(audio) {
+        if(!readWav(base,crc)) { ++queueErrors; scanHadPending=true; audio=false; }
+        else pulseSupported=marked(base+".p3");
+    }
+    bool trial04=(dir==sessionDir || SD.exists(dir+"/stream04.id"));
+    pendingBase="";
     xSemaphoreGive(bus);
     if(!audio && !alert && !(needsTime && timed)) return;
-    if(!post(dir,e,clock,audio?transferBuffer:nullptr,crc,pulseSupported)) {scanHadPending=true;return;}
+    if(!post(dir,e,clock,audio?transferBuffer:nullptr,crc,pulseSupported,trial04?VERSION:"XIAO-STREAM-03")) {
+        scanHadPending=true; return;
+    }
     if(audio) ++ackClips;
     if(alert) ++ackEvents;
     xSemaphoreTake(bus,portMAX_DELAY);
     if(!mark(base+".ack") || (timed && !mark(base+".utc")) || (audio && !mark(base+".done"))) {
-        ++queueErrors;scanHadPending=true;
+        ++queueErrors; scanHadPending=true;
     }
     xSemaphoreGive(bus);
 }

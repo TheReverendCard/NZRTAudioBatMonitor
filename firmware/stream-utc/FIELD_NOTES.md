@@ -37,3 +37,28 @@ The repeated-pulse trial reuses the pinned frame model, adds a three-onset decis
 These eleven WAVs were already selected by the frame rule.  Keeping both paths active still records those ten noise clips.  This replay establishes neither additional pass recall nor fewer alerts during a full night.  The grade-5 calibration WAV itself was unavailable for this replay.  The PC command in the README targets its exact path.
 
 Before enabling weak-sequence alerts by default, replay the dated calibration and held-out WAVs, inspect threshold onsets against the visible calls, then compare frame-only and pulse-supported detections against separately reviewed passes on fresh nights.  Use shared, time-aligned recorder coverage, group adjacent clips from one pass, and report extra true passes, extra noise alerts per listening hour, latency, gaps and USB Wh.  No field board or power measurement was available for this change.
+
+## Event-driven power trial, 25 November 2026
+
+The experimental unit was running Stream 02 during the meter comparison.  Same-place USB input energy was 0.18 Wh in 31:06 without a receiver IP and 0.22 Wh in 31:30 with it reinstated, approximately 0.347 W and 0.419 W.  The paired difference was approximately 0.072 W.  A single pair cannot separate boot, RF, candidate traffic, SD and listening costs.  The 11 clips from boot 4280DF29 contained one confirmed bat.  Keep thresholds fixed for the power comparison and check missed passes against independent recorders.
+
+Stream 04 builds on the pulse-train trial.  It removes continuous Wi-Fi association in legacy UDP mode and timer-only Wi-Fi refresh.  Authenticated replay examines the card before requesting Wi-Fi.  WAV backup and RAM rescue both require explicit opt-in.  A verified SD WAV remains the primary audio copy.  Unacknowledged UDP messages have a bounded volatile queue.  HTTP has persistent event identity, timestamps and acknowledgements.  Bulk WAV retries run in the daylight maintenance window or an explicitly enabled manual transfer.  Receiver and archive remain compatible with Field 03 metadata.
+
+The packed FFT reduces complex butterflies from 2,304 to 1,024, then reconstructs 192 positive bins.  The band features, weights, strong threshold, pulse-state rules and input waveform are unchanged.  Floating-point ordering may differ, so the reference mode and per-frame replay test are retained.  A PDM density diagnostic samples one frame in 128.  CPU time is sampled for both the decoder and scorer, and the solar schedule is recalculated at most once per second in steady operation.  Check these measurements and Wi-Fi-on time on the card before drawing conclusions about battery life.
+
+True acoustic-triggered deep sleep needs an always-on ultrasonic wake circuit or processor.  On the current board the Knowles PDM mic needs a host clock, and ESP32-S3 light sleep can stop or change the I2S source clock.  Skipping acquisition would create blind intervals and lose pre-trigger audio.  The stock board keeps DMA listening and blocks the capture task between reads.  Hardware references: [Espressif I2S power management](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-reference/peripherals/i2s.html#power-management) and [Knowles SPH0641LU4H-1](https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/930/SPH0641LU4H-1.PDF).
+
+### Reference and packed FFT comparison
+
+The host replay used the C++ firmware scorer with the reference and packed FFTs on the same 192 kHz PCM samples.  Both detectors reset between files.  Counts below exclude each invocation's synthetic regression frames.
+
+| Selection | WAVs | Scored frames | Different integer scores | Different strong-frame or pulse-train decisions |
+| --- | ---: | ---: | ---: | ---: |
+| Frozen XiaoRT held-out replay | 83 | 61,669 | 0 | 0 |
+| 18 November grade-5 clips at 02:54:14 and 02:54:16 NZDT | 2 | 1,486 | 0 | 0 |
+| Stream 02 overnight boot 4280DF29 | 11 | 8,173 | 1 | 0 |
+| Total | 96 | 71,328 | 1 | 0 |
+
+The synthetic noise/silence regression separately matched all 8,185 scored frames.  The file result establishes decision parity on this collection.  It does not measure overnight sensitivity against untriggered audio, whole-unit energy, radio delivery latency or ESP32 timing.  The USB meter and checkpoint counters are needed for those comparisons.
+
+An optional `stream-160mhz.on` card flag changes CPU speed before I2S and Wi-Fi start.  It is an independent A/B setting.  The field power and gap measurements for 160 MHz are outstanding.

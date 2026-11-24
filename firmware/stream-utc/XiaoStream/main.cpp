@@ -19,7 +19,7 @@
 #include "pulse_train.h"
 #include "pdm.h"
 
-static constexpr char VERSION[]="XIAO-STREAM-03";
+static constexpr char VERSION[]="XIAO-STREAM-04";
 static constexpr int FRAME=512, HISTORY=94, CLIP=750, SLOTS=2;
 static constexpr int MIC_CLK=1,MIC_DATA=2,UNWIRED_WS=4,SD_CS=43,RADIO_CS=41;
 static constexpr int UDP_PORT=8768;
@@ -30,7 +30,8 @@ static const char* eventKind(Trigger trigger) {
     return trigger == Trigger::manual ? "test" : "event";
 }
 struct Event { int64_t ms; uint32_t id; int32_t score; uint32_t pre; Trigger trigger; };
-static bool recordPulseTrains;
+static bool recordPulseTrains, uploadWavs, referenceScorer;
+static std::atomic<uint32_t> profileFrames{0}, decodeUs{0}, scoreUs{0};
 static std::atomic<uint32_t> pulseTrains{0}, pulseMarkErrors{0};
 struct Clip { Event event; int16_t* pcm; int frames,pre; bool pulseSupported; };
 static Clip clips[SLOTS];
@@ -51,7 +52,7 @@ static uint32_t rescued;
 static void latchStorage() {
     if(!storageLatched.exchange(true)) {
         if(prefsReady) storagePrefs.putBool("blocked",true);
-        Serial.println("SD_WRITE_FAULT writes blocked; clips will try RAM to Wi-Fi");
+        Serial.println("SD_WRITE_FAULT writes blocked");
     }
 }
 static uint32_t bootId;
@@ -82,7 +83,13 @@ static void setupStorage() {
         sdReady=(SD.exists("/STREAM03") || SD.mkdir("/STREAM03")) && !SD.exists(sessionDir) && SD.mkdir(sessionDir);
         if(!sdReady) latchStorage();
     }
+    if(sdReady && !mark(String(sessionDir)+"/stream04.id")) latchStorage();
+    uploadWavs=SD.exists("/stream-wav.on");
+    referenceScorer=SD.exists("/stream-reference.on");
+    scorer.useReference(referenceScorer);
     recordPulseTrains = SD.exists("/stream-pulse.on");
+    // Change CPU speed before enabling either I2S or Wi-Fi. Log the achieved MHz.
+    if(SD.exists("/stream-160mhz.on") && !setCpuFrequencyMhz(160)) Serial.println("CPU 160 MHz request failed");
     File cfg=SD.open("/stream-wifi.txt",FILE_READ);
     if(!cfg) return;
     ssid=cfg.readStringUntil('\n'); key=cfg.readStringUntil('\n');
@@ -133,6 +140,7 @@ static void captureTask(void*) {
     bool haveHit=false, haveTrain=false;
     uint32_t lastTrain=0;
     pulse_train::Detector pulseDetector;
+    unsigned profileTick=0;
     for(;;) {
         if(pauseRequested && !outstanding.load()) {
             i2s_channel_disable(rxChannel);
@@ -155,12 +163,23 @@ static void captureTask(void*) {
             }
             continue;
         }
-        int ones=0;
-        for(int i=0;i<FRAME;++i) { ones+=__builtin_popcount(raw[i]); pcm[i]=decoder.sample(raw[i]); }
-        density=1000*ones/(FRAME*16);
+        bool sampleCost=(profileTick++%128)==0;
+        if(sampleCost) {
+            int ones=0;
+            for(uint16_t word : raw) ones+=__builtin_popcount(word);
+            density=1000*ones/(FRAME*16);
+        }
+        int64_t startUs=sampleCost?esp_timer_get_time():0;
+        for(int i=0;i<FRAME;++i) pcm[i]=decoder.sample(raw[i]);
+        const int64_t decodedAt=sampleCost?esp_timer_get_time():0;
         ++frames;
         int32_t score=0;
         bool scored = scorer.evaluate(pcm,score);
+        if(sampleCost) {
+            decodeUs+=uint32_t(decodedAt-startUs);
+            scoreUs+=uint32_t(esp_timer_get_time()-decodedAt);
+            ++profileFrames;
+        }
         bool strong = scored && score >= model::cutoff;
         bool train = scored && pulseDetector.update(score);
         for(int i=0;i<SLOTS;++i) if(recording[i]) {
@@ -253,12 +272,12 @@ static void serviceRescue() {
         expiry=now+20000;
     }
     bool ok=false;
-    requestWifi(now);
+    if(now>=retryHttp) requestWifi(now);
     if(online() && now>=retryHttp) {
         Clip& c=clips[slot];
         wavHeader(transferBuffer,WAV_BYTES-44);
         memcpy(transferBuffer+44,c.pcm,WAV_BYTES-44);
-        ok=post(sessionDir,c.event,anchor,transferBuffer,crc32buf(transferBuffer,WAV_BYTES),c.pulseSupported);
+        ok=post(sessionDir,c.event,anchor,transferBuffer,crc32buf(transferBuffer,WAV_BYTES),c.pulseSupported,VERSION);
     }
     if(!ok && uptimeMs()<expiry) return;
     if(ok) { ++rescued; ++ackClips; } else ++missedClips;
@@ -267,15 +286,17 @@ static void serviceRescue() {
 static void health(bool final=false) {
     static int64_t next=0;
     if(!sdReady || storageLatched || (!final && uptimeMs()<next)) return;
-    if(xSemaphoreTake(bus,0)!=pdTRUE) return;
+    if(xSemaphoreTake(bus,final?portMAX_DELAY:0)!=pdTRUE) return;
     File f=SD.open(String(sessionDir)+"/health.csv",FILE_APPEND);
     char row[300];
-    int n=snprintf(row,sizeof row,"\n%lld,%lld,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lld,%lu,%u,END\n",
+    int n=snprintf(row,sizeof row,"\n%lld,%lld,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lld,%lu,%u,%lu,%lu,%d,%u,%lu,%lu,%lu,%u,%lld,END\n",
         (long long)uptimeMs(),(long long)anchor.at(uptimeMs()),(unsigned long)frames.load(),(unsigned long)gaps.load(),
         (unsigned long)detections.load(),(unsigned long)saved.load(),(unsigned long)missedClips.load(),
         (unsigned long)lostAlerts.load(),(unsigned long)ackEvents,(unsigned long)ackClips,(unsigned long)httpFailures,
-        (unsigned long)queueErrors,(long long)wifiActiveMs(),(unsigned long)longestCommitMs.load(),final?1:0);
-    if(!f || f.write((const uint8_t*)row,n)!=size_t(n)) ++queueErrors;
+        (unsigned long)queueErrors,(long long)wifiActiveMs(),(unsigned long)longestCommitMs.load(),final?1:0,
+        (unsigned long)wifiWindow.starts,(unsigned long)udpSent,int(referenceScorer),getCpuFrequencyMhz(),
+        (unsigned long)profileFrames.load(),(unsigned long)decodeUs.load(),(unsigned long)scoreUs.load(),uploadWavs?1:0,(long long)rxAccumulated);
+    if(!f || n<=0 || size_t(n)>=sizeof row || f.write((const uint8_t*)row,n)!=size_t(n)) ++queueErrors;
     f.close(); xSemaphoreGive(bus); next=uptimeMs()+30*60*1000;
 }
 static void status() {
@@ -301,14 +322,14 @@ void setup() {
     prefsReady=storagePrefs.begin("stream03",false);
     storageLatched=prefsReady && storagePrefs.getBool("blocked",false);
     setupStorage();
-    if(sdReady || (reportsConfigured && token.length())) {
+    if(sdReady || (uploadWavs && reportsConfigured && token.length())) {
         history=(int16_t*)ps_malloc(HISTORY*FRAME*2);
         for(int i=0;history && i<SLOTS;++i) {
             clips[i].pcm=(int16_t*)ps_malloc(CLIP*FRAME*2);
             if(clips[i].pcm) xQueueSend(freeSlots,&i,0);
         }
         slotCount=uxQueueMessagesWaiting(freeSlots);
-        if(reportsConfigured && token.length()) transferBuffer=(uint8_t*)ps_malloc(WAV_BYTES);
+        if(uploadWavs && reportsConfigured && token.length()) transferBuffer=(uint8_t*)ps_malloc(WAV_BYTES);
         if(!uxQueueMessagesWaiting(freeSlots) || xTaskCreatePinnedToCore(writerTask,"sd_writer",12288,nullptr,2,nullptr,0)!=pdPASS) {
             free(history); history=nullptr;
         }
@@ -327,8 +348,8 @@ void loop() {
             cmd[used]=0;
             if(!strcmp(cmd,"status")) status();
             if(!strcmp(cmd,"clip") && ready) { awakeUntil=uptimeMs()+120000; pauseRequested=false; manualClip=true; }
-            if(!strcmp(cmd,"transfer")) {
-                forceTransferUntil=uptimeMs()+120000; requestWifi(uptimeMs()); scanDirty=true;
+            if(!strcmp(cmd,"transfer") && uploadWavs && reportsConfigured && token.length()) {
+                forceTransferUntil=uptimeMs()+120000; scanDirty=true;
             }
             if(!strcmp(cmd,"clear-sd") && storageLatched && !outstanding && prefsReady) {
                 if(storagePrefs.putBool("blocked",false)) ESP.restart();
@@ -336,7 +357,7 @@ void loop() {
             used=0;
         } else if(used<sizeof(cmd)-1) cmd[used++]=ch;
     }
-    replayRecent();
+    sendUrgent();
     serviceRescue();
     health();
     Event e;
@@ -347,36 +368,29 @@ void loop() {
             (long long)anchor.at(e.ms),streamclock::name(anchor.source),eventKind(e.trigger));
         Serial.println(line);
         liveEvent(e);
-        if(reportsConfigured && !token.length() && wifiOn && WiFi.status()==WL_CONNECTED && udp.beginPacket(destination,UDP_PORT)) {
-            udp.write((const uint8_t*)line,strlen(line)); udp.endPacket();
-        }
+        sendUrgent();
     }
     static int64_t daySince=0;
     int64_t now=uptimeMs();
-    int64_t day=field::daytimeRemaining(anchor.at(now)/1000);
+    static int64_t nextSolar=0, day=0, previousAnchor=0;
+    if(now>=nextSolar || anchor.up!=previousAnchor) {
+        if(anchor.up!=previousAnchor) scanDirty=true;
+        previousAnchor=anchor.up;
+        day=field::daytimeRemaining(anchor.at(now)/1000);
+        nextSolar=now+1000;
+    }
     constexpr int64_t wakeGuardSeconds=300;
     bool maintenance=day>wakeGuardSeconds+60 && now>awakeUntil && ready && (sdReady || storageLatched);
     pauseRequested=maintenance;
-    bool bulk=(maintenance && capturePaused) || now<forceTransferUntil;
-    if(maintenance && !daySince) {
-        daySince=now;
-        if(reportsConfigured && token.length()) requestWifi(now);
-    }
+    bool bulk=uploadWavs && transferBuffer && ((maintenance && capturePaused) || now<forceTransferUntil);
+    if(maintenance && !daySince) daySince=now;
     if(!maintenance) daySince=0;
-    if((maintenance && now-daySince<120000) || now<forceTransferUntil) {
-        if(reportsConfigured && token.length()) requestWifi(now);
-    }
-    static bool wasBulk=false;
-    if(bulk && !wasBulk) {
-        xSemaphoreTake(bus,portMAX_DELAY); queueDir.close(); queueRoot.close(); xSemaphoreGive(bus);
-        scanDirty=true; scanComplete=false; scanHadPending=false; scanAfter=0;
-    }
-    wasBulk=bulk;
-    if(!storageLatched) serviceDelivery(bulk);
+    serviceDelivery(bulk);
     if(maintenance && capturePaused && !outstanding && uxQueueMessagesWaiting(alerts)==0) {
         bool configured=reportsConfigured && token.length();
-        bool clean=scanComplete && !scanHadPending && transferBuffer;
-        if((!configured || clean || now-daySince>=120000) && (anchorSaved || storageLatched || now-daySince>=120000)) {
+        bool clean=scanComplete && !scanDirty && !scanHadPending && !urgentCount &&
+            (!uploadWavs || transferBuffer);
+        if(((!configured && !urgentCount) || clean || now-daySince>=120000) && (anchorSaved || storageLatched || now-daySince>=120000)) {
             int64_t nap=std::min<int64_t>(day-wakeGuardSeconds,4*3600);
             if(configured && !clean && !storageLatched) nap=std::min<int64_t>(nap,1800);
             if(nap>5) {
@@ -390,5 +404,5 @@ void loop() {
             }
         }
     }
-    delay(1);
+    delay(10);
 }
