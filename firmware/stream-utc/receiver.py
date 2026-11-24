@@ -14,7 +14,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 IDENTITY = re.compile(r"([0-9a-f]{12})-([0-9A-F]{8})-([1-9][0-9]{0,9})")
-KINDS = {"event", "test"}
+KINDS = {"event", "test", "pulse"}
 RATE = 192000
 MAX_WAV = 768044
 MODEL = "f9f857b24d21666831e3d5eaa145904003fc2cb0a93a64e59d0f68f4eb69588e"
@@ -72,6 +72,9 @@ def parse_meta(headers):
                 sequence=int(match[3]), kind=kind, trigger_uptime_ms=up, pre_samples=pre,
                 score_acc=score, threshold=1404, model_sha256=MODEL, sample_rate=RATE, firmware="XIAO-STREAM-03",
                 label="equipment_test" if kind == "test" else "unreviewed")
+    if kind == "pulse":
+        meta.update(threshold=702, trigger_rule="pulse_train_v1", required_onsets=3,
+                    release_frames=8, window_frames=187)
     return ident, meta, timing
 
 
@@ -110,6 +113,9 @@ class Receiver(BaseHTTPRequestHandler):
                 if len(data) != n or crc != self.headers["X-WAV-CRC32"] or not meta["pre_samples"]:
                     raise ValueError("clip integrity")
                 validate_wav(data)
+                pulse_evidence = self.headers.get("X-Pulse-Evidence")
+                if pulse_evidence not in (None, "train-v1"):
+                    raise ValueError("pulse evidence")
             folder = self.server.root / meta["device"] / meta["boot"]
             with self.server.commit_lock:
                 folder.mkdir(parents=True, exist_ok=True)
@@ -124,6 +130,9 @@ class Receiver(BaseHTTPRequestHandler):
                     print(f"{meta['kind']} {ident} score={meta['score_acc']} trigger_utc_ms={timing and timing['trigger_utc_ms']}", flush=True)
                 if is_clip:
                     publish(base.with_suffix(".wav"), data)
+                    if pulse_evidence == "train-v1" or meta["kind"] == "pulse":
+                        publish(base.with_suffix(".pulse.json"), as_json(dict(trigger_rule="pulse_train_v1",
+                                supported=True, required_onsets=3, score_floor=702, release_frames=8, window_frames=187)))
                     publish(base.with_suffix(".wav.json"), as_json(dict(wav_crc32=crc, sha256=hashlib.sha256(data).hexdigest(), bytes=n)))
             return self.reply(200, "OK "+ident+(" "+crc if is_clip else ""))
         except (ValueError, TypeError, KeyError, OverflowError):

@@ -16,14 +16,23 @@
 #include <atomic>
 #include "clock_radio.h"
 #include "scorer.h"
+#include "pulse_train.h"
 #include "pdm.h"
 
 static constexpr char VERSION[]="XIAO-STREAM-03";
 static constexpr int FRAME=512, HISTORY=94, CLIP=750, SLOTS=2;
 static constexpr int MIC_CLK=1,MIC_DATA=2,UNWIRED_WS=4,SD_CS=43,RADIO_CS=41;
 static constexpr int UDP_PORT=8768;
-struct Event { int64_t ms; uint32_t id; int32_t score; uint32_t pre,manual; };
-struct Clip { Event event; int16_t* pcm; int frames,pre; };
+// Values 0 and 1 preserve the existing on-card event and manual test records.
+enum class Trigger : uint32_t { frame = 0, manual = 1, pulse = 2 };
+static const char* eventKind(Trigger trigger) {
+    if (trigger == Trigger::pulse) return "pulse";
+    return trigger == Trigger::manual ? "test" : "event";
+}
+struct Event { int64_t ms; uint32_t id; int32_t score; uint32_t pre; Trigger trigger; };
+static bool recordPulseTrains;
+static std::atomic<uint32_t> pulseTrains{0}, pulseMarkErrors{0};
+struct Clip { Event event; int16_t* pcm; int frames,pre; bool pulseSupported; };
 static Clip clips[SLOTS];
 static Scorer scorer;
 static PdmDecoder decoder;
@@ -73,6 +82,7 @@ static void setupStorage() {
         sdReady=(SD.exists("/STREAM03") || SD.mkdir("/STREAM03")) && !SD.exists(sessionDir) && SD.mkdir(sessionDir);
         if(!sdReady) latchStorage();
     }
+    recordPulseTrains = SD.exists("/stream-pulse.on");
     File cfg=SD.open("/stream-wifi.txt",FILE_READ);
     if(!cfg) return;
     ssid=cfg.readStringUntil('\n'); key=cfg.readStringUntil('\n');
@@ -106,10 +116,11 @@ static bool startI2S() {
         i2s_channel_reconfig_std_clock(rxChannel,&s.clk_cfg)==ESP_OK &&
         i2s_channel_enable(rxChannel)==ESP_OK;
 }
-static void startClip(Event& event) {
+static void startClip(Event& event, bool pulseSupported) {
     int slot;
     if(!history || !histCount || xQueueReceive(freeSlots,&slot,0)!=pdTRUE) { ++missedClips; return; }
     Clip &c=clips[slot]; event.pre=histCount*FRAME; c.event=event; c.frames=c.pre=histCount;
+    c.pulseSupported = pulseSupported;
     int first=(histPos+HISTORY-histCount)%HISTORY;
     int n=min(histCount,HISTORY-first);
     memcpy(c.pcm,history+first*FRAME,n*FRAME*2);
@@ -119,13 +130,16 @@ static void startClip(Event& event) {
 static void captureTask(void*) {
     uint16_t raw[FRAME]; int16_t pcm[FRAME];
     uint32_t eventId=0,lastHit=0,lastOverflow=rxOverflow;
-    bool haveHit=false;
+    bool haveHit=false, haveTrain=false;
+    uint32_t lastTrain=0;
+    pulse_train::Detector pulseDetector;
     for(;;) {
         if(pauseRequested && !outstanding.load()) {
             i2s_channel_disable(rxChannel);
             capturePaused=true;
             while(pauseRequested) delay(20);
             scorer.reset(); decoder.reset(); histCount=histPos=0; haveHit=false;
+            pulseDetector.reset(); haveTrain=false;
             i2s_channel_enable(rxChannel); lastOverflow=rxOverflow;
             capturePaused=false;
         }
@@ -135,6 +149,7 @@ static void captureTask(void*) {
         lastOverflow=currentOverflow;
         if(rc!=ESP_OK || n!=sizeof raw || overflow) {
             ++gaps; scorer.reset(); decoder.reset(); histCount=histPos=0; haveHit=false;
+            pulseDetector.reset(); haveTrain=false;
             for(int i=0;i<SLOTS;++i) if(recording[i]) {
                 recording[i]=false; xQueueSend(freeSlots,&i,0); --outstanding; ++missedClips;
             }
@@ -144,8 +159,13 @@ static void captureTask(void*) {
         for(int i=0;i<FRAME;++i) { ones+=__builtin_popcount(raw[i]); pcm[i]=decoder.sample(raw[i]); }
         density=1000*ones/(FRAME*16);
         ++frames;
+        int32_t score=0;
+        bool scored = scorer.evaluate(pcm,score);
+        bool strong = scored && score >= model::cutoff;
+        bool train = scored && pulseDetector.update(score);
         for(int i=0;i<SLOTS;++i) if(recording[i]) {
             Clip &c=clips[i];
+            if (train) c.pulseSupported=true;
             memcpy(c.pcm+c.frames*FRAME,pcm,sizeof pcm);
             if(++c.frames==CLIP) { recording[i]=false; xQueueSend(writeQueue,&i,0); }
         }
@@ -153,16 +173,21 @@ static void captureTask(void*) {
             memcpy(history+histPos*FRAME,pcm,sizeof pcm);
             histPos=(histPos+1)%HISTORY; histCount=min(HISTORY,histCount+1);
         }
-        int32_t score=0;
-        bool hit=scorer.evaluate(pcm,score) && score>=model::cutoff;
         uint32_t now=millis();
+        if (train) {
+            if (!haveTrain || now-lastTrain >= 1000) ++pulseTrains;
+            lastTrain=now; haveTrain=true;
+        }
+        bool hit = strong || (recordPulseTrains && train);
         bool newHit=hit && (!haveHit || now-lastHit>=1000);
         if(hit) { haveHit=true; lastHit=now; }
         bool manual=manualClip.exchange(false);
         if((newHit || manual) && !pauseRequested) {
-            Event event={uptimeMs(),++eventId,score,0,uint32_t(manual&&!newHit)};
+            Trigger trigger = Trigger::manual;
+            if (newHit) trigger = strong ? Trigger::frame : Trigger::pulse;
+            Event event={uptimeMs(),++eventId,score,0,trigger};
             if(newHit) ++detections;
-            startClip(event);
+            startClip(event, train);
             if(xQueueSend(alerts,&event,0)!=pdTRUE) ++lostAlerts;
         }
     }
@@ -200,7 +225,9 @@ static bool saveClip(const Clip &c) {
         crc=crc32buf(block,n,crc);
     }
     check.close();
-    return publishSmall(base+".crc",&crc,sizeof crc) && SD.rename(part,path);
+    if (!publishSmall(base+".crc",&crc,sizeof crc) || !SD.rename(part,path)) return false;
+    if (c.pulseSupported && !mark(base+".p3")) ++pulseMarkErrors;
+    return true;
 }
 static void writerTask(void*) {
     int slot;
@@ -231,7 +258,7 @@ static void serviceRescue() {
         Clip& c=clips[slot];
         wavHeader(transferBuffer,WAV_BYTES-44);
         memcpy(transferBuffer+44,c.pcm,WAV_BYTES-44);
-        ok=post(sessionDir,c.event,anchor,transferBuffer,crc32buf(transferBuffer,WAV_BYTES));
+        ok=post(sessionDir,c.event,anchor,transferBuffer,crc32buf(transferBuffer,WAV_BYTES),c.pulseSupported);
     }
     if(!ok && uptimeMs()<expiry) return;
     if(ok) { ++rescued; ++ackClips; } else ++missedClips;
@@ -252,9 +279,10 @@ static void health(bool final=false) {
     f.close(); xSemaphoreGive(bus); next=uptimeMs()+30*60*1000;
 }
 static void status() {
-    Serial.printf("%s phase=%s event_ack=%lu wav_ack=%lu http_fail=%lu outbox_errors=%lu slots=%d rescue_ack=%lu sd_latched=%d\n",VERSION,
+    Serial.printf("%s phase=%s event_ack=%lu wav_ack=%lu http_fail=%lu outbox_errors=%lu slots=%d rescue_ack=%lu sd_latched=%d pulse_mode=%s pulse_trains=%lu pulse_mark_errors=%lu\n",VERSION,
         capturePaused?"DAY_TRANSFER":"LISTENING",(unsigned long)ackEvents,(unsigned long)ackClips,
-        (unsigned long)httpFailures,(unsigned long)queueErrors,slotCount,(unsigned long)rescued,int(storageLatched.load()));
+        (unsigned long)httpFailures,(unsigned long)queueErrors,slotCount,(unsigned long)rescued,int(storageLatched.load()),
+        recordPulseTrains ? "record" : "shadow",(unsigned long)pulseTrains.load(),(unsigned long)pulseMarkErrors.load());
     Serial.printf("%s ready=%d clk=D0 data=D1 sd=%s clips_buffered=%d wifi=%s frames=%lu gaps=%lu pdm_ones_permille=%d events=%lu saved=%lu unsaved=%lu alert_queue_drops=%lu boot=%08lX clock=%s clock_sd=%s utc_ms=%lld lora=%s\n",
         VERSION,ready,sdReady?"mounted":"unavailable",bool(history),wifiState(),
         (unsigned long)frames.load(),(unsigned long)gaps.load(),density.load(),(unsigned long)detections.load(),
@@ -314,9 +342,9 @@ void loop() {
     Event e;
     if(alerts && xQueueReceive(alerts,&e,0)==pdTRUE) {
         char line[200];
-        snprintf(line,sizeof line,"%s %s boot=%08lX seq=%lu uptime_ms=%lld score_acc=%ld threshold=%d utc_ms=%lld clock=%s",
-            VERSION,e.manual?"TEST":"CANDIDATE",(unsigned long)bootId,(unsigned long)e.id,(long long)e.ms,(long)e.score,model::cutoff,
-            (long long)anchor.at(e.ms),streamclock::name(anchor.source));
+        snprintf(line,sizeof line,"%s %s boot=%08lX seq=%lu uptime_ms=%lld score_acc=%ld threshold=%d utc_ms=%lld clock=%s kind=%s",
+            VERSION,e.trigger==Trigger::manual?"TEST":"CANDIDATE",(unsigned long)bootId,(unsigned long)e.id,(long long)e.ms,(long)e.score,e.trigger==Trigger::pulse?pulse_train::scoreFloor:model::cutoff,
+            (long long)anchor.at(e.ms),streamclock::name(anchor.source),eventKind(e.trigger));
         Serial.println(line);
         liveEvent(e);
         if(reportsConfigured && !token.length() && wifiOn && WiFi.status()==WL_CONNECTED && udp.beginPacket(destination,UDP_PORT)) {

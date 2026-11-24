@@ -21,3 +21,19 @@ Host verification used the two original COM14 desk WAVs, each 768,044 bytes.  Ea
 Use the union of **human-reviewed passes** from the co-located recorders during overlapping, time-aligned coverage.  Inspect unmatched detections in both directions and account for microphone placement, frequency coverage and clock uncertainty.  Report pass recall with its denominator, false alerts per listening hour, fraction with verified SD WAV, fraction received, and median/95th-percentile alert delay.  Compare first PC receipt with trigger UTC only for adequately synchronised clocks.  Start with a USB-meter reading before dusk and after sunrise; take a second reading at the next dusk for a full 24-hour budget.  Divide usable battery Wh by measured Wh/day, accounting for the intended regulator.  The USB-powered board cannot establish cell runtime directly.
 
 A short power cut may leave a .part or .tmp.  Acknowledge only complete verified WAVs.  Preserve remnants for inspection, retain original SD WAVs after successful uploads, and keep the permanent reference firmware available as the rollback.  Timestamp estimates are tied to the audio task's frame-read time.  DMA, oscillator and LoRa beacon timing uncertainty still need a common acoustic pulse measurement for sub-second cross-monitor matching.
+
+
+## Pulse-train candidate, 25 November 2026
+
+A grade-5 XiaoRT calibration clip recorded at 02:54:16 NZDT on 18 November had a maximum score of 1,404.  Jesse saw five well-defined clicks among six.  The clip-level maximum used to calibrate the threshold discards the repetition visible in FastAviaReview.  The preceding grade-5 clip at 02:54:14 scored 2,877.  Treat their relationship as a question for pass-level review.
+
+The repeated-pulse trial reuses the pinned frame model, adds a three-onset decision, and retains the strong-frame path.  The initial score floor of 702 (half the existing cutoff), release of eight below-floor frames and first-to-third window of 187 frame intervals are engineering trial settings.  They are not fitted species-specific pulse intervals.  Default shadow mode annotates existing clips.  An SD marker opts into additional sequence-triggered capture and reporting.  The README describes each mode, archive and receiver metadata, and local replay.  The audio task adds three small integer counters for the pulse detector and a comparison per score without another FFT or model evaluation.  Additional recordings and transfers in record mode can increase whole-device energy use.
+
+| Source | Strong-frame rule | Three-onset rule alone |
+| --- | --- | --- |
+| Reviewed bat, Stream 02 boot 4280DF29, sequence 11 | First hit 0.2507 s into WAV | First qualification 0.6880 s into WAV |
+| Ten reviewed noise clips from the same boot | 10/10 triggered | 0/10 qualified |
+
+These eleven WAVs were already selected by the frame rule.  Keeping both paths active still records those ten noise clips.  This replay establishes neither additional pass recall nor fewer alerts during a full night.  The grade-5 calibration WAV itself was unavailable for this replay.  The PC command in the README targets its exact path.
+
+Before enabling weak-sequence alerts by default, replay the dated calibration and held-out WAVs, inspect threshold onsets against the visible calls, then compare frame-only and pulse-supported detections against separately reviewed passes on fresh nights.  Use shared, time-aligned recorder coverage, group adjacent clips from one pass, and report extra true passes, extra noise alerts per listening hour, latency, gaps and USB Wh.  No field board or power measurement was available for this change.

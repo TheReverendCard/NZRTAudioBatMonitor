@@ -2,6 +2,21 @@
 
 Install on the compact experimental XIAO ESP32-S3 with mic clock D0, data D1, microSD BFF and Wio SX1262.  It listens during the Whangarei night, saves each triggered 192 kHz clip to SD, sends a short Wi-Fi report when possible, and copies the original WAV to the PC during daylight.  LoRa supplies a fallback clock.  The [field audit](FIELD_NOTES.md) gives the comparison with the existing SD and RT firmware, outstanding work and the co-located qualification plan.
 
+## Pulse-train field trial
+
+The recorder evaluates the existing integer score for repeated pulse-like onsets.  In the default **shadow** mode, recording and live alerts still use 1,404.  If a sequence qualifies at the trigger or while its clip is being captured, the card gets a small verified `.p3` marker beside the WAV.  The matching updated receiver stores `.pulse.json` when the audio arrives.  One pass keeps its original event ID.  Pulse support is a review aid and the event keeps its unreviewed label.
+
+For a co-located trial that also **records and reports weaker sequences**, start the receiver from this branch, place an empty file named `stream-pulse.on` at the SD card root, then boot the node.  Status shows `pulse_mode=record`.  Remove the file and reboot to return to shadow mode.  The first qualifying path opens a normal clip and the existing one-second grouping applies to the enabled paths.  A frame-triggered clip uses `_event.wav`.  A clip started solely by the sequence uses `_pulse.wav` and the receiver reports `kind=pulse`.  Older receivers do not accept the new pulse event kind.  Use the matching receiver for the trial.
+
+The provisional rule requires three onsets at or above 702 within 187 frame intervals (499 ms).  Another onset requires eight full frames below 702 (21.3 ms).  The detector clears its history after a capture gap or pause and uses the same 375 scores per second as the frame trigger.  The marker means the running detector qualified at least once during capture, using its continuous history.  A sequence can begin before the saved pre-trigger audio.  The serial counter `pulse_trains` groups qualifications separated by a quiet second.  `pulse_mark_errors` counts failed optional marker writes.  A missing marker on an old clip or after a write fault leaves support unknown.
+
+To replay a reviewed WAV on the PC, use Python with NumPy and the extracted **Xiao_Stream_Recogniser_Trial_01** host kit.  From this firmware directory, run the following with the actual host-kit path.  It prints the maximum score, each distinct score onset and the first frame and sequence trigger times in seconds from WAV start.
+
+```powershell
+$wav = "$env:USERPROFILE\Documents\Bat\20261117\XiaoRT20261117\20261118_025416_RT_587d3fed_2_57.wav"
+py -3 replay_pulses.py --trial "C:\path\to\Xiao_Stream_Recogniser_Trial_01" $wav
+```
+
 ## Install and check before deployment
 
 1. On the usual receiver PC start **Start Stream Receiver.cmd**.  Leave the current SD/RT receiver running.  The companion picks up its configured backup directory and private tokens from the existing Bat setup.  It listens on **TCP 8769** on the private LAN.  Permit incoming traffic on the private network if Windows prompts.  If the existing config is elsewhere use **py -3 receiver.py --config "path\to\receiver_config.json" --root "path\to\WiFi_Backup"**.

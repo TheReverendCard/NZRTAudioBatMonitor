@@ -29,7 +29,7 @@ struct EventRecord { Event event; uint32_t crc; } __attribute__((packed));
 static_assert(sizeof(Event)==24,"stable card record");
 static String eventBase(const String& dir,const Event& e) {
     char name[60];
-    snprintf(name,sizeof name,"/%08lu_%010lld_%s",(unsigned long)e.id,(long long)e.ms,e.manual?"test":"event");
+    snprintf(name,sizeof name,"/%08lu_%010lld_%s",(unsigned long)e.id,(long long)e.ms,eventKind(e.trigger));
     return dir+name;
 }
 static bool storeEvent(const String& base,const Event& e) {
@@ -41,7 +41,7 @@ static bool readEvent(const String& base,Event& e) {
     File f=SD.open(base+".evt");
     if(!f || f.size()!=sizeof r || f.read((uint8_t*)&r,sizeof r)!=sizeof r) return false;
     memcpy(&e,&r.event,sizeof e);
-    return r.crc==crc32buf(&e,sizeof e) && e.id && e.ms>=0 && e.pre<=HISTORY*FRAME && e.manual<=1;
+    return r.crc==crc32buf(&e,sizeof e) && e.id && e.ms>=0 && e.pre<=HISTORY*FRAME && e.trigger<=Trigger::pulse;
 }
 static streamclock::Anchor sessionClock(const String& dir,int64_t up) {
     streamclock::Anchor best{};

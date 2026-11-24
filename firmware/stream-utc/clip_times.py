@@ -34,7 +34,7 @@ def export(root, output):
                      "pre_samples", "estimated_clip_start_utc", "score_acc", "receiver_wav_ack"))
     for path in sorted(root.rglob("*.wav")):
         boot = path.parent
-        match = re.fullmatch(r"(\d+)_(\d+)_(event|test)\.wav", path.name)
+        match = re.fullmatch(r"(\d+)_(\d+)_(event|test|pulse)\.wav", path.name)
         if not match or not re.fullmatch("[0-9A-Fa-f]{8}", boot.name):
             continue
         up = int(match[2])
@@ -51,9 +51,9 @@ def export(root, output):
         if record.is_file():
             raw = record.read_bytes()
             if len(raw) == 28:
-                event_up, seq, value, samples, manual, crc = struct.unpack("<qIiIII", raw)
+                event_up, seq, value, samples, trigger, crc = struct.unpack("<qIiIII", raw)
                 if (crc == zlib.crc32(raw[:24]) and seq == int(match[1]) and up == event_up
-                        and manual == int(match[3] == "test") and 0 < samples <= 48128 and samples % 512 == 0):
+                        and trigger == {"event": 0, "test": 1, "pulse": 2}[match[3]] and 0 < samples <= 48128 and samples % 512 == 0):
                     pre, score = samples, value
                     if stamp:
                         start = (dt - timedelta(microseconds=round(samples*1000000/192000))).isoformat(
