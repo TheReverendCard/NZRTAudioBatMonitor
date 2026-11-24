@@ -65,6 +65,7 @@ A proposed second audio stream could identify birds while keeping the validated 
 
 ## Development notes
 
+- [Proposed Trap.NZ and MeshCore integration for sleeping trap nodes](docs/TRAPNZ_MESHCORE.md)
 - [Pixel 6 Pro implementation and field plan](docs/P6P_PLAN.md)
 - [XIAO ESP32-S3 + SPH0641LU4H-1 ultrasonic capture baseline](docs/XIAO_SPH0641_CAPTURE.md)
 - [Shared development log and cross-platform handoff](docs/HANDOFF.md)
