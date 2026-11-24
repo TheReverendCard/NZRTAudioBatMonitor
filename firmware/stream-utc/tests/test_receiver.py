@@ -42,6 +42,12 @@ class FieldReceiverTest(unittest.TestCase):
         pcm=b"\x32\x01"*384000
         return struct.pack("<4sI4s4sIHHIIHH4sI",b"RIFF",36+len(pcm),b"WAVE",b"fmt ",16,1,1,192000,384000,2,16,b"data",len(pcm))+pcm
 
+    def test_event_power_identity(self):
+        self.assertEqual(self.post(**{"X-Firmware":"XIAO-STREAM-04"})[0],200)
+        meta=json.loads((self.folder/(self.ident+".event.json")).read_bytes())
+        self.assertEqual(meta["firmware"],"XIAO-STREAM-04")
+        self.assertEqual(self.post(**{"X-Firmware":"unknown"})[0],422)
+
     def test_outage_retry_late_anchor_and_deferred_wav(self):
         self.assertEqual(self.post(),(200,"OK "+self.ident))
         receipt=(self.folder/(self.ident+".received.json")).read_bytes()

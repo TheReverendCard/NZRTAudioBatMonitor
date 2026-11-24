@@ -4,8 +4,8 @@
 static int64_t uptimeMs() { return esp_timer_get_time()/1000; }
 static streamclock::Anchor anchor,ntpNotice;
 static portMUX_TYPE ntpLock=portMUX_INITIALIZER_UNLOCKED;
-static bool ntpPending=false,anchorSaved=false,wifiOn=false,ntpStarted=false;
-static int64_t nextSave=0,wifiSince=0,nextWifi=0;
+static bool ntpPending=false,anchorSaved=false,ntpStarted=false;
+static int64_t nextSave=0;
 static constexpr int64_t HOUR_MS=3600000, RETRY_MS=300000;
 static Module radioModule(RADIO_CS,39,42,40,SPI,SPISettings(2000000,MSBFIRST,SPI_MODE0));
 static ClockRadio clockRadio(&radioModule);
@@ -28,9 +28,11 @@ static const char* radioState() {
         case Rx::listening: return "listening"; default: return "sleep";
     }
 }
+#include "wifi_window.h"
+static WifiWindow wifiWindow;
 static const char* wifiState() {
     if(!wifiConfigured) return "off";
-    if(!wifiOn) return "sleep";
+    if(!wifiWindow.on) return "sleep";
     return WiFi.status()==WL_CONNECTED?"connected":"connecting";
 }
 static const char* clockSdState() {
@@ -49,20 +51,16 @@ static void ntpCallback(struct timeval* tv) {
     streamclock::Anchor a{uptimeMs(),int64_t(tv->tv_sec)*1000+tv->tv_usec/1000,streamclock::Source::ntp};
     portENTER_CRITICAL(&ntpLock); ntpNotice=a; ntpPending=true; portEXIT_CRITICAL(&ntpLock);
 }
-static int64_t wifiDemandUntil=0, wifiBackoff=0;
-static int64_t wifiClosedMs=0, wifiStartedAt=0;
-static int64_t wifiActiveMs() { return wifiClosedMs+(wifiOn?uptimeMs()-wifiStartedAt:0); }
-static void requestWifi(int64_t now) {
-    wifiDemandUntil=now+12000;
-    if(!wifiOn && now>=wifiBackoff) nextWifi=now;
-}
+static int64_t wifiActiveMs() { return wifiWindow.elapsed(uptimeMs()); }
+static void requestWifi(int64_t now) { wifiWindow.demand(now); }
 static void serviceWifi(int64_t now) {
     if(!wifiConfigured) return;
-    if(!wifiOn && now>=nextWifi) {
-        WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(true);
-        WiFi.begin(ssid.c_str(),key.c_str()); wifiOn=true; wifiStartedAt=wifiSince=now; ntpStarted=false;
+    if(wifiWindow.shouldStart(now)) {
+        WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(false);
+        WiFi.begin(ssid.c_str(),key.c_str());
+        wifiWindow.start(now); ntpStarted=false;
     }
-    if(!wifiOn) return;
+    if(!wifiWindow.on) return;
     bool connected=WiFi.status()==WL_CONNECTED;
     if(connected && !ntpStarted && (anchor.source!=streamclock::Source::ntp || now-anchor.up>=HOUR_MS)) {
         esp_sntp_set_time_sync_notification_cb(ntpCallback);
@@ -74,23 +72,19 @@ static void serviceWifi(int64_t now) {
     portENTER_CRITICAL(&ntpLock);
     received=ntpPending; a=ntpNotice; ntpPending=false;
     portEXIT_CRITICAL(&ntpLock);
-    if(received) {
-        acceptTime(a);
-        if(reportsConfigured && token.length()) requestWifi(now);
-    }
-    bool legacy=reportsConfigured && !token.length();
-    bool demand=reportsConfigured && now<wifiDemandUntil;
-    if(connected && legacy) wifiSince=now;
-    if((!legacy && !demand && (received || (connected && anchor.source!=streamclock::Source::unknown && now-wifiSince>=12000))) ||
-       (now-wifiSince>=45000 && (!connected || (!legacy && !demand)))) {
-        wifiClosedMs+=now-wifiStartedAt;
-        WiFi.mode(WIFI_OFF); wifiOn=false;
-        wifiBackoff=connected?0:now+RETRY_MS;
-        nextWifi=now+(anchor.source!=streamclock::Source::unknown?HOUR_MS:RETRY_MS);
+    if(received) acceptTime(a);
+    if(wifiWindow.shouldStop(now,connected,anchor.source!=streamclock::Source::unknown)) {
+        if(ntpStarted) esp_sntp_stop();
+        WiFi.mode(WIFI_OFF);
+        wifiWindow.stop(now,connected);
     }
 }
+static int64_t rxAccumulated=0,rxChecked=0;
 static void serviceRadio(int64_t now) {
-    bool fresh=anchor.source!=streamclock::Source::unknown && now-anchor.up<HOUR_MS;
+    if(rx==Rx::listening) rxAccumulated+=now-rxChecked;
+    rxChecked=now;
+    bool clockKnown=anchor.source!=streamclock::Source::unknown;
+    bool fresh=!wantClockRx(now,clockKnown,anchor.up);
     if(now<radioRetry || (fresh && rx!=Rx::listening)) return;
     if(!fresh && rx==Rx::listening && !haveIrq) return;
     if(xSemaphoreTake(bus,0)!=pdTRUE) return;
