@@ -21,6 +21,7 @@ static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint
     if(!http.begin(socket,url)) return false;
     http.addHeader("Authorization","Bearer "+token);
     http.addHeader("X-Event-ID",id);
+    http.addHeader("X-Model",field::modelSha);
     http.addHeader("X-Uptime-Ms",String((long long)e.ms));
     http.addHeader("X-Pre-Samples",String(e.pre));
     http.addHeader("X-Score",String(e.score));
@@ -28,6 +29,7 @@ static bool post(const String& dir,const Event& e,streamclock::Anchor clock,uint
     http.addHeader("X-Clock",streamclock::name(clock.source));
     http.addHeader("X-Trigger-UTC-Ms",String((long long)clock.at(e.ms)));
     if(audio) http.addHeader("X-WAV-CRC32",hex);
+    else http.addHeader("Content-Length","0");
     int code=http.POST(audio?audio:(uint8_t*)"",audio?WAV_BYTES:0);
     String expected="OK "+id+(audio?String(" ")+hex:String(""));
     bool ok=code==200 && http.getSize()==int(expected.length()) && http.getString()==expected;
@@ -92,7 +94,8 @@ static String nextEntry() {
         queueDir=queueRoot.openNextFile();
         if(!queueDir) {
             queueRoot.close(); scanComplete=true; scanAfter=uptimeMs()+60000;
-            if(!scanHadPending) nextReplay=0; return "";
+            if(!scanHadPending) nextReplay=0;
+            return "";
         }
         if(!queueDir.isDirectory()) queueDir.close();
         return "";

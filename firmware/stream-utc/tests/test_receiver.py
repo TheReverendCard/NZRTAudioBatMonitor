@@ -22,7 +22,7 @@ class FieldReceiverTest(unittest.TestCase):
         self.ident="010203040506-11223344-1"
         self.headers={"X-Event-ID":self.ident,"X-Uptime-Ms":"18000","X-Pre-Samples":"48128",
                       "X-Score":"1440","X-Kind":"event","X-Clock":"UNSYNCED","X-Trigger-UTC-Ms":"0",
-                      "Authorization":"Bearer bench"}
+                      "X-Model":receiver.MODEL,"Authorization":"Bearer bench"}
         self.folder=Path(self.tmp.name)/"Stream/010203040506/11223344"
 
     def tearDown(self):
@@ -60,6 +60,7 @@ class FieldReceiverTest(unittest.TestCase):
 
     def test_reject_invalid_and_conflict(self):
         self.assertEqual(self.post(Authorization="wrong")[0],401)
+        self.assertEqual(self.post(**{"X-Model":"unknown"})[0],422)
         self.assertEqual(self.post(**{"X-Event-ID":"../bad"})[0],422)
         self.assertEqual(self.post(**{"X-Clock":"WIFI_NTP"})[0],422)
         self.assertEqual(self.post()[0],200)

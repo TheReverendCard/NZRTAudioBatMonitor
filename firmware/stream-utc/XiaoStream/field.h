@@ -3,6 +3,7 @@
 #include <math.h>
 #include <time.h>
 namespace field {
+constexpr char modelSha[]="f9f857b24d21666831e3d5eaa145904003fc2cb0a93a64e59d0f68f4eb69588e";
 // Same site and NOAA fractional-year approximation as the 1.0.6 field recorder.
 // Return seconds until listening should resume. Zero means keep listening.
 inline int64_t daytimeRemaining(int64_t epoch) {

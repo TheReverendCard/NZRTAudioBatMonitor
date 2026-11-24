@@ -32,6 +32,7 @@ static int histPos,histCount,slotCount;
 static bool recording[SLOTS];
 static std::atomic<bool> pauseRequested{false},capturePaused{false};
 static std::atomic<unsigned> outstanding{0};
+static std::atomic<uint32_t> longestCommitMs{0};
 static int64_t awakeUntil=90000;
 static String device,token;
 static Preferences storagePrefs;
@@ -205,7 +206,9 @@ static void writerTask(void*) {
     int slot;
     while(true) if(xQueueReceive(writeQueue,&slot,portMAX_DELAY)==pdTRUE) {
         xSemaphoreTake(bus,portMAX_DELAY);
+        uint32_t started=millis();
         bool ok=sdReady && !storageLatched && saveClip(clips[slot]);
+        if(ok) longestCommitMs=std::max(longestCommitMs.load(),uint32_t(millis()-started));
         if(!ok && sdReady) latchStorage();
         xSemaphoreGive(bus);
         if(ok) ++saved;
@@ -239,12 +242,12 @@ static void health(bool final=false) {
     if(!sdReady || storageLatched || (!final && uptimeMs()<next)) return;
     if(xSemaphoreTake(bus,0)!=pdTRUE) return;
     File f=SD.open(String(sessionDir)+"/health.csv",FILE_APPEND);
-    char row[240];
-    int n=snprintf(row,sizeof row,"\n%lld,%lld,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%u,END\n",
+    char row[300];
+    int n=snprintf(row,sizeof row,"\n%lld,%lld,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lld,%lu,%u,END\n",
         (long long)uptimeMs(),(long long)anchor.at(uptimeMs()),(unsigned long)frames.load(),(unsigned long)gaps.load(),
         (unsigned long)detections.load(),(unsigned long)saved.load(),(unsigned long)missedClips.load(),
         (unsigned long)lostAlerts.load(),(unsigned long)ackEvents,(unsigned long)ackClips,(unsigned long)httpFailures,
-        (unsigned long)queueErrors,final?1:0);
+        (unsigned long)queueErrors,(long long)wifiActiveMs(),(unsigned long)longestCommitMs.load(),final?1:0);
     if(!f || f.write((const uint8_t*)row,n)!=size_t(n)) ++queueErrors;
     f.close(); xSemaphoreGive(bus); next=uptimeMs()+30*60*1000;
 }
@@ -286,7 +289,8 @@ void setup() {
     ready=xTaskCreatePinnedToCore(captureTask,"capture",8192,nullptr,4,nullptr,1)==pdPASS;
 }
 void loop() {
-    if(bus) serviceClock();
+    if(!bus || !alerts) { delay(250); return; }
+    serviceClock();
     static uint32_t last=0; static char cmd[20]; static size_t used=0;
     if(millis()-last>=5000) { last=millis(); status(); }
     while(Serial.available()) {
@@ -322,7 +326,8 @@ void loop() {
     static int64_t daySince=0;
     int64_t now=uptimeMs();
     int64_t day=field::daytimeRemaining(anchor.at(now)/1000);
-    bool maintenance=day>60 && now>awakeUntil && ready && (sdReady || storageLatched);
+    constexpr int64_t wakeGuardSeconds=300;
+    bool maintenance=day>wakeGuardSeconds+60 && now>awakeUntil && ready && (sdReady || storageLatched);
     pauseRequested=maintenance;
     bool bulk=(maintenance && capturePaused) || now<forceTransferUntil;
     if(maintenance && !daySince) {
@@ -344,7 +349,7 @@ void loop() {
         bool configured=reportsConfigured && token.length();
         bool clean=scanComplete && !scanHadPending && transferBuffer;
         if((!configured || clean || now-daySince>=120000) && (anchorSaved || storageLatched || now-daySince>=120000)) {
-            int64_t nap=day-45;
+            int64_t nap=std::min<int64_t>(day-wakeGuardSeconds,4*3600);
             if(configured && !clean && !storageLatched) nap=std::min<int64_t>(nap,1800);
             if(nap>5) {
                 Serial.printf("%s DAY_SLEEP seconds=%lld transfer_scan_complete=%d\n",VERSION,(long long)nap,clean);

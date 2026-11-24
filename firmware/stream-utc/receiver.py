@@ -17,6 +17,7 @@ IDENTITY = re.compile(r"([0-9a-f]{12})-([0-9A-F]{8})-([1-9][0-9]{0,9})")
 KINDS = {"event", "test"}
 RATE = 192000
 MAX_WAV = 768044
+MODEL = "f9f857b24d21666831e3d5eaa145904003fc2cb0a93a64e59d0f68f4eb69588e"
 
 
 def publish(path, data):
@@ -49,7 +50,7 @@ def as_json(obj):
 def parse_meta(headers):
     ident = headers["X-Event-ID"] or ""
     match = IDENTITY.fullmatch(ident)
-    if not match:
+    if not match or headers["X-Model"] != MODEL:
         raise ValueError("identity")
     up = int(headers["X-Uptime-Ms"])
     pre = int(headers["X-Pre-Samples"])
@@ -69,7 +70,7 @@ def parse_meta(headers):
         raise ValueError("clock")
     meta = dict(schema="xiao-stream-03", event_id=ident, device=match[1], boot=match[2],
                 sequence=int(match[3]), kind=kind, trigger_uptime_ms=up, pre_samples=pre,
-                score_acc=score, threshold=1404, sample_rate=RATE, firmware="XIAO-STREAM-03",
+                score_acc=score, threshold=1404, model_sha256=MODEL, sample_rate=RATE, firmware="XIAO-STREAM-03",
                 label="equipment_test" if kind == "test" else "unreviewed")
     return ident, meta, timing
 

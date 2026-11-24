@@ -50,6 +50,8 @@ static void ntpCallback(struct timeval* tv) {
     portENTER_CRITICAL(&ntpLock); ntpNotice=a; ntpPending=true; portEXIT_CRITICAL(&ntpLock);
 }
 static int64_t wifiDemandUntil=0, wifiBackoff=0;
+static int64_t wifiClosedMs=0, wifiStartedAt=0;
+static int64_t wifiActiveMs() { return wifiClosedMs+(wifiOn?uptimeMs()-wifiStartedAt:0); }
 static void requestWifi(int64_t now) {
     wifiDemandUntil=now+12000;
     if(!wifiOn && now>=wifiBackoff) nextWifi=now;
@@ -58,11 +60,11 @@ static void serviceWifi(int64_t now) {
     if(!wifiConfigured) return;
     if(!wifiOn && now>=nextWifi) {
         WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(true);
-        WiFi.begin(ssid.c_str(),key.c_str()); wifiOn=true; wifiSince=now; ntpStarted=false;
+        WiFi.begin(ssid.c_str(),key.c_str()); wifiOn=true; wifiStartedAt=wifiSince=now; ntpStarted=false;
     }
     if(!wifiOn) return;
     bool connected=WiFi.status()==WL_CONNECTED;
-    if(connected && !ntpStarted) {
+    if(connected && !ntpStarted && (anchor.source!=streamclock::Source::ntp || now-anchor.up>=HOUR_MS)) {
         esp_sntp_set_time_sync_notification_cb(ntpCallback);
         configTime(0,0,"time.cloudflare.com","pool.ntp.org","time.google.com");
         ntpStarted=true;
@@ -81,6 +83,7 @@ static void serviceWifi(int64_t now) {
     if(connected && legacy) wifiSince=now;
     if((!legacy && !demand && (received || (connected && anchor.source!=streamclock::Source::unknown && now-wifiSince>=12000))) ||
        (now-wifiSince>=45000 && (!connected || (!legacy && !demand)))) {
+        wifiClosedMs+=now-wifiStartedAt;
         WiFi.mode(WIFI_OFF); wifiOn=false;
         wifiBackoff=connected?0:now+RETRY_MS;
         nextWifi=now+(anchor.source!=streamclock::Source::unknown?HOUR_MS:RETRY_MS);
