@@ -88,6 +88,8 @@ static void setupStorage() {
     referenceScorer=SD.exists("/stream-reference.on");
     scorer.useReference(referenceScorer);
     recordPulseTrains = SD.exists("/stream-pulse.on");
+    // Change CPU speed before enabling either I2S or Wi-Fi. Log the achieved MHz.
+    if(SD.exists("/stream-160mhz.on") && !setCpuFrequencyMhz(160)) Serial.println("CPU 160 MHz request failed");
     File cfg=SD.open("/stream-wifi.txt",FILE_READ);
     if(!cfg) return;
     ssid=cfg.readStringUntil('\n'); key=cfg.readStringUntil('\n');
@@ -284,7 +286,7 @@ static void serviceRescue() {
 static void health(bool final=false) {
     static int64_t next=0;
     if(!sdReady || storageLatched || (!final && uptimeMs()<next)) return;
-    if(xSemaphoreTake(bus,0)!=pdTRUE) return;
+    if(xSemaphoreTake(bus,final?portMAX_DELAY:0)!=pdTRUE) return;
     File f=SD.open(String(sessionDir)+"/health.csv",FILE_APPEND);
     char row[300];
     int n=snprintf(row,sizeof row,"\n%lld,%lld,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lld,%lu,%u,%lu,%lu,%d,%u,%lu,%lu,%lu,%u,%lld,END\n",
@@ -294,7 +296,7 @@ static void health(bool final=false) {
         (unsigned long)queueErrors,(long long)wifiActiveMs(),(unsigned long)longestCommitMs.load(),final?1:0,
         (unsigned long)wifiWindow.starts,(unsigned long)udpSent,int(referenceScorer),getCpuFrequencyMhz(),
         (unsigned long)profileFrames.load(),(unsigned long)decodeUs.load(),(unsigned long)scoreUs.load(),uploadWavs?1:0,(long long)rxAccumulated);
-    if(!f || f.write((const uint8_t*)row,n)!=size_t(n)) ++queueErrors;
+    if(!f || n<=0 || size_t(n)>=sizeof row || f.write((const uint8_t*)row,n)!=size_t(n)) ++queueErrors;
     f.close(); xSemaphoreGive(bus); next=uptimeMs()+30*60*1000;
 }
 static void status() {
@@ -370,7 +372,7 @@ void loop() {
     }
     static int64_t daySince=0;
     int64_t now=uptimeMs();
-    static int64_t nextSolar=0, day=0, previousAnchor=-1;
+    static int64_t nextSolar=0, day=0, previousAnchor=0;
     if(now>=nextSolar || anchor.up!=previousAnchor) {
         if(anchor.up!=previousAnchor) scanDirty=true;
         previousAnchor=anchor.up;

@@ -5,7 +5,7 @@ static int64_t retryHttp,scanAfter,forceTransferUntil;
 static String pendingBase;
 static bool bulkLast=false;
 static File queueRoot,queueDir;
-static bool scanComplete=false,scanHadPending=false,scanDirty=true;
+static bool scanComplete=false,scanHadPending=false,scanDirty=false;
 static uint8_t *transferBuffer;
 static constexpr size_t WAV_BYTES=44+CLIP*FRAME*2;
 
@@ -54,35 +54,42 @@ static bool marked(const String& path) {
 }
 // RAM gives new events priority while a station association is in progress.
 // Authenticated alerts also have the verified SD outbox for outage/reboot replay.
-static Event urgent[16];
+struct LiveReport { Event event; bool stored; };
+static LiveReport urgent[16];
 static unsigned urgentHead=0,urgentCount=0;
 static uint32_t udpSent=0;
 static bool online() { return reportsConfigured && wifiWindow.on && WiFi.status()==WL_CONNECTED; }
 static void liveEvent(const Event& e) {
+    bool stored=false;
     if(sdReady && !storageLatched) {
         xSemaphoreTake(bus,portMAX_DELAY);
-        bool stored=storeEvent(eventBase(sessionDir,e),e);
+        stored=storeEvent(eventBase(sessionDir,e),e);
         xSemaphoreGive(bus);
         if(!stored) { ++queueErrors; latchStorage(); }
     }
     if(!reportsConfigured) return;
-    scanDirty=true;
-    if(urgentCount==16) { ++lostAlerts; return; }
-    urgent[(urgentHead+urgentCount)%16]=e;
+    if(urgentCount==16) { ++lostAlerts; scanDirty=true; return; }
+    urgent[(urgentHead+urgentCount)%16]={e,stored};
     ++urgentCount;
 }
 static void sendUrgent() {
     if(!urgentCount || uptimeMs()<retryHttp) return;
     requestWifi(uptimeMs());
     if(!online()) return;
-    const Event& e=urgent[urgentHead];
+    const LiveReport& report=urgent[urgentHead];
+    const Event& e=report.event;
     if(token.length()) {
-        if(!post(sessionDir,e,anchor,nullptr,0,false,VERSION)) return;
+        if(!post(sessionDir,e,anchor,nullptr,0,false,VERSION)) {
+            if(report.stored) { urgentHead=(urgentHead+1)%16; --urgentCount; scanDirty=true; }
+            return;
+        }
         ++ackEvents;
         if(sdReady && !storageLatched) {
             String base=eventBase(sessionDir,e);
             xSemaphoreTake(bus,portMAX_DELAY);
-            if(!mark(base+".ack") || (anchor.source!=streamclock::Source::unknown && !mark(base+".utc"))) ++queueErrors;
+            if(!mark(base+".ack") || (anchor.source!=streamclock::Source::unknown && !mark(base+".utc"))) {
+                ++queueErrors; scanDirty=true;
+            }
             xSemaphoreGive(bus);
         }
     } else {
@@ -131,8 +138,14 @@ static void serviceDelivery(bool bulk) {
     const int64_t now=uptimeMs();
     if(!sdReady || storageLatched || !reportsConfigured || !token.length()) return;
     bool bulkChanged=bulk!=bulkLast;
-    if(bulkChanged) { bulkLast=bulk; scanDirty=true; }
-    if(urgentCount || now<retryHttp) return;
+    static uint32_t lastBulkSaves=0;
+    uint32_t count=saved.load();
+    if(bulkChanged || (bulk && count!=lastBulkSaves)) { bulkLast=bulk; scanDirty=true; }
+    lastBulkSaves=count;
+    if(urgentCount || now<retryHttp) {
+        if(bulkChanged && pendingBase.length()) { pendingBase=""; scanDirty=true; }
+        return;
+    }
     if(pendingBase.length() && !bulkChanged && !online()) {
         if(now>=wifiWindow.retryAt) requestWifi(now);
         return;
