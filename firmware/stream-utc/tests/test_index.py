@@ -1,4 +1,6 @@
 import io
+import struct
+import zlib
 import csv
 import sys
 import unittest
@@ -9,6 +11,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from clip_times import export
 
 class TestIndex(unittest.TestCase):
+    def test_field_clip_start_and_integrity(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "0123ABCD"
+            root.mkdir()
+            (root / "clock.csv").write_text("0123ABCD,1000,1795492800000,WIFI_NTP,END\n")
+            clip = root / "00000001_0000001000_event.wav"
+            clip.touch()
+            event = struct.pack("<qIiII", 1000, 1, 1550, 48128, 0)
+            clip.with_suffix(".evt").write_bytes(event + struct.pack("<I", zlib.crc32(event)))
+            clip.with_suffix(".done").write_bytes(bytes([0xa5]))
+            out = io.StringIO()
+            export(root, out)
+            row = next(csv.DictReader(io.StringIO(out.getvalue())))
+            self.assertEqual((row["pre_samples"],row["score_acc"],row["receiver_wav_ack"]),("48128","1550","1"))
+            self.assertTrue(row["estimated_clip_start_utc"].endswith("59.749333Z"))
+            clip.with_suffix(".evt").write_bytes(event + bytes(4))
+            out = io.StringIO()
+            export(root, out)
+            self.assertEqual(next(csv.DictReader(io.StringIO(out.getvalue())))["estimated_clip_start_utc"], "")
+
     def test_recovery_across_clock_lock_without_crossing_boots(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
